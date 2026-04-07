@@ -1,7 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
-  serverExternalPackages: ["pg", "ioredis", "bullmq", "twilio", "bcryptjs"],
+  experimental: {
+    serverComponentsExternalPackages: ["pg", "ioredis", "bullmq", "twilio", "bcryptjs"],
+  },
   async headers() {
     return [
       {
