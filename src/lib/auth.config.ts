@@ -10,6 +10,24 @@ export const authConfig: NextAuthConfig = {
     error: "/login",
   },
   callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id as string;
+        token.orgId = (user as any).orgId;
+        token.role = (user as any).role;
+        token.isSuperAdmin = (user as any).isSuperAdmin;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        (session.user as any).id = token.id;
+        (session.user as any).orgId = token.orgId;
+        (session.user as any).role = token.role;
+        (session.user as any).isSuperAdmin = token.isSuperAdmin;
+      }
+      return session;
+    },
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const isAuthPage =
