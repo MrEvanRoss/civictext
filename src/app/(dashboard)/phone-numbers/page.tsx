@@ -101,7 +101,7 @@ export default function PhoneNumbersPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Phone Numbers</h1>
           <p className="text-muted-foreground">
-            Manage your Twilio phone numbers and 10DLC registration.
+            Manage your phone numbers and carrier registration.
           </p>
         </div>
         <Link href="/phone-numbers/register">
@@ -131,7 +131,7 @@ export default function PhoneNumbersPage() {
               and provision phone numbers. This process takes 5-15 business days.
             </p>
             <Link href="/phone-numbers/register">
-              <Button>Start 10DLC Registration</Button>
+              <Button>Start Registration</Button>
             </Link>
           </CardContent>
         </Card>
@@ -144,7 +144,7 @@ export default function PhoneNumbersPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
-                  Twilio Account
+                  Messaging Account
                 </CardTitle>
                 {status?.hasSubaccount ? (
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -155,7 +155,7 @@ export default function PhoneNumbersPage() {
               <CardContent>
                 <p className="text-xs text-muted-foreground">
                   {status?.hasSubaccount
-                    ? "Subaccount provisioned"
+                    ? "Account provisioned"
                     : "Not provisioned"}
                 </p>
               </CardContent>

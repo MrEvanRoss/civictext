@@ -29,15 +29,15 @@ import {
 const ONBOARDING_STEPS = [
   {
     key: "twilioSetup" as const,
-    label: "Set up Twilio account",
+    label: "Set up messaging account",
     href: "/phone-numbers",
-    description: "Connect your Twilio subaccount for messaging",
+    description: "Configure your messaging service",
   },
   {
     key: "brandRegistered" as const,
-    label: "Register for 10DLC",
+    label: "Register your brand",
     href: "/phone-numbers/register",
-    description: "Complete brand and campaign registration",
+    description: "Complete brand and campaign registration with carriers",
   },
   {
     key: "phoneNumber" as const,

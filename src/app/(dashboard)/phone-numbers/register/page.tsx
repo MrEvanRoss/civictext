@@ -149,7 +149,7 @@ export default function RegisterPage() {
     setError("");
 
     try {
-      // Step 1: Provision subaccount + messaging service
+      // Step 1: Provision messaging account
       await provisionSubaccountAction();
       await createMessagingServiceAction();
 
@@ -215,7 +215,7 @@ export default function RegisterPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">10DLC Registration</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Brand Registration</h1>
         <p className="text-muted-foreground">
           Register your brand and campaign to send text messages at scale.
         </p>
@@ -236,7 +236,7 @@ export default function RegisterPage() {
             <CardTitle>Brand Information</CardTitle>
             <CardDescription>
               Your business details for carrier registration. This information is
-              submitted to The Campaign Registry (TCR).
+              submitted for carrier verification.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -480,8 +480,7 @@ export default function RegisterPage() {
           <CardHeader>
             <CardTitle>Phone Number</CardTitle>
             <CardDescription>
-              Choose an area code and number of phone numbers to provision. Numbers
-              are added to your Messaging Service automatically.
+              Choose an area code and number of phone numbers to provision.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
