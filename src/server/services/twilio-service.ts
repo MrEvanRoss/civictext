@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getMasterClient, getOrgClient } from "@/lib/twilio";
 import { encrypt } from "@/utils/encryption";
+import { syncBalanceToRedis } from "@/server/services/quota-service";
 import type {
   BrandRegistrationInput,
   CampaignRegistrationInput,
@@ -204,20 +205,52 @@ export async function provisionPhoneNumbers(orgId: string, input: ProvisionNumbe
         phoneNumberSid: purchased.sid,
       });
 
-    // Store in database
-    const record = await db.phoneNumber.create({
-      data: {
-        orgId,
-        twilioSid: purchased.sid,
-        phoneNumber: purchased.phoneNumber,
-        capabilities: {
-          voice: purchased.capabilities?.voice ?? false,
-          sms: purchased.capabilities?.sms ?? false,
-          mms: purchased.capabilities?.mms ?? false,
+    // Get the org's phone number fee
+    const plan = await db.messagingPlan.findUnique({ where: { orgId } });
+    const feeCents = plan?.phoneNumberFeeCents || 500;
+
+    // Check balance before keeping the number
+    if (!plan || plan.balanceCents < feeCents) {
+      // Release the number since they can't pay
+      await client.incomingPhoneNumbers(purchased.sid).remove();
+      throw new Error(
+        `Insufficient balance to provision phone number. Need $${(feeCents / 100).toFixed(2)}, have $${((plan?.balanceCents || 0) / 100).toFixed(2)}.`
+      );
+    }
+
+    const now = new Date();
+
+    // Store in database and charge first month in one transaction
+    const record = await db.$transaction(async (tx) => {
+      const pn = await tx.phoneNumber.create({
+        data: {
+          orgId,
+          twilioSid: purchased.sid,
+          phoneNumber: purchased.phoneNumber,
+          capabilities: {
+            voice: purchased.capabilities?.voice ?? false,
+            sms: purchased.capabilities?.sms ?? false,
+            mms: purchased.capabilities?.mms ?? false,
+          },
+          status: "ACTIVE",
+          lastChargedAt: now,
         },
-        status: "ACTIVE",
-      },
+      });
+
+      // Charge first month immediately
+      await tx.messagingPlan.update({
+        where: { orgId },
+        data: {
+          balanceCents: { decrement: feeCents },
+          totalSpentCents: { increment: feeCents },
+        },
+      });
+
+      return pn;
     });
+
+    // Sync Redis balance after charge
+    await syncBalanceToRedis(orgId);
 
     numbers.push(record);
   }

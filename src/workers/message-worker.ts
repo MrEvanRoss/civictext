@@ -270,18 +270,12 @@ export const billingWorker = new Worker(
   async (job: Job) => {
     if (job.name !== "phone-number-fees") return;
 
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const now = new Date();
+    const todayDate = now.getDate(); // 1-31
 
-    // Find all active phone numbers that haven't been charged in the last 30 days
+    // Find all active phone numbers
     const phoneNumbers = await db.phoneNumber.findMany({
-      where: {
-        status: "ACTIVE",
-        OR: [
-          { lastChargedAt: null },
-          { lastChargedAt: { lt: thirtyDaysAgo } },
-        ],
-      },
+      where: { status: "ACTIVE" },
       include: {
         org: {
           include: { messagingPlan: true },
@@ -299,10 +293,33 @@ export const billingWorker = new Worker(
         continue;
       }
 
-      const feeCents = plan.phoneNumberFeeCents || 500; // default $5
+      // Determine if this number is due for a charge today.
+      // Charge on the same calendar date each month as the original provision date.
+      const chargeDate = pn.lastChargedAt || pn.createdAt;
+      const billingDayOfMonth = new Date(chargeDate).getDate();
+
+      // Check if today is the billing day (or past it, for months with fewer days)
+      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const effectiveBillingDay = Math.min(billingDayOfMonth, lastDayOfMonth);
+
+      if (todayDate !== effectiveBillingDay) {
+        continue; // Not this number's billing day
+      }
+
+      // Check if already charged this month
+      if (pn.lastChargedAt) {
+        const lastCharged = new Date(pn.lastChargedAt);
+        if (
+          lastCharged.getMonth() === now.getMonth() &&
+          lastCharged.getFullYear() === now.getFullYear()
+        ) {
+          continue; // Already charged this month
+        }
+      }
+
+      const feeCents = plan.phoneNumberFeeCents || 500;
 
       if (plan.balanceCents >= feeCents) {
-        // Deduct fee
         await db.$transaction([
           db.messagingPlan.update({
             where: { orgId: pn.orgId },
@@ -313,15 +330,13 @@ export const billingWorker = new Worker(
           }),
           db.phoneNumber.update({
             where: { id: pn.id },
-            data: { lastChargedAt: new Date() },
+            data: { lastChargedAt: now },
           }),
         ]);
 
-        // Sync Redis balance
         await syncBalanceToRedis(pn.orgId);
         charged++;
       } else {
-        // Insufficient balance — log but don't block
         console.log(`[BILLING] Insufficient balance for phone ${pn.phoneNumber} (org ${pn.orgId}). Need ${feeCents}¢, have ${plan.balanceCents}¢`);
         skipped++;
       }
