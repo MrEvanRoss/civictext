@@ -1,17 +1,16 @@
 "use server";
 
-import { requireOrg, requirePermission } from "./auth";
-import { getCurrentUsage, getAlertThreshold } from "@/server/services/quota-service";
+import { requireOrg } from "./auth";
+import { getCurrentBalance } from "@/server/services/quota-service";
 import { db } from "@/lib/db";
-import { PERMISSIONS } from "@/lib/constants";
 
 export async function getBillingOverviewAction() {
   const { session } = await requireOrg();
   const orgId = (session.user as any).orgId;
 
-  const [plan, usage, addOns] = await Promise.all([
+  const [plan, balance, addOns] = await Promise.all([
     db.messagingPlan.findUnique({ where: { orgId } }),
-    getCurrentUsage(orgId),
+    getCurrentBalance(orgId),
     db.addOnPurchase.findMany({
       where: { orgId },
       orderBy: { createdAt: "desc" },
@@ -19,13 +18,10 @@ export async function getBillingOverviewAction() {
     }),
   ]);
 
-  const alertThreshold = getAlertThreshold(usage.percentUsed);
-
   return {
     plan,
-    usage,
+    balance,
     addOns,
-    alertThreshold,
   };
 }
 

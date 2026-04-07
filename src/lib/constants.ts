@@ -79,14 +79,6 @@ export const GSM7_MULTIPART_SEGMENT_LENGTH = 153;
 export const UCS2_SEGMENT_LENGTH = 70;
 export const UCS2_MULTIPART_SEGMENT_LENGTH = 67;
 
-// Plan tier defaults
-export const PLAN_DEFAULTS: Record<string, { allotment: number }> = {
-  STARTER: { allotment: 5000 },
-  GROWTH: { allotment: 25000 },
-  PROFESSIONAL: { allotment: 100000 },
-  ENTERPRISE: { allotment: 500000 },
-  CUSTOM: { allotment: 0 },
-};
-
-// Billing alert thresholds
-export const BILLING_ALERT_THRESHOLDS = [50, 75, 90, 100];
+// Default messaging rates (in cents)
+export const DEFAULT_SMS_RATE_CENTS = 4;
+export const DEFAULT_MMS_RATE_CENTS = 8;

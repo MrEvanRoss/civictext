@@ -25,8 +25,7 @@ export default function AdminOrgsPage() {
     ownerName: "",
     ownerEmail: "",
     ownerPassword: "",
-    planTier: "STARTER",
-    monthlyAllotment: 5000,
+    initialCreditsDollars: 0,
   });
 
   useEffect(() => {
@@ -77,8 +76,7 @@ export default function AdminOrgsPage() {
         ownerName: "",
         ownerEmail: "",
         ownerPassword: "",
-        planTier: "STARTER",
-        monthlyAllotment: 5000,
+        initialCreditsDollars: 0,
       });
       await loadOrgs();
     } catch (err: any) {
@@ -148,24 +146,17 @@ export default function AdminOrgsPage() {
               />
             </div>
             <div>
-              <Label>Plan Tier</Label>
-              <Select
-                value={createForm.planTier}
-                onChange={(e) => setCreateForm({ ...createForm, planTier: e.target.value })}
-              >
-                <option value="STARTER">Starter (5,000 msgs/mo)</option>
-                <option value="GROWTH">Growth (25,000 msgs/mo)</option>
-                <option value="PROFESSIONAL">Professional (100,000 msgs/mo)</option>
-                <option value="ENTERPRISE">Enterprise (Custom)</option>
-              </Select>
-            </div>
-            <div>
-              <Label>Monthly Message Allotment</Label>
+              <Label>Initial Credits ($)</Label>
               <Input
                 type="number"
-                value={createForm.monthlyAllotment}
-                onChange={(e) => setCreateForm({ ...createForm, monthlyAllotment: parseInt(e.target.value) || 0 })}
+                step="0.01"
+                value={createForm.initialCreditsDollars}
+                onChange={(e) => setCreateForm({ ...createForm, initialCreditsDollars: parseFloat(e.target.value) || 0 })}
+                placeholder="0.00"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                SMS: 4&#162;/segment, MMS: 8&#162;/message
+              </p>
             </div>
           </div>
           <Button onClick={handleCreateOrg} disabled={creating}>
@@ -205,7 +196,7 @@ export default function AdminOrgsPage() {
           <thead className="bg-muted/50">
             <tr>
               <th className="text-left p-3 font-medium">Organization</th>
-              <th className="text-left p-3 font-medium">Plan</th>
+              <th className="text-right p-3 font-medium">Balance</th>
               <th className="text-right p-3 font-medium">Users</th>
               <th className="text-right p-3 font-medium">Contacts</th>
               <th className="text-right p-3 font-medium">Campaigns</th>
@@ -240,15 +231,8 @@ export default function AdminOrgsPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="p-3">
-                    <Badge variant="secondary">
-                      {org.messagingPlan?.tier || "None"}
-                    </Badge>
-                    {org.messagingPlan?.monthlyAllotment && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {org.messagingPlan.monthlyAllotment.toLocaleString()} msgs/mo
-                      </p>
-                    )}
+                  <td className="p-3 text-right font-mono">
+                    ${((org.messagingPlan?.balanceCents || 0) / 100).toFixed(2)}
                   </td>
                   <td className="p-3 text-right">{org._count.users}</td>
                   <td className="p-3 text-right">{org._count.contacts.toLocaleString()}</td>

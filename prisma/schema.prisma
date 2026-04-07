@@ -67,13 +67,6 @@ enum MessageStatus {
   REJECTED
 }
 
-enum PlanTier {
-  STARTER
-  GROWTH
-  PROFESSIONAL
-  ENTERPRISE
-  CUSTOM
-}
 
 enum ConversationState {
   OPEN
@@ -520,17 +513,11 @@ model CampaignRegistration {
 model MessagingPlan {
   id                  String   @id @default(uuid())
   orgId               String   @unique
-  tier                PlanTier @default(STARTER)
-  monthlyAllotment    Int
-  overagePermitted    Boolean  @default(false)
-  overageRate         Decimal  @default(0.00)
-  billingCycleDay     Int      @default(1)
-  addOnBlockSize      Int      @default(5000)
-  addOnBlockPrice     Decimal  @default(0.00)
-  stripeSubscriptionId String?
+  balanceCents        Int      @default(0)    // prepaid balance in cents
+  smsRateCents        Int      @default(4)    // cost per SMS segment: 4¢
+  mmsRateCents        Int      @default(8)    // cost per MMS message: 8¢
+  totalSpentCents     Int      @default(0)    // lifetime spend in cents
   stripeCustomerId    String?
-  currentPeriodStart  DateTime?
-  currentPeriodEnd    DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

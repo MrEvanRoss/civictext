@@ -123,19 +123,25 @@ export default function AdminAnalyticsPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-6">
-        {/* Plan Distribution */}
+        {/* Platform Summary */}
         <div className="border rounded-lg p-4">
-          <h2 className="font-semibold mb-3">Plan Distribution</h2>
-          {data.planDistribution.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No plan data available.</p>
-          ) : (
-            <div className="space-y-2">
-              {data.planDistribution.map((p: any) => (
-                <div key={p.tier} className="flex items-center justify-between">
-                  <span className="text-sm">{p.tier}</span>
-                  <Badge variant="secondary">{p.count} orgs</Badge>
-                </div>
-              ))}
+          <h2 className="font-semibold mb-3">Platform Summary</h2>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Active Orgs</span>
+              <Badge variant="success">{data.activeOrgs}</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Suspended Orgs</span>
+              <Badge variant="destructive">{data.suspendedOrgs}</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Total Users</span>
+              <Badge variant="secondary">{data.totalUsers}</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Total Contacts</span>
+              <Badge variant="secondary">{data.totalContacts?.toLocaleString()}</Badge>
             </div>
           )}
         </div>

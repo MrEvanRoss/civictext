@@ -3,6 +3,7 @@
 import { requireSuperAdmin } from "./auth";
 import { db } from "@/lib/db";
 import { redis } from "@/lib/redis";
+import { syncBalanceToRedis, addCredits } from "@/server/services/quota-service";
 import bcrypt from "bcryptjs";
 
 // ============================================================
@@ -37,7 +38,7 @@ export async function listOrgsAction(opts?: {
       take: pageSize,
       include: {
         _count: { select: { users: true, contacts: true, campaigns: true } },
-        messagingPlan: { select: { tier: true, monthlyAllotment: true } },
+        messagingPlan: { select: { balanceCents: true } },
       },
     }),
     db.organization.count({ where }),
@@ -99,9 +100,7 @@ export async function suspendOrgAction(orgId: string, reason: string) {
     data: { status: "SUSPENDED" },
   });
 
-  // Log the action
   console.log(`[ADMIN] Org ${orgId} suspended. Reason: ${reason}`);
-
   return { success: true };
 }
 
@@ -129,20 +128,30 @@ export async function reactivateOrgAction(orgId: string) {
   return { success: true };
 }
 
-export async function updateOrgPlanAction(
+/**
+ * Add prepaid credits to an org's balance.
+ */
+export async function addCreditsAction(orgId: string, amountCents: number) {
+  await requireSuperAdmin();
+
+  await addCredits(orgId, amountCents);
+
+  console.log(`[ADMIN] Added ${amountCents}¢ credits to org ${orgId}`);
+  return { success: true };
+}
+
+/**
+ * Update an org's per-message rates.
+ */
+export async function updateOrgRatesAction(
   orgId: string,
-  updates: {
-    tier?: string;
-    monthlyAllotment?: number;
-    overagePermitted?: boolean;
-    overageRate?: number;
-  }
+  updates: { smsRateCents?: number; mmsRateCents?: number }
 ) {
   await requireSuperAdmin();
 
   await db.messagingPlan.update({
     where: { orgId },
-    data: updates as any,
+    data: updates,
   });
 
   return { success: true };
@@ -153,8 +162,7 @@ export async function createOrgAction(data: {
   ownerName: string;
   ownerEmail: string;
   ownerPassword: string;
-  planTier?: string;
-  monthlyAllotment?: number;
+  initialCreditsDollars?: number;
 }) {
   await requireSuperAdmin();
 
@@ -170,6 +178,8 @@ export async function createOrgAction(data: {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
+
+  const initialCreditsCents = Math.round((data.initialCreditsDollars || 0) * 100);
 
   const result = await db.$transaction(async (tx) => {
     const org = await tx.organization.create({
@@ -192,13 +202,17 @@ export async function createOrgAction(data: {
     await tx.messagingPlan.create({
       data: {
         orgId: org.id,
-        tier: data.planTier || "STARTER",
-        monthlyAllotment: data.monthlyAllotment || 5000,
+        balanceCents: initialCreditsCents,
+        smsRateCents: 4,
+        mmsRateCents: 8,
       },
     });
 
     return { org, user };
   });
+
+  // Sync balance to Redis
+  await syncBalanceToRedis(result.org.id);
 
   return { success: true, orgId: result.org.id, userId: result.user.id };
 }
@@ -223,7 +237,6 @@ export async function getGlobalAnalyticsAction() {
     deliveredMessages,
     failedMessages,
     totalCampaigns,
-    planDistribution,
   ] = await Promise.all([
     db.organization.count(),
     db.organization.count({ where: { status: "ACTIVE" } }),
@@ -236,10 +249,6 @@ export async function getGlobalAnalyticsAction() {
       where: { direction: "OUTBOUND", status: { in: ["FAILED", "UNDELIVERED"] }, createdAt: { gte: thirtyDaysAgo } },
     }),
     db.campaign.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
-    db.messagingPlan.groupBy({
-      by: ["tier"],
-      _count: true,
-    }),
   ]);
 
   const deliveryRate =
@@ -275,7 +284,6 @@ export async function getGlobalAnalyticsAction() {
     failedMessages,
     deliveryRate,
     totalCampaigns,
-    planDistribution: planDistribution.map((p) => ({ tier: p.tier, count: p._count })),
     topOrgs: topOrgDetails,
   };
 }
@@ -290,7 +298,6 @@ export async function getComplianceOverviewAction() {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  // Orgs with high opt-out rates (>5% per campaign)
   const campaigns = await db.campaign.findMany({
     where: {
       status: "COMPLETED",
@@ -317,7 +324,6 @@ export async function getComplianceOverviewAction() {
       optOutRate: ((c.optOutCount / c.sentCount) * 100).toFixed(1),
     }));
 
-  // Orgs with high failure rates
   const highFailureOrgs = campaigns
     .filter((c) => c.sentCount > 0 && (c.failedCount / c.sentCount) * 100 > 10)
     .map((c) => ({
@@ -325,7 +331,6 @@ export async function getComplianceOverviewAction() {
       failureRate: ((c.failedCount / c.sentCount) * 100).toFixed(1),
     }));
 
-  // 10DLC status across all orgs
   const [pendingBrands, approvedBrands, rejectedBrands, pendingCampaigns, approvedCampaigns] =
     await Promise.all([
       db.brandRegistration.count({ where: { status: "PENDING" } }),
@@ -335,7 +340,6 @@ export async function getComplianceOverviewAction() {
       db.campaignRegistration.count({ where: { status: "APPROVED" } }),
     ]);
 
-  // Get org names for flagged campaigns
   const orgIds = Array.from(new Set([...highOptOutCampaigns, ...highFailureOrgs].map((c) => c.orgId)));
   const orgs = await db.organization.findMany({
     where: { id: { in: orgIds } },
@@ -363,7 +367,6 @@ export async function getComplianceOverviewAction() {
 export async function getSystemHealthAction() {
   await requireSuperAdmin();
 
-  // Redis health
   let redisStatus = "unknown";
   let redisMemory = "unknown";
   try {
@@ -375,7 +378,6 @@ export async function getSystemHealthAction() {
     redisStatus = "disconnected";
   }
 
-  // DB health (simple query)
   let dbStatus = "unknown";
   let dbOrgCount = 0;
   try {
@@ -385,7 +387,6 @@ export async function getSystemHealthAction() {
     dbStatus = "disconnected";
   }
 
-  // Message queue stats (from Redis keys)
   let queueDepth = 0;
   let failedJobs = 0;
   try {

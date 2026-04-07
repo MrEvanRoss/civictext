@@ -101,8 +101,10 @@ export async function getDashboardStatsAction() {
     recentCampaigns,
     plan: plan
       ? {
-          tier: plan.tier,
-          monthlyAllotment: plan.monthlyAllotment,
+          balanceCents: plan.balanceCents,
+          balanceDollars: (plan.balanceCents / 100).toFixed(2),
+          smsRateCents: plan.smsRateCents,
+          mmsRateCents: plan.mmsRateCents,
         }
       : null,
   };

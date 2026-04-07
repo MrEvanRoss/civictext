@@ -90,7 +90,7 @@ export default function DashboardPage() {
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
           {stats?.plan
-            ? `${stats.plan.tier} plan \u00b7 ${stats.plan.monthlyAllotment.toLocaleString()} messages/month`
+            ? `Balance: $${stats.plan.balanceDollars} \u00b7 SMS: ${stats.plan.smsRateCents}\u00a2/seg \u00b7 MMS: ${stats.plan.mmsRateCents}\u00a2/msg`
             : "Welcome to CivicText"}
         </p>
       </div>

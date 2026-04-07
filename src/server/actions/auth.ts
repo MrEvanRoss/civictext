@@ -122,12 +122,13 @@ export async function registerUser(data: {
       },
     });
 
-    // Create messaging plan with 0 messages (must prepay)
+    // Create messaging plan with $0 balance (must prepay)
     await tx.messagingPlan.create({
       data: {
         orgId: org.id,
-        tier: "STARTER",
-        monthlyAllotment: 0,
+        balanceCents: 0,
+        smsRateCents: 4,
+        mmsRateCents: 8,
       },
     });
 

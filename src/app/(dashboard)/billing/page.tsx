@@ -11,15 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getBillingOverviewAction } from "@/server/actions/billing";
-import { CreditCard, TrendingUp, AlertTriangle } from "lucide-react";
-
-const TIER_LABELS: Record<string, string> = {
-  STARTER: "Starter",
-  GROWTH: "Growth",
-  PROFESSIONAL: "Professional",
-  ENTERPRISE: "Enterprise",
-  CUSTOM: "Custom",
-};
+import { CreditCard, AlertTriangle } from "lucide-react";
 
 export default function BillingPage() {
   const [data, setData] = useState<any>(null);
@@ -49,160 +41,121 @@ export default function BillingPage() {
   }
 
   const plan = data?.plan;
-  const usage = data?.usage || { usage: 0, quota: 0, percentUsed: 0 };
+  const balance = data?.balance || { balanceCents: 0, balanceDollars: "0.00" };
+  const balanceLow = (plan?.balanceCents || 0) < 500; // Less than $5
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Billing</h1>
         <p className="text-muted-foreground">
-          Manage your messaging plan and usage.
+          Manage your prepaid messaging balance.
         </p>
       </div>
 
-      {/* Alert Banner */}
-      {data?.alertThreshold && data.alertThreshold >= 75 && (
-        <div
-          className={`rounded-md p-4 flex items-center gap-3 ${
-            data.alertThreshold >= 100
-              ? "bg-red-50 border border-red-200 text-red-800"
-              : data.alertThreshold >= 90
-                ? "bg-orange-50 border border-orange-200 text-orange-800"
-                : "bg-yellow-50 border border-yellow-200 text-yellow-800"
-          }`}
-        >
+      {/* Low Balance Warning */}
+      {balanceLow && (
+        <div className="rounded-md p-4 flex items-center gap-3 bg-orange-50 border border-orange-200 text-orange-800">
           <AlertTriangle className="h-5 w-5 shrink-0" />
           <div>
             <p className="font-medium">
-              {data.alertThreshold >= 100
-                ? "Message quota reached"
-                : `${data.alertThreshold}% of message quota used`}
+              {(plan?.balanceCents || 0) === 0 ? "No balance remaining" : "Low balance"}
             </p>
             <p className="text-sm mt-1">
-              {data.alertThreshold >= 100 && !plan?.overagePermitted
-                ? "Campaigns are paused. Purchase additional messages to continue sending."
-                : "Consider upgrading your plan or purchasing additional messages."}
+              Add funds to continue sending messages. Contact your account manager to purchase credits.
             </p>
           </div>
-          <Button size="sm" className="ml-auto shrink-0">
-            Buy More Messages
-          </Button>
         </div>
       )}
 
-      {/* Plan & Usage Overview */}
+      {/* Balance & Rates */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Current Plan</CardDescription>
+            <CardDescription>Prepaid Balance</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">
-              {TIER_LABELS[plan?.tier] || "No Plan"}
+            <p className="text-3xl font-bold font-mono">
+              ${((plan?.balanceCents || 0) / 100).toFixed(2)}
             </p>
-            <p className="text-sm text-muted-foreground">
-              {plan?.monthlyAllotment?.toLocaleString() || 0} messages/month
+            <p className="text-sm text-muted-foreground mt-1">
+              available for messaging
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Messages Used</CardDescription>
+            <CardDescription>SMS Rate</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">
-              {usage.usage.toLocaleString()}
+            <p className="text-3xl font-bold">
+              {plan?.smsRateCents || 4}&#162;
             </p>
-            <p className="text-sm text-muted-foreground">
-              of {usage.quota.toLocaleString()} ({usage.percentUsed}%)
+            <p className="text-sm text-muted-foreground mt-1">
+              per SMS segment
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Messages Remaining</CardDescription>
+            <CardDescription>MMS Rate</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">
-              {Math.max(0, usage.quota - usage.usage).toLocaleString()}
+            <p className="text-3xl font-bold">
+              {plan?.mmsRateCents || 8}&#162;
             </p>
-            <p className="text-sm text-muted-foreground">
-              {plan?.overagePermitted ? "Overage allowed" : "Hard limit"}
+            <p className="text-sm text-muted-foreground mt-1">
+              per MMS message
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Usage Bar */}
+      {/* Spending Summary */}
       <Card>
         <CardHeader>
-          <CardTitle>Usage This Period</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>{usage.usage.toLocaleString()} used</span>
-              <span>{usage.quota.toLocaleString()} total</span>
-            </div>
-            <div className="h-4 bg-muted rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  usage.percentUsed >= 100
-                    ? "bg-red-500"
-                    : usage.percentUsed >= 90
-                      ? "bg-orange-500"
-                      : usage.percentUsed >= 75
-                        ? "bg-yellow-500"
-                        : "bg-primary"
-                }`}
-                style={{ width: `${Math.min(100, usage.percentUsed)}%` }}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Plan Details */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Plan Details</CardTitle>
-          <CardDescription>Your current messaging plan configuration.</CardDescription>
+          <CardTitle>Spending Summary</CardTitle>
+          <CardDescription>Your messaging costs at a glance.</CardDescription>
         </CardHeader>
         <CardContent>
           <dl className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
-              <dt className="text-muted-foreground">Tier</dt>
-              <dd className="font-medium">{TIER_LABELS[plan?.tier] || "-"}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Monthly Allotment</dt>
-              <dd className="font-medium">
-                {plan?.monthlyAllotment?.toLocaleString() || 0}
+              <dt className="text-muted-foreground">Total Spent</dt>
+              <dd className="font-medium font-mono text-lg">
+                ${((plan?.totalSpentCents || 0) / 100).toFixed(2)}
               </dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Overage Permitted</dt>
+              <dt className="text-muted-foreground">Est. SMS Remaining</dt>
+              <dd className="font-medium text-lg">
+                {plan?.smsRateCents
+                  ? Math.floor((plan.balanceCents || 0) / plan.smsRateCents).toLocaleString()
+                  : "0"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Est. MMS Remaining</dt>
+              <dd className="font-medium text-lg">
+                {plan?.mmsRateCents
+                  ? Math.floor((plan.balanceCents || 0) / plan.mmsRateCents).toLocaleString()
+                  : "0"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Stripe Customer</dt>
               <dd>
-                <Badge variant={plan?.overagePermitted ? "success" : "secondary"}>
-                  {plan?.overagePermitted ? "Yes" : "No"}
+                <Badge variant={plan?.stripeCustomerId ? "success" : "secondary"}>
+                  {plan?.stripeCustomerId ? "Connected" : "Not Connected"}
                 </Badge>
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Overage Rate</dt>
-              <dd className="font-medium">
-                {plan?.overageRate
-                  ? `$${plan.overageRate.toFixed(4)}/segment`
-                  : "-"}
               </dd>
             </div>
           </dl>
         </CardContent>
       </Card>
 
-      {/* Add-On Purchases */}
+      {/* Recent Purchases */}
       {data?.addOns?.length > 0 && (
         <Card>
           <CardHeader>
@@ -217,14 +170,14 @@ export default function BillingPage() {
                 >
                   <div>
                     <p className="font-medium">
-                      {addon.segmentCount.toLocaleString()} messages
+                      {addon.messageCount.toLocaleString()} credits
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {new Date(addon.createdAt).toLocaleDateString()}
                     </p>
                   </div>
-                  <p className="font-medium">
-                    ${(addon.amount / 100).toFixed(2)}
+                  <p className="font-medium font-mono">
+                    ${(addon.priceInCents / 100).toFixed(2)}
                   </p>
                 </div>
               ))}

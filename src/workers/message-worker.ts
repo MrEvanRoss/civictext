@@ -2,6 +2,7 @@ import { Worker, Queue, type Job } from "bullmq";
 import { db } from "@/lib/db";
 import { getOrgClient } from "@/lib/twilio";
 import { renderMergeFields } from "@/server/services/campaign-service";
+import { checkAndDeductBalance, calculateMessageCost, syncBalanceToRedis } from "@/server/services/quota-service";
 import IORedis from "ioredis";
 
 const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
@@ -30,7 +31,7 @@ interface CampaignJobData {
 
 /**
  * Message Worker: Sends individual messages via Twilio.
- * Pipeline: check consent → check quiet hours → render merge fields → send
+ * Pipeline: check org → check consent → check quiet hours → render merge fields → check balance → send
  */
 export const messageWorker = new Worker<MessageJobData>(
   "messages",
@@ -40,7 +41,7 @@ export const messageWorker = new Worker<MessageJobData>(
     // 0. Check org is approved
     const org = await db.organization.findUnique({
       where: { id: orgId },
-      select: { status: true },
+      select: { status: true, name: true, politicalDisclaimer: true },
     });
     if (!org || org.status !== "ACTIVE") {
       await job.log("Blocked: organization not approved");
@@ -73,26 +74,45 @@ export const messageWorker = new Worker<MessageJobData>(
       return { status: "delayed", reason: "quiet_hours" };
     }
 
-    // 3. Get org details for merge fields
-    const org = await db.organization.findUnique({ where: { id: orgId } });
+    // 3. Render merge fields
+    const renderedBody = renderMergeFields(messageBody, { firstName, lastName, phone }, org.name);
 
-    // 4. Render merge fields
-    const renderedBody = renderMergeFields(messageBody, { firstName, lastName, phone }, org?.name);
-
-    // 5. Append political disclaimer if configured
+    // 4. Append political disclaimer if configured
     let finalBody = renderedBody;
-    if (org?.politicalDisclaimer) {
+    if (org.politicalDisclaimer) {
       finalBody = `${renderedBody}\n\n${org.politicalDisclaimer}`;
     }
 
-    // 6. Append opt-out instructions
+    // 5. Append opt-out instructions
     if (!finalBody.toLowerCase().includes("stop")) {
       finalBody = `${finalBody}\nReply STOP to opt out.`;
+    }
+
+    // 6. Calculate cost and check balance
+    const hasMms = !!mediaUrl;
+    const segmentCount = Math.ceil(finalBody.length / 153) || 1;
+
+    // Get org rates
+    const plan = await db.messagingPlan.findUnique({ where: { orgId } });
+    const smsRate = plan?.smsRateCents || 4;
+    const mmsRate = plan?.mmsRateCents || 8;
+    const costCents = calculateMessageCost(segmentCount, hasMms, smsRate, mmsRate);
+
+    const balanceCheck = await checkAndDeductBalance(orgId, costCents);
+    if (!balanceCheck.allowed) {
+      await job.log(`Blocked: insufficient balance. Need ${costCents}¢, have ${balanceCheck.remainingBalanceCents}¢`);
+      return { status: "blocked", reason: "insufficient_balance" };
     }
 
     // 7. Get Twilio client and messaging service
     const subaccount = await db.twilioSubaccount.findUnique({ where: { orgId } });
     if (!subaccount?.messagingServiceSid) {
+      // Refund the balance since we can't send
+      await db.messagingPlan.update({
+        where: { orgId },
+        data: { balanceCents: { increment: costCents } },
+      });
+      await syncBalanceToRedis(orgId);
       throw new Error("No messaging service configured");
     }
 
@@ -106,7 +126,16 @@ export const messageWorker = new Worker<MessageJobData>(
       ...(mediaUrl ? { mediaUrl: [mediaUrl] } : {}),
     });
 
-    // 9. Create message record
+    // 9. Record spend in DB
+    await db.messagingPlan.update({
+      where: { orgId },
+      data: {
+        balanceCents: { decrement: 0 }, // Already deducted in Redis; sync keeps them aligned
+        totalSpentCents: { increment: costCents },
+      },
+    });
+
+    // 10. Create message record
     await db.message.create({
       data: {
         orgId,
@@ -117,18 +146,19 @@ export const messageWorker = new Worker<MessageJobData>(
         mediaUrl,
         twilioSid: twilioMsg.sid,
         status: "QUEUED",
-        segmentCount: Math.ceil(finalBody.length / 153) || 1,
+        segmentCount,
+        cost: costCents / 100, // Store as dollars
       },
     });
 
-    // 10. Increment campaign sent count
+    // 11. Increment campaign sent count
     await db.campaign.update({
       where: { id: campaignId },
       data: { sentCount: { increment: 1 } },
     });
 
-    await job.log(`Sent to ${phone}: ${twilioMsg.sid}`);
-    return { status: "sent", twilioSid: twilioMsg.sid };
+    await job.log(`Sent to ${phone}: ${twilioMsg.sid} (cost: ${costCents}¢)`);
+    return { status: "sent", twilioSid: twilioMsg.sid, costCents };
   },
   {
     connection,
@@ -183,7 +213,6 @@ async function expandCampaign(orgId: string, campaignId: string, job: Job) {
   if (!segment) throw new Error("Segment not found");
 
   // Get all opted-in contacts matching segment
-  // For now, get all opted-in contacts (segment evaluation simplified)
   const contacts = await db.contact.findMany({
     where: {
       orgId,

@@ -10,7 +10,8 @@ import {
   approveOrgAction,
   suspendOrgAction,
   reactivateOrgAction,
-  updateOrgPlanAction,
+  addCreditsAction,
+  updateOrgRatesAction,
 } from "@/server/actions/admin";
 import {
   ArrowLeft,
@@ -20,6 +21,7 @@ import {
   Phone,
   Shield,
   AlertTriangle,
+  DollarSign,
 } from "lucide-react";
 
 export default function AdminOrgDetailPage() {
@@ -31,13 +33,8 @@ export default function AdminOrgDetailPage() {
   const [loading, setLoading] = useState(true);
   const [suspendReason, setSuspendReason] = useState("");
   const [showSuspend, setShowSuspend] = useState(false);
-  const [planEditing, setPlanEditing] = useState(false);
-  const [planForm, setPlanForm] = useState({
-    tier: "",
-    monthlyAllotment: 0,
-    overagePermitted: false,
-    overageRate: 0,
-  });
+  const [addAmount, setAddAmount] = useState("");
+  const [addingCredits, setAddingCredits] = useState(false);
 
   useEffect(() => {
     loadOrg();
@@ -48,14 +45,6 @@ export default function AdminOrgDetailPage() {
     try {
       const data = await getOrgDetailAction(orgId);
       setOrg(data);
-      if (data.messagingPlan) {
-        setPlanForm({
-          tier: data.messagingPlan.tier || "",
-          monthlyAllotment: data.messagingPlan.monthlyAllotment || 0,
-          overagePermitted: data.messagingPlan.overagePermitted || false,
-          overageRate: Number(data.messagingPlan.overageRate) || 0,
-        });
-      }
     } catch (err) {
       console.error("Failed to load org:", err);
     } finally {
@@ -93,18 +82,21 @@ export default function AdminOrgDetailPage() {
     }
   }
 
-  async function handleUpdatePlan() {
+  async function handleAddCredits() {
+    const dollars = parseFloat(addAmount);
+    if (!dollars || dollars <= 0) {
+      alert("Enter a valid dollar amount");
+      return;
+    }
+    setAddingCredits(true);
     try {
-      await updateOrgPlanAction(orgId, {
-        tier: planForm.tier,
-        monthlyAllotment: planForm.monthlyAllotment,
-        overagePermitted: planForm.overagePermitted,
-        overageRate: planForm.overageRate,
-      });
-      setPlanEditing(false);
+      await addCreditsAction(orgId, Math.round(dollars * 100));
+      setAddAmount("");
       await loadOrg();
     } catch (err: any) {
-      alert(err.message || "Failed to update plan");
+      alert(err.message || "Failed to add credits");
+    } finally {
+      setAddingCredits(false);
     }
   }
 
@@ -123,6 +115,9 @@ export default function AdminOrgDetailPage() {
       </div>
     );
   }
+
+  const balanceDollars = ((org.messagingPlan?.balanceCents || 0) / 100).toFixed(2);
+  const totalSpentDollars = ((org.messagingPlan?.totalSpentCents || 0) / 100).toFixed(2);
 
   return (
     <div className="space-y-6">
@@ -201,6 +196,16 @@ export default function AdminOrgDetailPage() {
       <div className="grid grid-cols-4 gap-4">
         <div className="border rounded-lg p-4">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
+            <DollarSign className="h-4 w-4" />
+            <span className="text-xs font-medium">Prepaid Balance</span>
+          </div>
+          <p className="text-2xl font-bold font-mono">${balanceDollars}</p>
+          <p className="text-xs text-muted-foreground">
+            ${totalSpentDollars} total spent
+          </p>
+        </div>
+        <div className="border rounded-lg p-4">
+          <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <MessageSquare className="h-4 w-4" />
             <span className="text-xs font-medium">30-Day Messages</span>
           </div>
@@ -218,13 +223,6 @@ export default function AdminOrgDetailPage() {
         </div>
         <div className="border rounded-lg p-4">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <Building2 className="h-4 w-4" />
-            <span className="text-xs font-medium">Contacts</span>
-          </div>
-          <p className="text-2xl font-bold">{org._count.contacts.toLocaleString()}</p>
-        </div>
-        <div className="border rounded-lg p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <Shield className="h-4 w-4" />
             <span className="text-xs font-medium">30-Day Opt-Outs</span>
           </div>
@@ -233,90 +231,61 @@ export default function AdminOrgDetailPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-6">
-        {/* Plan Section */}
-        <div className="border rounded-lg p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold">Messaging Plan</h2>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPlanEditing(!planEditing)}
-            >
-              {planEditing ? "Cancel" : "Edit"}
-            </Button>
+        {/* Balance & Pricing */}
+        <div className="border rounded-lg p-4 space-y-4">
+          <h2 className="font-semibold">Balance & Pricing</h2>
+
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Current Balance</span>
+              <span className="font-medium font-mono">${balanceDollars}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">SMS Rate</span>
+              <span className="font-medium">{org.messagingPlan?.smsRateCents || 4}&#162;/segment</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">MMS Rate</span>
+              <span className="font-medium">{org.messagingPlan?.mmsRateCents || 8}&#162;/message</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Total Spent</span>
+              <span className="font-medium font-mono">${totalSpentDollars}</span>
+            </div>
           </div>
-          {planEditing ? (
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-medium">Tier</label>
-                <Input
-                  value={planForm.tier}
-                  onChange={(e) => setPlanForm({ ...planForm, tier: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium">Monthly Allotment</label>
+
+          <div className="border-t pt-3">
+            <p className="text-sm font-medium mb-2">Add Credits</p>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                 <Input
                   type="number"
-                  value={planForm.monthlyAllotment}
-                  onChange={(e) =>
-                    setPlanForm({ ...planForm, monthlyAllotment: parseInt(e.target.value) || 0 })
-                  }
+                  step="0.01"
+                  value={addAmount}
+                  onChange={(e) => setAddAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="pl-7"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={planForm.overagePermitted}
-                  onChange={(e) =>
-                    setPlanForm({ ...planForm, overagePermitted: e.target.checked })
-                  }
-                />
-                <label className="text-sm">Overage Permitted</label>
-              </div>
-              {planForm.overagePermitted && (
-                <div>
-                  <label className="text-xs font-medium">Overage Rate ($/msg)</label>
-                  <Input
-                    type="number"
-                    step="0.001"
-                    value={planForm.overageRate}
-                    onChange={(e) =>
-                      setPlanForm({ ...planForm, overageRate: parseFloat(e.target.value) || 0 })
-                    }
-                  />
-                </div>
-              )}
-              <Button size="sm" onClick={handleUpdatePlan}>
-                Save Plan
+              <Button size="sm" onClick={handleAddCredits} disabled={addingCredits}>
+                {addingCredits ? "Adding..." : "Add Credits"}
               </Button>
             </div>
-          ) : (
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Tier</span>
-                <span className="font-medium">{org.messagingPlan?.tier || "None"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Monthly Allotment</span>
-                <span className="font-medium">
-                  {org.messagingPlan?.monthlyAllotment?.toLocaleString() || "0"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Overage</span>
-                <span className="font-medium">
-                  {org.messagingPlan?.overagePermitted ? "Permitted" : "Blocked"}
-                </span>
-              </div>
-              {org.messagingPlan?.overageRate > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Overage Rate</span>
-                  <span className="font-medium">${org.messagingPlan.overageRate}/msg</span>
-                </div>
-              )}
+            <div className="flex gap-2 mt-2">
+              {[25, 50, 100, 500].map((amt) => (
+                <Button
+                  key={amt}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAddAmount(amt.toString())}
+                  className="text-xs"
+                >
+                  ${amt}
+                </Button>
+              ))}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Twilio Section */}
@@ -332,7 +301,7 @@ export default function AdminOrgDetailPage() {
             <div className="flex justify-between">
               <span className="text-muted-foreground">Messaging Service</span>
               <span className="font-mono text-xs">
-                {org.twilioSubaccount?.messagingServiceSid || "—"}
+                {org.twilioSubaccount?.messagingServiceSid || "\u2014"}
               </span>
             </div>
             <div className="flex justify-between">
@@ -400,7 +369,7 @@ export default function AdminOrgDetailPage() {
           <tbody>
             {org.users.map((user: any) => (
               <tr key={user.id} className="border-t">
-                <td className="p-2">{user.name || "—"}</td>
+                <td className="p-2">{user.name || "\u2014"}</td>
                 <td className="p-2 text-muted-foreground">{user.email}</td>
                 <td className="p-2">
                   <Badge variant="secondary">{user.role}</Badge>
