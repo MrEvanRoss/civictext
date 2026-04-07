@@ -19,7 +19,7 @@ import {
 import { Steps } from "@/components/ui/steps";
 import { createCampaignAction } from "@/server/actions/campaigns";
 import { listSegmentsAction } from "@/server/actions/contacts";
-import { countSegments } from "@/server/services/campaign-service";
+import { countSegments } from "@/lib/sms-utils";
 
 const WIZARD_STEPS = [
   { title: "Name & Type" },
