@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { listOrgsAction } from "@/server/actions/admin";
-import { Building2, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { listOrgsAction, createOrgAction } from "@/server/actions/admin";
+import { Building2, Search, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { Label } from "@/components/ui/label";
 
 export default function AdminOrgsPage() {
   const [orgs, setOrgs] = useState<any[]>([]);
@@ -17,6 +18,16 @@ export default function AdminOrgsPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    orgName: "",
+    ownerName: "",
+    ownerEmail: "",
+    ownerPassword: "",
+    planTier: "STARTER",
+    monthlyAllotment: 5000,
+  });
 
   useEffect(() => {
     loadOrgs();
@@ -48,14 +59,120 @@ export default function AdminOrgsPage() {
     }
   }
 
+  async function handleCreateOrg() {
+    if (!createForm.orgName || !createForm.ownerName || !createForm.ownerEmail || !createForm.ownerPassword) {
+      alert("Please fill in all fields");
+      return;
+    }
+    if (createForm.ownerPassword.length < 12) {
+      alert("Password must be at least 12 characters");
+      return;
+    }
+    setCreating(true);
+    try {
+      await createOrgAction(createForm);
+      setShowCreate(false);
+      setCreateForm({
+        orgName: "",
+        ownerName: "",
+        ownerEmail: "",
+        ownerPassword: "",
+        planTier: "STARTER",
+        monthlyAllotment: 5000,
+      });
+      await loadOrgs();
+    } catch (err: any) {
+      alert(err.message || "Failed to create organization");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Organizations</h1>
-        <p className="text-muted-foreground">
-          Manage all organizations on the platform ({total} total)
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Organizations</h1>
+          <p className="text-muted-foreground">
+            Manage all organizations on the platform ({total} total)
+          </p>
+        </div>
+        <Button onClick={() => setShowCreate(true)}>
+          <Plus className="h-4 w-4 mr-1" />
+          Add Organization
+        </Button>
       </div>
+
+      {/* Create Org Form */}
+      {showCreate && (
+        <div className="border rounded-lg p-4 bg-card space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">New Organization</h2>
+            <Button variant="outline" size="sm" onClick={() => setShowCreate(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Organization Name</Label>
+              <Input
+                value={createForm.orgName}
+                onChange={(e) => setCreateForm({ ...createForm, orgName: e.target.value })}
+                placeholder="e.g., Smith for Senate"
+              />
+            </div>
+            <div>
+              <Label>Owner Name</Label>
+              <Input
+                value={createForm.ownerName}
+                onChange={(e) => setCreateForm({ ...createForm, ownerName: e.target.value })}
+                placeholder="e.g., John Smith"
+              />
+            </div>
+            <div>
+              <Label>Owner Email</Label>
+              <Input
+                type="email"
+                value={createForm.ownerEmail}
+                onChange={(e) => setCreateForm({ ...createForm, ownerEmail: e.target.value })}
+                placeholder="e.g., john@smithforsenate.com"
+              />
+            </div>
+            <div>
+              <Label>Owner Password (min 12 characters)</Label>
+              <Input
+                type="text"
+                value={createForm.ownerPassword}
+                onChange={(e) => setCreateForm({ ...createForm, ownerPassword: e.target.value })}
+                placeholder="Temporary password for the owner"
+              />
+            </div>
+            <div>
+              <Label>Plan Tier</Label>
+              <Select
+                value={createForm.planTier}
+                onChange={(e) => setCreateForm({ ...createForm, planTier: e.target.value })}
+              >
+                <option value="STARTER">Starter (5,000 msgs/mo)</option>
+                <option value="GROWTH">Growth (25,000 msgs/mo)</option>
+                <option value="PROFESSIONAL">Professional (100,000 msgs/mo)</option>
+                <option value="ENTERPRISE">Enterprise (Custom)</option>
+              </Select>
+            </div>
+            <div>
+              <Label>Monthly Message Allotment</Label>
+              <Input
+                type="number"
+                value={createForm.monthlyAllotment}
+                onChange={(e) => setCreateForm({ ...createForm, monthlyAllotment: parseInt(e.target.value) || 0 })}
+              />
+            </div>
+          </div>
+          <Button onClick={handleCreateOrg} disabled={creating}>
+            {creating ? "Creating..." : "Create Organization"}
+          </Button>
+        </div>
+      )}
 
       <div className="flex gap-3">
         <div className="relative flex-1">

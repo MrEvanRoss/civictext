@@ -3,6 +3,7 @@
 import { requireSuperAdmin } from "./auth";
 import { db } from "@/lib/db";
 import { redis } from "@/lib/redis";
+import bcrypt from "bcryptjs";
 
 // ============================================================
 // ORG MANAGEMENT
@@ -133,6 +134,61 @@ export async function updateOrgPlanAction(
   });
 
   return { success: true };
+}
+
+export async function createOrgAction(data: {
+  orgName: string;
+  ownerName: string;
+  ownerEmail: string;
+  ownerPassword: string;
+  planTier?: string;
+  monthlyAllotment?: number;
+}) {
+  await requireSuperAdmin();
+
+  const existing = await db.user.findUnique({
+    where: { email: data.ownerEmail },
+  });
+  if (existing) {
+    throw new Error("A user with that email already exists");
+  }
+
+  const passwordHash = await bcrypt.hash(data.ownerPassword, 12);
+  const slug = data.orgName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  const result = await db.$transaction(async (tx) => {
+    const org = await tx.organization.create({
+      data: {
+        name: data.orgName,
+        slug,
+      },
+    });
+
+    const user = await tx.user.create({
+      data: {
+        email: data.ownerEmail,
+        passwordHash,
+        name: data.ownerName,
+        orgId: org.id,
+        role: "OWNER",
+      },
+    });
+
+    await tx.messagingPlan.create({
+      data: {
+        orgId: org.id,
+        tier: data.planTier || "STARTER",
+        monthlyAllotment: data.monthlyAllotment || 5000,
+      },
+    });
+
+    return { org, user };
+  });
+
+  return { success: true, orgId: result.org.id, userId: result.user.id };
 }
 
 // ============================================================
