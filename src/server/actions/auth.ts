@@ -71,7 +71,7 @@ export async function requireSuperAdmin() {
 /**
  * Check if a role has a specific permission (client-safe, no DB call).
  */
-export function hasPermission(role: UserRole, permission: Permission): boolean {
+export async function hasPermission(role: UserRole, permission: Permission): Promise<boolean> {
   const rolePermissions = ROLE_PERMISSIONS[role] || [];
   return rolePermissions.includes(permission);
 }
