@@ -37,6 +37,16 @@ export const messageWorker = new Worker<MessageJobData>(
   async (job: Job<MessageJobData>) => {
     const { orgId, campaignId, contactId, messageBody, mediaUrl, phone, firstName, lastName } = job.data;
 
+    // 0. Check org is approved
+    const org = await db.organization.findUnique({
+      where: { id: orgId },
+      select: { status: true },
+    });
+    if (!org || org.status !== "ACTIVE") {
+      await job.log("Blocked: organization not approved");
+      return { status: "blocked", reason: "org_not_approved" };
+    }
+
     // 1. Check consent
     const contact = await db.contact.findFirst({
       where: { id: contactId, orgId },

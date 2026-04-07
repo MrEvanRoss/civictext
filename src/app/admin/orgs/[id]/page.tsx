@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   getOrgDetailAction,
+  approveOrgAction,
   suspendOrgAction,
   reactivateOrgAction,
   updateOrgPlanAction,
@@ -74,6 +75,15 @@ export default function AdminOrgDetailPage() {
     }
   }
 
+  async function handleApprove() {
+    try {
+      await approveOrgAction(orgId);
+      await loadOrg();
+    } catch (err: any) {
+      alert(err.message || "Failed to approve org");
+    }
+  }
+
   async function handleReactivate() {
     try {
       await reactivateOrgAction(orgId);
@@ -131,17 +141,24 @@ export default function AdminOrgDetailPage() {
                     ? "success"
                     : org.status === "SUSPENDED"
                     ? "destructive"
+                    : org.status === "PENDING_APPROVAL"
+                    ? "warning"
                     : "secondary"
                 }
               >
-                {org.status}
+                {org.status === "PENDING_APPROVAL" ? "PENDING APPROVAL" : org.status}
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground">{org.slug} &middot; ID: {org.id}</p>
           </div>
         </div>
         <div className="flex gap-2">
-          {org.status === "ACTIVE" ? (
+          {org.status === "PENDING_APPROVAL" && (
+            <Button variant="default" size="sm" onClick={handleApprove}>
+              Approve Account
+            </Button>
+          )}
+          {org.status === "ACTIVE" && (
             <Button
               variant="destructive"
               size="sm"
@@ -150,11 +167,12 @@ export default function AdminOrgDetailPage() {
               <AlertTriangle className="h-4 w-4 mr-1" />
               Suspend
             </Button>
-          ) : org.status === "SUSPENDED" ? (
+          )}
+          {org.status === "SUSPENDED" && (
             <Button variant="default" size="sm" onClick={handleReactivate}>
               Reactivate
             </Button>
-          ) : null}
+          )}
         </div>
       </div>
 

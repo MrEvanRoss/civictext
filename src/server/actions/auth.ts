@@ -99,7 +99,7 @@ export async function registerUser(data: {
 
   // Create org and user in a transaction
   const result = await db.$transaction(async (tx) => {
-    // Create organization
+    // Create organization (pending approval by default)
     const org = await tx.organization.create({
       data: {
         name: data.orgName,
@@ -107,6 +107,7 @@ export async function registerUser(data: {
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/^-|-$/g, ""),
+        status: "PENDING_APPROVAL",
       },
     });
 
@@ -121,12 +122,12 @@ export async function registerUser(data: {
       },
     });
 
-    // Create default messaging plan
+    // Create messaging plan with 0 messages (must prepay)
     await tx.messagingPlan.create({
       data: {
         orgId: org.id,
         tier: "STARTER",
-        monthlyAllotment: 5000,
+        monthlyAllotment: 0,
       },
     });
 

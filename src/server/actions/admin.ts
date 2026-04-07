@@ -105,6 +105,18 @@ export async function suspendOrgAction(orgId: string, reason: string) {
   return { success: true };
 }
 
+export async function approveOrgAction(orgId: string) {
+  await requireSuperAdmin();
+
+  await db.organization.update({
+    where: { id: orgId },
+    data: { status: "ACTIVE" },
+  });
+
+  console.log(`[ADMIN] Org ${orgId} approved`);
+  return { success: true };
+}
+
 export async function reactivateOrgAction(orgId: string) {
   await requireSuperAdmin();
 

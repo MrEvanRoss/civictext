@@ -14,6 +14,7 @@ datasource db {
 // ============================================================
 
 enum OrgStatus {
+  PENDING_APPROVAL
   ACTIVE
   SUSPENDED
   DEACTIVATED
@@ -114,7 +115,7 @@ model Organization {
   quietHoursEnd            String    @default("08:00")
   politicalDisclaimer      String?
   orgType                  String    @default("political") // political, government, nonprofit, advocacy
-  status                   OrgStatus @default(ACTIVE)
+  status                   OrgStatus @default(PENDING_APPROVAL)
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
 

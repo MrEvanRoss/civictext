@@ -193,6 +193,7 @@ export default function AdminOrgsPage() {
           className="w-40"
         >
           <option value="">All Status</option>
+          <option value="PENDING_APPROVAL">Pending Approval</option>
           <option value="ACTIVE">Active</option>
           <option value="SUSPENDED">Suspended</option>
           <option value="DEACTIVATED">Deactivated</option>
@@ -259,10 +260,12 @@ export default function AdminOrgsPage() {
                           ? "success"
                           : org.status === "SUSPENDED"
                           ? "destructive"
+                          : org.status === "PENDING_APPROVAL"
+                          ? "warning"
                           : "secondary"
                       }
                     >
-                      {org.status}
+                      {org.status === "PENDING_APPROVAL" ? "PENDING" : org.status}
                     </Badge>
                   </td>
                   <td className="p-3 text-right">
