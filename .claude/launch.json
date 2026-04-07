@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Next.js Dev Server",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "BullMQ Workers",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "watch", "src/workers/index.ts"],
+      "port": 0
+    }
+  ]
+}

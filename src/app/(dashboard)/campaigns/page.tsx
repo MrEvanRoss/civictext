@@ -1,0 +1,239 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+} from "@/components/ui/card";
+import {
+  listCampaignsAction,
+  duplicateCampaignAction,
+} from "@/server/actions/campaigns";
+import {
+  MessageSquare,
+  Plus,
+  Copy,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+
+const TYPE_LABELS: Record<string, string> = {
+  BROADCAST: "Broadcast",
+  P2P: "Peer-to-Peer",
+  DRIP: "Drip Sequence",
+  AUTO_REPLY: "Auto-Reply",
+};
+
+const STATUS_VARIANTS: Record<string, "default" | "success" | "warning" | "destructive" | "secondary" | "outline"> = {
+  DRAFT: "secondary",
+  SCHEDULED: "warning",
+  SENDING: "default",
+  PAUSED: "outline",
+  COMPLETED: "success",
+  CANCELLED: "destructive",
+};
+
+export default function CampaignsPage() {
+  const router = useRouter();
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [page, setPage] = useState(1);
+
+  const loadCampaigns = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await listCampaignsAction({
+        status: statusFilter as any || undefined,
+        type: typeFilter as any || undefined,
+        page,
+      });
+      setData(result);
+    } catch (err) {
+      console.error("Failed to load campaigns:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter, typeFilter, page]);
+
+  useEffect(() => {
+    loadCampaigns();
+  }, [loadCampaigns]);
+
+  async function handleDuplicate(campaignId: string) {
+    try {
+      const dup = await duplicateCampaignAction(campaignId);
+      router.push(`/campaigns/${dup.id}`);
+    } catch (err: any) {
+      alert(err.message || "Failed to duplicate campaign");
+    }
+  }
+
+  const isEmpty = !loading && data?.total === 0 && !statusFilter && !typeFilter;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Campaigns</h1>
+          <p className="text-muted-foreground">
+            {data?.total ?? 0} total campaigns
+          </p>
+        </div>
+        <Link href="/campaigns/new">
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            New Campaign
+          </Button>
+        </Link>
+      </div>
+
+      {isEmpty && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <MessageSquare className="h-12 w-12 text-muted-foreground/50 mb-4" />
+            <h2 className="text-xl font-semibold mb-2">No Campaigns Yet</h2>
+            <p className="text-muted-foreground text-center max-w-md mb-6">
+              Create your first campaign to start reaching contacts. Choose from
+              Broadcast, P2P, Drip Sequence, or Auto-Reply.
+            </p>
+            <Link href="/campaigns/new">
+              <Button>Create Campaign</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isEmpty && (
+        <>
+          <div className="flex gap-4">
+            <Select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+              className="w-40"
+            >
+              <option value="">All statuses</option>
+              <option value="DRAFT">Draft</option>
+              <option value="SCHEDULED">Scheduled</option>
+              <option value="SENDING">Sending</option>
+              <option value="PAUSED">Paused</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="CANCELLED">Cancelled</option>
+            </Select>
+            <Select
+              value={typeFilter}
+              onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
+              className="w-40"
+            >
+              <option value="">All types</option>
+              <option value="BROADCAST">Broadcast</option>
+              <option value="P2P">Peer-to-Peer</option>
+              <option value="DRIP">Drip Sequence</option>
+              <option value="AUTO_REPLY">Auto-Reply</option>
+            </Select>
+          </div>
+
+          <Card>
+            <CardContent className="p-0">
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <p className="text-muted-foreground">Loading...</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left py-3 px-4 font-medium">Name</th>
+                        <th className="text-left py-3 px-4 font-medium">Type</th>
+                        <th className="text-left py-3 px-4 font-medium">Status</th>
+                        <th className="text-left py-3 px-4 font-medium">Audience</th>
+                        <th className="text-left py-3 px-4 font-medium">Sent</th>
+                        <th className="text-left py-3 px-4 font-medium">Delivered</th>
+                        <th className="text-left py-3 px-4 font-medium">Created</th>
+                        <th className="text-right py-3 px-4 font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data?.campaigns.map((campaign: any) => (
+                        <tr
+                          key={campaign.id}
+                          className="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
+                          onClick={() => router.push(`/campaigns/${campaign.id}`)}
+                        >
+                          <td className="py-3 px-4 font-medium">
+                            {campaign.name}
+                          </td>
+                          <td className="py-3 px-4">
+                            <Badge variant="outline">
+                              {TYPE_LABELS[campaign.type] || campaign.type}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-4">
+                            <Badge variant={STATUS_VARIANTS[campaign.status] || "outline"}>
+                              {campaign.status}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-4 text-muted-foreground">
+                            {campaign.segment?.name || "No segment"}
+                            {campaign.segment?.contactCount != null && (
+                              <span className="ml-1">
+                                ({campaign.segment.contactCount})
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">{campaign.sentCount || 0}</td>
+                          <td className="py-3 px-4">
+                            {campaign.deliveredCount || 0}
+                          </td>
+                          <td className="py-3 px-4 text-muted-foreground">
+                            {new Date(campaign.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDuplicate(campaign.id);
+                              }}
+                            >
+                              <Copy className="h-3 w-3 mr-1" />
+                              Duplicate
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {data && data.totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Page {data.page} of {data.totalPages}
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                  <ChevronLeft className="h-4 w-4" /> Previous
+                </Button>
+                <Button variant="outline" size="sm" disabled={page >= data.totalPages} onClick={() => setPage((p) => p + 1)}>
+                  Next <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

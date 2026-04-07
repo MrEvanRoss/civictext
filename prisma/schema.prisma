@@ -1,0 +1,613 @@
+// CivicText - Full Database Schema
+// Self-Service SMS/MMS Platform for Political & Municipal Organizations
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MANAGER
+  SENDER
+  VIEWER
+}
+
+enum OptInStatus {
+  OPTED_IN
+  OPTED_OUT
+  PENDING
+  NEVER_OPTED_IN
+}
+
+enum CampaignType {
+  BROADCAST
+  P2P
+  DRIP
+  AUTO_REPLY
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  PAUSED
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+enum MessageDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum MessageStatus {
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  FAILED
+  UNDELIVERED
+  REJECTED
+}
+
+enum PlanTier {
+  STARTER
+  GROWTH
+  PROFESSIONAL
+  ENTERPRISE
+  CUSTOM
+}
+
+enum ConversationState {
+  OPEN
+  PENDING
+  ARCHIVED
+  OPTED_OUT
+}
+
+enum BrandRegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FAILED
+}
+
+enum CampaignRegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FAILED
+}
+
+enum PhoneNumberStatus {
+  ACTIVE
+  RELEASED
+  SUSPENDED
+}
+
+// ============================================================
+// CORE: Organization & Users
+// ============================================================
+
+model Organization {
+  id                       String    @id @default(uuid())
+  name                     String
+  slug                     String    @unique
+  timezone                 String    @default("America/New_York")
+  quietHoursStart          String    @default("21:00")
+  quietHoursEnd            String    @default("08:00")
+  politicalDisclaimer      String?
+  orgType                  String    @default("political") // political, government, nonprofit, advocacy
+  status                   OrgStatus @default(ACTIVE)
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  // Relations
+  users                    User[]
+  contacts                 Contact[]
+  campaigns                Campaign[]
+  messages                 Message[]
+  segments                 Segment[]
+  messagingPlan            MessagingPlan?
+  usageLedger              UsageLedger[]
+  consentAuditLogs         ConsentAuditLog[]
+  twilioSubaccount         TwilioSubaccount?
+  phoneNumbers             PhoneNumber[]
+  brandRegistrations       BrandRegistration[]
+  campaignRegistrations    CampaignRegistration[]
+  autoReplyRules           AutoReplyRule[]
+  conversations            Conversation[]
+  importJobs               ImportJob[]
+  addOnPurchases           AddOnPurchase[]
+  billingAlerts            BillingAlert[]
+  quickReplyTemplates      QuickReplyTemplate[]
+  dripSteps                DripStep[]
+
+  @@index([status])
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String?
+  name          String
+  orgId         String
+  role          UserRole  @default(SENDER)
+  isSuperAdmin  Boolean   @default(false)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Auth.js required
+  emailVerified DateTime?
+  image         String?
+
+  // Relations
+  org              Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  accounts         Account[]
+  sessions         Session[]
+  createdCampaigns Campaign[]      @relation("CampaignCreator")
+  assignedConversations Conversation[] @relation("ConversationAssignee")
+  conversationNotes ConversationNote[]
+
+  @@index([orgId])
+  @@index([email])
+}
+
+// Auth.js required models
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================================
+// CONTACTS & SEGMENTS
+// ============================================================
+
+model Contact {
+  id              String      @id @default(uuid())
+  orgId           String
+  phone           String
+  firstName       String?
+  lastName        String?
+  email           String?
+  tags            String[]
+  customFields    Json?
+  optInStatus     OptInStatus @default(NEVER_OPTED_IN)
+  optInSource     String?
+  optInTimestamp   DateTime?
+  optOutTimestamp  DateTime?
+  lastMessageAt   DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  org              Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  messages         Message[]
+  consentAuditLogs ConsentAuditLog[]
+  conversations    Conversation[]
+
+  @@unique([orgId, phone])
+  @@index([orgId, optInStatus])
+  @@index([orgId, createdAt])
+  @@index([tags], type: Gin)
+}
+
+model Segment {
+  id           String   @id @default(uuid())
+  orgId        String
+  name         String
+  description  String?
+  rules        Json     // SegmentRules JSON tree
+  contactCount Int      @default(0)
+  isArchived   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaigns Campaign[]
+
+  @@index([orgId])
+}
+
+model ConsentAuditLog {
+  id        String   @id @default(uuid())
+  orgId     String
+  contactId String
+  action    String   // OPTED_IN, OPTED_OUT, CONSENT_UPDATED, DELETED
+  source    String   // csv_import, keyword, web_form, manual, api
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  // Relations
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contact Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, contactId])
+  @@index([orgId, createdAt])
+}
+
+// ============================================================
+// CAMPAIGNS & MESSAGES
+// ============================================================
+
+model Campaign {
+  id              String         @id @default(uuid())
+  orgId           String
+  name            String
+  type            CampaignType
+  status          CampaignStatus @default(DRAFT)
+  messageBody     String
+  mediaUrl        String?
+  segmentId       String?
+  segmentSnapshot Json?          // Frozen contact IDs at launch
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdById     String
+  settings        Json?          // Campaign-specific settings
+
+  // Counters (denormalized for performance)
+  totalRecipients Int @default(0)
+  sentCount       Int @default(0)
+  deliveredCount  Int @default(0)
+  failedCount     Int @default(0)
+  responseCount   Int @default(0)
+  optOutCount     Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  org       Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  segment   Segment?      @relation(fields: [segmentId], references: [id])
+  createdBy User          @relation("CampaignCreator", fields: [createdById], references: [id])
+  messages  Message[]
+  dripSteps DripStep[]
+  usageLedger UsageLedger[]
+
+  @@index([orgId, status])
+  @@index([orgId, createdAt])
+}
+
+model DripStep {
+  id             String  @id @default(uuid())
+  orgId          String
+  campaignId     String
+  stepOrder      Int
+  delayMinutes   Int
+  messageBody    String
+  mediaUrl       String?
+  variantB       String? // A/B test alternate
+  splitPercent   Int?    @default(50)
+
+  // Relations
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, stepOrder])
+  @@index([orgId])
+}
+
+model Message {
+  id           String           @id @default(uuid())
+  orgId        String
+  campaignId   String?
+  contactId    String
+  direction    MessageDirection
+  body         String
+  mediaUrl     String?
+  twilioSid    String?          @unique
+  status       MessageStatus    @default(QUEUED)
+  segmentCount Int              @default(1)
+  isOverage    Boolean          @default(false)
+  cost         Decimal?
+  errorCode    String?
+  sentAt       DateTime?
+  deliveredAt  DateTime?
+  createdAt    DateTime         @default(now())
+
+  // Relations
+  org          Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign     Campaign?     @relation(fields: [campaignId], references: [id])
+  contact      Contact       @relation(fields: [contactId], references: [id])
+  usageLedger  UsageLedger?
+
+  @@index([orgId, createdAt])
+  @@index([orgId, campaignId])
+  @@index([contactId, createdAt])
+  @@index([twilioSid])
+}
+
+model AutoReplyRule {
+  id        String   @id @default(uuid())
+  orgId     String
+  name      String
+  keywords  String[]
+  replyBody String
+  mediaUrl  String?
+  isActive  Boolean  @default(true)
+  priority  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, isActive])
+}
+
+// ============================================================
+// CONVERSATIONS (Inbox)
+// ============================================================
+
+model Conversation {
+  id           String            @id @default(uuid())
+  orgId        String
+  contactId    String
+  state        ConversationState @default(OPEN)
+  assignedToId String?
+  isStarred    Boolean           @default(false)
+  lastMessageAt DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  // Relations
+  org        Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contact    Contact            @relation(fields: [contactId], references: [id])
+  assignedTo User?              @relation("ConversationAssignee", fields: [assignedToId], references: [id])
+  notes      ConversationNote[]
+
+  @@unique([orgId, contactId])
+  @@index([orgId, state])
+  @@index([orgId, assignedToId])
+  @@index([orgId, lastMessageAt])
+}
+
+model ConversationNote {
+  id             String   @id @default(uuid())
+  conversationId String
+  authorId       String
+  body           String
+  createdAt      DateTime @default(now())
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  author       User         @relation(fields: [authorId], references: [id])
+
+  @@index([conversationId])
+}
+
+model QuickReplyTemplate {
+  id        String   @id @default(uuid())
+  orgId     String
+  name      String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+}
+
+// ============================================================
+// TWILIO INTEGRATION
+// ============================================================
+
+model TwilioSubaccount {
+  id                    String  @id @default(uuid())
+  orgId                 String  @unique
+  accountSid            String
+  authTokenEncrypted    String  // AES-256-GCM encrypted
+  messagingServiceSid   String?
+
+  // Relations
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+model PhoneNumber {
+  id           String            @id @default(uuid())
+  orgId        String
+  twilioSid    String            @unique
+  phoneNumber  String            // E.164 format
+  capabilities Json?             // voice, sms, mms
+  status       PhoneNumberStatus @default(ACTIVE)
+  createdAt    DateTime          @default(now())
+
+  // Relations
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, status])
+}
+
+model BrandRegistration {
+  id              String                    @id @default(uuid())
+  orgId           String
+  twilioSid       String?
+  brandName       String
+  ein             String?
+  brandType       String                    // political, government, nonprofit
+  address         Json?
+  website         String?
+  status          BrandRegistrationStatus   @default(PENDING)
+  rejectionReason String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  // Relations
+  org                   Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaignRegistrations CampaignRegistration[]
+
+  @@index([orgId])
+}
+
+model CampaignRegistration {
+  id                  String                       @id @default(uuid())
+  orgId               String
+  brandRegistrationId String
+  twilioSid           String?
+  useCase             String
+  description         String
+  sampleMessages      String[]
+  messageFlow         String?
+  status              CampaignRegistrationStatus   @default(PENDING)
+  rejectionReason     String?
+  createdAt           DateTime                     @default(now())
+  updatedAt           DateTime                     @updatedAt
+
+  // Relations
+  org               Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  brandRegistration BrandRegistration @relation(fields: [brandRegistrationId], references: [id])
+
+  @@index([orgId])
+}
+
+// ============================================================
+// BILLING & USAGE
+// ============================================================
+
+model MessagingPlan {
+  id                  String   @id @default(uuid())
+  orgId               String   @unique
+  tier                PlanTier @default(STARTER)
+  monthlyAllotment    Int
+  overagePermitted    Boolean  @default(false)
+  overageRate         Decimal  @default(0.00)
+  billingCycleDay     Int      @default(1)
+  addOnBlockSize      Int      @default(5000)
+  addOnBlockPrice     Decimal  @default(0.00)
+  stripeSubscriptionId String?
+  stripeCustomerId    String?
+  currentPeriodStart  DateTime?
+  currentPeriodEnd    DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+model UsageLedger {
+  id               String   @id @default(uuid())
+  orgId            String
+  messageId        String   @unique
+  campaignId       String?
+  segmentCount     Int
+  isOverage        Boolean  @default(false)
+  twilioCost       Decimal?
+  billingCycleStart DateTime
+  createdAt        DateTime @default(now())
+
+  // Relations
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  message  Message      @relation(fields: [messageId], references: [id])
+  campaign Campaign?    @relation(fields: [campaignId], references: [id])
+
+  @@index([orgId, billingCycleStart])
+  @@index([orgId, createdAt])
+}
+
+model AddOnPurchase {
+  id              String   @id @default(uuid())
+  orgId           String
+  messageCount    Int
+  priceInCents    Int
+  stripePaymentId String?
+  status          String   @default("pending") // pending, completed, failed
+  createdAt       DateTime @default(now())
+
+  // Relations
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+}
+
+model BillingAlert {
+  id          String   @id @default(uuid())
+  orgId       String
+  threshold   Int      // 50, 75, 90, 100
+  triggeredAt DateTime @default(now())
+  notified    Boolean  @default(false)
+
+  // Relations
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+}
+
+// ============================================================
+// IMPORT JOBS
+// ============================================================
+
+model ImportJob {
+  id            String   @id @default(uuid())
+  orgId         String
+  fileName      String
+  fileUrl       String?
+  fileSize      Int?
+  totalRows     Int      @default(0)
+  processedRows Int      @default(0)
+  successRows   Int      @default(0)
+  errorRows     Int      @default(0)
+  columnMapping Json?
+  consentSource String?
+  status        String   @default("pending") // pending, processing, completed, failed
+  errorLog      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+}

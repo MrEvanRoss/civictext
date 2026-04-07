@@ -1,0 +1,325 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  getCampaignAction,
+  changeCampaignStatusAction,
+  duplicateCampaignAction,
+} from "@/server/actions/campaigns";
+import {
+  ArrowLeft,
+  Play,
+  Pause,
+  XCircle,
+  Copy,
+  Send,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
+
+const STATUS_VARIANTS: Record<string, "default" | "success" | "warning" | "destructive" | "secondary" | "outline"> = {
+  DRAFT: "secondary",
+  SCHEDULED: "warning",
+  SENDING: "default",
+  PAUSED: "outline",
+  COMPLETED: "success",
+  CANCELLED: "destructive",
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  BROADCAST: "Broadcast",
+  P2P: "Peer-to-Peer",
+  DRIP: "Drip Sequence",
+  AUTO_REPLY: "Auto-Reply",
+};
+
+export default function CampaignDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const campaignId = params.id as string;
+  const [campaign, setCampaign] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    loadCampaign();
+  }, [campaignId]);
+
+  async function loadCampaign() {
+    try {
+      const data = await getCampaignAction(campaignId);
+      if (!data) {
+        router.push("/campaigns");
+        return;
+      }
+      setCampaign(data);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleStatusChange(newStatus: string) {
+    const confirmMessages: Record<string, string> = {
+      SENDING: "Start sending this campaign?",
+      PAUSED: "Pause this campaign? Unsent messages will remain in the queue.",
+      CANCELLED: "Cancel this campaign? Unsent messages will be discarded. This cannot be undone.",
+    };
+
+    if (confirmMessages[newStatus] && !confirm(confirmMessages[newStatus])) return;
+
+    try {
+      await changeCampaignStatusAction(campaignId, newStatus);
+      await loadCampaign();
+    } catch (err: any) {
+      setError(err.message || "Failed to change status");
+    }
+  }
+
+  async function handleDuplicate() {
+    try {
+      const dup = await duplicateCampaignAction(campaignId);
+      router.push(`/campaigns/${dup.id}`);
+    } catch (err: any) {
+      setError(err.message || "Failed to duplicate");
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!campaign) return null;
+
+  const deliveryRate =
+    campaign.sentCount > 0
+      ? ((campaign.deliveredCount / campaign.sentCount) * 100).toFixed(1)
+      : "0";
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => router.push("/campaigns")}>
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {campaign.name}
+            </h1>
+            <div className="flex items-center gap-2 mt-1">
+              <Badge variant={STATUS_VARIANTS[campaign.status] || "outline"}>
+                {campaign.status}
+              </Badge>
+              <Badge variant="outline">
+                {TYPE_LABELS[campaign.type] || campaign.type}
+              </Badge>
+              {campaign.createdBy && (
+                <span className="text-sm text-muted-foreground">
+                  by {campaign.createdBy.name}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          {campaign.status === "DRAFT" && (
+            <Button onClick={() => handleStatusChange("SENDING")}>
+              <Send className="h-4 w-4 mr-1" />
+              Send Now
+            </Button>
+          )}
+          {campaign.status === "SENDING" && (
+            <Button variant="outline" onClick={() => handleStatusChange("PAUSED")}>
+              <Pause className="h-4 w-4 mr-1" />
+              Pause
+            </Button>
+          )}
+          {campaign.status === "PAUSED" && (
+            <Button onClick={() => handleStatusChange("SENDING")}>
+              <Play className="h-4 w-4 mr-1" />
+              Resume
+            </Button>
+          )}
+          {["DRAFT", "SCHEDULED", "SENDING", "PAUSED"].includes(campaign.status) && (
+            <Button
+              variant="destructive"
+              onClick={() => handleStatusChange("CANCELLED")}
+            >
+              <XCircle className="h-4 w-4 mr-1" />
+              Cancel
+            </Button>
+          )}
+          <Button variant="outline" onClick={handleDuplicate}>
+            <Copy className="h-4 w-4 mr-1" />
+            Duplicate
+          </Button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-md bg-destructive/10 border border-destructive/20 p-4 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
+      {/* Stats */}
+      <div className="grid gap-4 md:grid-cols-5">
+        {[
+          { label: "Sent", value: campaign.sentCount || 0, color: "text-foreground" },
+          { label: "Delivered", value: campaign.deliveredCount || 0, color: "text-green-600" },
+          { label: "Failed", value: campaign.failedCount || 0, color: "text-red-600" },
+          { label: "Responses", value: campaign.responseCount || 0, color: "text-blue-600" },
+          { label: "Delivery Rate", value: `${deliveryRate}%`, color: "text-foreground" },
+        ].map((stat) => (
+          <Card key={stat.label}>
+            <CardHeader className="pb-2">
+              <CardDescription>{stat.label}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className={`text-2xl font-bold ${stat.color}`}>
+                {stat.value}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Campaign Details */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Message</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-muted rounded-lg p-4 text-sm whitespace-pre-wrap">
+              {campaign.messageBody}
+            </div>
+            {campaign.mediaUrl && (
+              <div className="mt-3">
+                <p className="text-xs text-muted-foreground">MMS Media:</p>
+                <p className="text-xs font-mono">{campaign.mediaUrl}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Segment</dt>
+                <dd>{campaign.segment?.name || "None"}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Created</dt>
+                <dd>{new Date(campaign.createdAt).toLocaleString()}</dd>
+              </div>
+              {campaign.scheduledAt && (
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Scheduled</dt>
+                  <dd>{new Date(campaign.scheduledAt).toLocaleString()}</dd>
+                </div>
+              )}
+              {campaign.startedAt && (
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Started</dt>
+                  <dd>{new Date(campaign.startedAt).toLocaleString()}</dd>
+                </div>
+              )}
+              {campaign.completedAt && (
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Completed</dt>
+                  <dd>{new Date(campaign.completedAt).toLocaleString()}</dd>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Opt-Outs</dt>
+                <dd>{campaign.optOutCount || 0}</dd>
+              </div>
+            </dl>
+          </CardContent>
+        </Card>
+
+        {/* Drip Steps */}
+        {campaign.dripSteps?.length > 0 && (
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>Drip Steps</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {campaign.dripSteps.map((step: any, i: number) => (
+                  <div key={step.id} className="flex items-start gap-4 p-3 bg-muted rounded-lg">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium">
+                      {i + 1}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm">{step.messageBody}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Delay: {step.delayMinutes} minutes
+                        {step.triggerKeyword && ` | Trigger: "${step.triggerKeyword}"`}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Auto-Reply Rules */}
+        {campaign.autoReplyRules?.length > 0 && (
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>Auto-Reply Rules</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {campaign.autoReplyRules.map((rule: any) => (
+                  <div key={rule.id} className="flex items-start gap-4 p-3 bg-muted rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex flex-wrap gap-1 mb-1">
+                        {rule.keywords.map((kw: string) => (
+                          <Badge key={kw} variant="outline" className="text-xs">
+                            {kw}
+                          </Badge>
+                        ))}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Reply: {rule.replyBody}
+                      </p>
+                    </div>
+                    <Badge variant={rule.isActive ? "success" : "secondary"}>
+                      {rule.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}

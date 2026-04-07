@@ -1,0 +1,192 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { listOrgsAction } from "@/server/actions/admin";
+import { Building2, Search, ChevronLeft, ChevronRight } from "lucide-react";
+
+export default function AdminOrgsPage() {
+  const [orgs, setOrgs] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadOrgs();
+  }, [page, status]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1);
+      loadOrgs();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  async function loadOrgs() {
+    setLoading(true);
+    try {
+      const data = await listOrgsAction({
+        search: search || undefined,
+        status: status || undefined,
+        page,
+      });
+      setOrgs(data.orgs);
+      setTotal(data.total);
+      setTotalPages(data.totalPages);
+    } catch (err) {
+      console.error("Failed to load orgs:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Organizations</h1>
+        <p className="text-muted-foreground">
+          Manage all organizations on the platform ({total} total)
+        </p>
+      </div>
+
+      <div className="flex gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name or slug..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value);
+            setPage(1);
+          }}
+          className="w-40"
+        >
+          <option value="">All Status</option>
+          <option value="ACTIVE">Active</option>
+          <option value="SUSPENDED">Suspended</option>
+          <option value="DEACTIVATED">Deactivated</option>
+        </Select>
+      </div>
+
+      <div className="border rounded-lg overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50">
+            <tr>
+              <th className="text-left p-3 font-medium">Organization</th>
+              <th className="text-left p-3 font-medium">Plan</th>
+              <th className="text-right p-3 font-medium">Users</th>
+              <th className="text-right p-3 font-medium">Contacts</th>
+              <th className="text-right p-3 font-medium">Campaigns</th>
+              <th className="text-left p-3 font-medium">Status</th>
+              <th className="text-right p-3 font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                  Loading...
+                </td>
+              </tr>
+            ) : orgs.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                  No organizations found.
+                </td>
+              </tr>
+            ) : (
+              orgs.map((org) => (
+                <tr key={org.id} className="border-t hover:bg-muted/30">
+                  <td className="p-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded bg-muted flex items-center justify-center">
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{org.name}</p>
+                        <p className="text-xs text-muted-foreground">{org.slug}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-3">
+                    <Badge variant="secondary">
+                      {org.messagingPlan?.tier || "None"}
+                    </Badge>
+                    {org.messagingPlan?.monthlyAllotment && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {org.messagingPlan.monthlyAllotment.toLocaleString()} msgs/mo
+                      </p>
+                    )}
+                  </td>
+                  <td className="p-3 text-right">{org._count.users}</td>
+                  <td className="p-3 text-right">{org._count.contacts.toLocaleString()}</td>
+                  <td className="p-3 text-right">{org._count.campaigns}</td>
+                  <td className="p-3">
+                    <Badge
+                      variant={
+                        org.status === "ACTIVE"
+                          ? "success"
+                          : org.status === "SUSPENDED"
+                          ? "destructive"
+                          : "secondary"
+                      }
+                    >
+                      {org.status}
+                    </Badge>
+                  </td>
+                  <td className="p-3 text-right">
+                    <Link href={`/admin/orgs/${org.id}`}>
+                      <Button variant="outline" size="sm">
+                        View
+                      </Button>
+                    </Link>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Page {page} of {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
