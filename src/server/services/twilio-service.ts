@@ -167,10 +167,24 @@ export async function provisionPhoneNumbers(orgId: string, input: ProvisionNumbe
     throw new Error("Messaging Service must be created first");
   }
 
+  // Check balance BEFORE purchasing any numbers from Twilio
+  const plan = await db.messagingPlan.findUnique({ where: { orgId } });
+  const feeCents = plan?.phoneNumberFeeCents || 500;
+  const quantity = input.quantity || 1;
+  const totalFeeCents = feeCents * quantity;
+
+  if (!plan || plan.balanceCents < totalFeeCents) {
+    throw new Error(
+      `Insufficient balance. Phone numbers cost $${(feeCents / 100).toFixed(2)}/month each. ` +
+      `Total for ${quantity} number${quantity > 1 ? "s" : ""}: $${(totalFeeCents / 100).toFixed(2)}. ` +
+      `Your balance: $${((plan?.balanceCents || 0) / 100).toFixed(2)}.`
+    );
+  }
+
   const client = await getOrgClient(orgId);
   const numbers = [];
 
-  for (let i = 0; i < (input.quantity || 1); i++) {
+  for (let i = 0; i < quantity; i++) {
     // Search for available numbers
     const searchParams: any = {
       limit: 1,
@@ -193,7 +207,7 @@ export async function provisionPhoneNumbers(orgId: string, input: ProvisionNumbe
       );
     }
 
-    // Purchase the number
+    // Purchase the number from Twilio
     const purchased = await client.incomingPhoneNumbers.create({
       phoneNumber: available[0].phoneNumber,
     });
@@ -205,22 +219,9 @@ export async function provisionPhoneNumbers(orgId: string, input: ProvisionNumbe
         phoneNumberSid: purchased.sid,
       });
 
-    // Get the org's phone number fee
-    const plan = await db.messagingPlan.findUnique({ where: { orgId } });
-    const feeCents = plan?.phoneNumberFeeCents || 500;
-
-    // Check balance before keeping the number
-    if (!plan || plan.balanceCents < feeCents) {
-      // Release the number since they can't pay
-      await client.incomingPhoneNumbers(purchased.sid).remove();
-      throw new Error(
-        `Insufficient balance to provision phone number. Need $${(feeCents / 100).toFixed(2)}, have $${((plan?.balanceCents || 0) / 100).toFixed(2)}.`
-      );
-    }
-
     const now = new Date();
 
-    // Store in database and charge first month in one transaction
+    // Store in database and charge first month's fee in one transaction
     const record = await db.$transaction(async (tx) => {
       const pn = await tx.phoneNumber.create({
         data: {
