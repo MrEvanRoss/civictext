@@ -12,6 +12,7 @@ import {
   Phone,
   CreditCard,
   Settings,
+  UserPlus,
 } from "lucide-react";
 
 const navItems = [
@@ -22,6 +23,7 @@ const navItems = [
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/phone-numbers", label: "Phone Numbers", icon: Phone },
   { href: "/billing", label: "Billing", icon: CreditCard },
+  { href: "/team", label: "Team", icon: UserPlus },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

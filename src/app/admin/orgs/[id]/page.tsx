@@ -13,6 +13,9 @@ import {
   addCreditsAction,
   updateOrgRatesAction,
 } from "@/server/actions/admin";
+import { adminAddUserToOrgAction } from "@/server/actions/team";
+import { Select } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import {
   ArrowLeft,
   Building2,
@@ -35,6 +38,14 @@ export default function AdminOrgDetailPage() {
   const [showSuspend, setShowSuspend] = useState(false);
   const [addAmount, setAddAmount] = useState("");
   const [addingCredits, setAddingCredits] = useState(false);
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [addingUser, setAddingUser] = useState(false);
+  const [userForm, setUserForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: "SENDER",
+  });
 
   useEffect(() => {
     loadOrg();
@@ -79,6 +90,31 @@ export default function AdminOrgDetailPage() {
       await loadOrg();
     } catch (err: any) {
       alert(err.message || "Failed to reactivate org");
+    }
+  }
+
+  async function handleAddUser() {
+    if (!userForm.name || !userForm.email || !userForm.password) {
+      alert("Please fill in all fields");
+      return;
+    }
+    if (userForm.password.length < 12) {
+      alert("Password must be at least 12 characters");
+      return;
+    }
+    setAddingUser(true);
+    try {
+      await adminAddUserToOrgAction({
+        orgId,
+        ...userForm,
+      });
+      setShowAddUser(false);
+      setUserForm({ name: "", email: "", password: "", role: "SENDER" });
+      await loadOrg();
+    } catch (err: any) {
+      alert(err.message || "Failed to add user");
+    } finally {
+      setAddingUser(false);
     }
   }
 
@@ -364,7 +400,62 @@ export default function AdminOrgDetailPage() {
 
       {/* Users Table */}
       <div className="border rounded-lg p-4">
-        <h2 className="font-semibold mb-3">Team Members</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold">Team Members ({org.users.length})</h2>
+          <Button size="sm" onClick={() => setShowAddUser(!showAddUser)}>
+            {showAddUser ? "Cancel" : "Add User"}
+          </Button>
+        </div>
+
+        {showAddUser && (
+          <div className="border rounded-lg p-4 bg-muted/30 mb-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Name</Label>
+                <Input
+                  value={userForm.name}
+                  onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
+                  placeholder="Full name"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Email</Label>
+                <Input
+                  type="email"
+                  value={userForm.email}
+                  onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                  placeholder="user@example.com"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Password (min 12 chars)</Label>
+                <Input
+                  type="text"
+                  value={userForm.password}
+                  onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                  placeholder="Temporary password"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Role</Label>
+                <Select
+                  value={userForm.role}
+                  onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
+                >
+                  <option value="OWNER">Owner</option>
+                  <option value="ADMIN">Admin</option>
+                  <option value="MANAGER">Manager</option>
+                  <option value="SENDER">Sender</option>
+                  <option value="VIEWER">Viewer</option>
+                </Select>
+              </div>
+            </div>
+            <Button size="sm" onClick={handleAddUser} disabled={addingUser}>
+              {addingUser ? "Adding..." : "Add User"}
+            </Button>
+          </div>
+        )}
+
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr>
