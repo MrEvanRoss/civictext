@@ -143,7 +143,7 @@ export default function AdminAnalyticsPage() {
               <span className="text-sm">Total Contacts</span>
               <Badge variant="secondary">{data.totalContacts?.toLocaleString()}</Badge>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Top Orgs by Volume */}
