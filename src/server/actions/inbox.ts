@@ -1,7 +1,15 @@
 "use server";
 
-import { requireOrg } from "./auth";
+import { requireOrg, requirePermission } from "./auth";
+import { PERMISSIONS } from "@/lib/constants";
 import { db } from "@/lib/db";
+import { Queue } from "bullmq";
+import IORedis from "ioredis";
+
+const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
+  maxRetriesPerRequest: null,
+});
+const messageQueue = new Queue("messages", { connection });
 
 export async function listConversationsAction(opts?: {
   filter?: "all" | "unassigned" | "mine";
@@ -77,7 +85,7 @@ export async function sendReplyAction(conversationId: string, body: string) {
 
   if (!conversation) throw new Error("Conversation not found");
 
-  // Create outbound message record (actual sending handled by worker)
+  // Create outbound message record
   const message = await db.message.create({
     data: {
       orgId,
@@ -88,10 +96,82 @@ export async function sendReplyAction(conversationId: string, body: string) {
     },
   });
 
+  // Queue the message for actual sending via Twilio
+  await messageQueue.add("send", {
+    orgId,
+    contactId: conversation.contactId,
+    messageBody: body,
+    phone: conversation.contact.phone,
+    firstName: conversation.contact.firstName,
+    lastName: conversation.contact.lastName,
+    messageId: message.id,
+  }, { priority: 1 }); // Priority 1 = highest for replies
+
   // Update conversation
   await db.conversation.update({
     where: { id: conversationId },
     data: {
+      lastMessageAt: new Date(),
+    },
+  });
+
+  return message;
+}
+
+/**
+ * Send a quick one-off message to a contact (no campaign required).
+ */
+export async function quickSendAction(data: {
+  contactId: string;
+  body: string;
+  mediaUrl?: string;
+}) {
+  await requirePermission(PERMISSIONS.CAMPAIGN_SEND);
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
+
+  const contact = await db.contact.findFirst({
+    where: { id: data.contactId, orgId },
+  });
+
+  if (!contact) throw new Error("Contact not found");
+  if (contact.optInStatus === "OPTED_OUT") {
+    throw new Error("Cannot send to opted-out contact");
+  }
+
+  // Create message record
+  const message = await db.message.create({
+    data: {
+      orgId,
+      contactId: contact.id,
+      direction: "OUTBOUND",
+      body: data.body,
+      mediaUrl: data.mediaUrl || null,
+      status: "QUEUED",
+    },
+  });
+
+  // Queue for sending
+  await messageQueue.add("send", {
+    orgId,
+    contactId: contact.id,
+    messageBody: data.body,
+    mediaUrl: data.mediaUrl || undefined,
+    phone: contact.phone,
+    firstName: contact.firstName,
+    lastName: contact.lastName,
+    messageId: message.id,
+  }, { priority: 1 });
+
+  // Create or update conversation
+  await db.conversation.upsert({
+    where: { orgId_contactId: { orgId, contactId: contact.id } },
+    create: {
+      orgId,
+      contactId: contact.id,
+      lastMessageAt: new Date(),
+    },
+    update: {
       lastMessageAt: new Date(),
     },
   });

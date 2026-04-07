@@ -14,19 +14,30 @@ export const campaignQueue = new Queue("campaigns", { connection });
 
 interface MessageJobData {
   orgId: string;
-  campaignId: string;
+  campaignId?: string;
   contactId: string;
   messageBody: string;
   mediaUrl?: string;
   phone: string;
   firstName?: string | null;
   lastName?: string | null;
+  messageId?: string; // For quick sends / inbox replies where message record already exists
 }
 
 interface CampaignJobData {
   orgId: string;
   campaignId: string;
-  action: "expand" | "complete";
+  action: "expand" | "complete" | "check-scheduled";
+}
+
+interface QuickSendJobData {
+  orgId: string;
+  contactId: string;
+  messageBody: string;
+  mediaUrl?: string;
+  phone: string;
+  firstName?: string | null;
+  lastName?: string | null;
 }
 
 /**
@@ -135,27 +146,43 @@ export const messageWorker = new Worker<MessageJobData>(
       },
     });
 
-    // 10. Create message record
-    await db.message.create({
-      data: {
-        orgId,
-        campaignId,
-        contactId,
-        direction: "OUTBOUND",
-        body: finalBody,
-        mediaUrl,
-        twilioSid: twilioMsg.sid,
-        status: "QUEUED",
-        segmentCount,
-        cost: costCents / 100, // Store as dollars
-      },
-    });
+    // 10. Create or update message record
+    if (job.data.messageId) {
+      // Quick send: update existing message record
+      await db.message.update({
+        where: { id: job.data.messageId },
+        data: {
+          twilioSid: twilioMsg.sid,
+          status: "SENT",
+          segmentCount,
+          cost: costCents / 100,
+          sentAt: new Date(),
+        },
+      });
+    } else {
+      await db.message.create({
+        data: {
+          orgId,
+          campaignId,
+          contactId,
+          direction: "OUTBOUND",
+          body: finalBody,
+          mediaUrl,
+          twilioSid: twilioMsg.sid,
+          status: "QUEUED",
+          segmentCount,
+          cost: costCents / 100, // Store as dollars
+        },
+      });
+    }
 
-    // 11. Increment campaign sent count
-    await db.campaign.update({
-      where: { id: campaignId },
-      data: { sentCount: { increment: 1 } },
-    });
+    // 11. Increment campaign sent count (if part of a campaign)
+    if (campaignId) {
+      await db.campaign.update({
+        where: { id: campaignId },
+        data: { sentCount: { increment: 1 } },
+      });
+    }
 
     await job.log(`Sent to ${phone}: ${twilioMsg.sid} (cost: ${costCents}¢)`);
     return { status: "sent", twilioSid: twilioMsg.sid, costCents };
@@ -178,6 +205,10 @@ export const campaignWorker = new Worker<CampaignJobData>(
   async (job: Job<CampaignJobData>) => {
     const { orgId, campaignId, action } = job.data;
 
+    if (action === "check-scheduled") {
+      return checkScheduledCampaigns(job);
+    }
+
     if (action === "expand") {
       return expandCampaign(orgId, campaignId, job);
     }
@@ -191,6 +222,64 @@ export const campaignWorker = new Worker<CampaignJobData>(
     }
   },
   { connection, concurrency: 5 }
+);
+
+/**
+ * Check for scheduled campaigns that are due to send.
+ * Runs every minute via repeatable job.
+ */
+async function checkScheduledCampaigns(job: Job) {
+  const now = new Date();
+
+  const dueCampaigns = await db.campaign.findMany({
+    where: {
+      status: "SCHEDULED",
+      scheduledAt: { lte: now },
+    },
+    include: {
+      org: { select: { id: true, status: true } },
+    },
+  });
+
+  if (dueCampaigns.length === 0) return { triggered: 0 };
+
+  let triggered = 0;
+
+  for (const campaign of dueCampaigns) {
+    if (campaign.org.status !== "ACTIVE") {
+      await job.log(`Skipping campaign ${campaign.id}: org not active`);
+      continue;
+    }
+
+    // Transition to SENDING
+    await db.campaign.update({
+      where: { id: campaign.id },
+      data: { status: "SENDING", startedAt: new Date() },
+    });
+
+    // Queue expansion
+    await campaignQueue.add("expand", {
+      orgId: campaign.orgId,
+      campaignId: campaign.id,
+      action: "expand" as const,
+    });
+
+    triggered++;
+    await job.log(`Triggered scheduled campaign: ${campaign.name} (${campaign.id})`);
+  }
+
+  return { triggered };
+}
+
+// Schedule the campaign checker to run every minute
+campaignQueue.add(
+  "check-scheduled",
+  { orgId: "", campaignId: "", action: "check-scheduled" as const },
+  {
+    repeat: { pattern: "* * * * *" }, // Every minute
+    removeOnComplete: { count: 10 },
+    removeOnFail: { count: 10 },
+  }
 );
 
 /**

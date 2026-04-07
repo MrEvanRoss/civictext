@@ -1,10 +1,18 @@
 import { db } from "@/lib/db";
+import { Queue } from "bullmq";
+import IORedis from "ioredis";
 import type {
   CreateCampaignInput,
   UpdateCampaignInput,
   CampaignFilter,
 } from "@/lib/validators/campaigns";
 import type { Prisma } from "@prisma/client";
+
+const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
+  maxRetriesPerRequest: null,
+});
+const campaignQueue = new Queue("campaigns", { connection });
+const messageQueue = new Queue("messages", { connection });
 
 /**
  * List campaigns with optional filtering.
@@ -194,10 +202,21 @@ export async function changeCampaignStatus(
     data.completedAt = new Date();
   }
 
-  return db.campaign.update({
+  const updated = await db.campaign.update({
     where: { id: campaignId },
     data,
   });
+
+  // When transitioning to SENDING, queue the campaign expansion
+  if (newStatus === "SENDING") {
+    await campaignQueue.add("expand", {
+      orgId,
+      campaignId,
+      action: "expand",
+    });
+  }
+
+  return updated;
 }
 
 /**

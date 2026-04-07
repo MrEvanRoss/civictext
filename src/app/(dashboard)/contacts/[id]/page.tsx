@@ -15,12 +15,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import {
   getContactAction,
   updateContactAction,
   deleteContactAction,
 } from "@/server/actions/contacts";
-import { ArrowLeft, Save, Trash2 } from "lucide-react";
+import { quickSendAction } from "@/server/actions/inbox";
+import { ArrowLeft, Save, Trash2, Send } from "lucide-react";
 
 export default function ContactDetailPage() {
   const params = useParams();
@@ -39,6 +41,9 @@ export default function ContactDetailPage() {
     tags: "",
     optInStatus: "",
   });
+  const [quickMessage, setQuickMessage] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [sendSuccess, setSendSuccess] = useState("");
 
   useEffect(() => {
     loadContact();
@@ -86,6 +91,24 @@ export default function ContactDetailPage() {
       setError(err.message || "Failed to update contact");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleQuickSend() {
+    if (!quickMessage.trim()) return;
+    setSendingMessage(true);
+    setSendSuccess("");
+    setError("");
+    try {
+      await quickSendAction({ contactId, body: quickMessage.trim() });
+      setQuickMessage("");
+      setSendSuccess("Message queued for delivery.");
+      await loadContact();
+      setTimeout(() => setSendSuccess(""), 3000);
+    } catch (err: any) {
+      setError(err.message || "Failed to send message");
+    } finally {
+      setSendingMessage(false);
     }
   }
 
@@ -243,6 +266,50 @@ export default function ContactDetailPage() {
                   </div>
                 ))}
               </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Quick Send */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>Send Message</CardTitle>
+            <CardDescription>
+              Send a quick text message to this contact.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {contact.optInStatus === "OPTED_OUT" ? (
+              <p className="text-sm text-destructive">
+                This contact has opted out and cannot receive messages.
+              </p>
+            ) : (
+              <>
+                <Textarea
+                  value={quickMessage}
+                  onChange={(e) => setQuickMessage(e.target.value)}
+                  placeholder="Type your message..."
+                  rows={3}
+                />
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    {quickMessage.length} characters
+                    {quickMessage.length > 160 && ` (${Math.ceil(quickMessage.length / 153)} segments)`}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    {sendSuccess && (
+                      <p className="text-sm text-green-600">{sendSuccess}</p>
+                    )}
+                    <Button
+                      onClick={handleQuickSend}
+                      disabled={!quickMessage.trim() || sendingMessage}
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      {sendingMessage ? "Sending..." : "Send"}
+                    </Button>
+                  </div>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
