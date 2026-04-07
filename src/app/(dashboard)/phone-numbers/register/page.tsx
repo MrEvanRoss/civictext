@@ -24,6 +24,7 @@ import {
   registerCampaignAction,
   provisionPhoneNumbersAction,
 } from "@/server/actions/twilio";
+import { getBillingOverviewAction } from "@/server/actions/billing";
 
 const WIZARD_STEPS = [
   { title: "Brand Info", description: "Business details" },
@@ -78,6 +79,15 @@ export default function RegisterPage() {
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [balanceCents, setBalanceCents] = useState(0);
+  const [phoneFeeCents, setPhoneFeeCents] = useState(500);
+
+  useState(() => {
+    getBillingOverviewAction().then((data) => {
+      setBalanceCents(data.plan?.balanceCents || 0);
+      setPhoneFeeCents(data.plan?.phoneNumberFeeCents || 500);
+    }).catch(() => {});
+  });
 
   const [brandForm, setBrandForm] = useState<BrandForm>({
     brandName: "",
@@ -525,6 +535,27 @@ export default function RegisterPage() {
                 </p>
               </div>
             </div>
+
+            <div className="rounded-md bg-blue-50 border border-blue-200 p-4 text-sm text-blue-800">
+              <p className="font-medium">Pricing</p>
+              <p className="mt-1">
+                Each phone number costs <span className="font-bold">${(phoneFeeCents / 100).toFixed(2)}/month</span>.
+                The first month is charged immediately from your balance.
+              </p>
+              <div className="mt-2 flex items-center justify-between">
+                <span>
+                  {phoneForm.quantity} number{phoneForm.quantity !== 1 ? "s" : ""} &times; ${(phoneFeeCents / 100).toFixed(2)} = <span className="font-bold">${((phoneForm.quantity * phoneFeeCents) / 100).toFixed(2)}</span>
+                </span>
+                <span className={balanceCents >= phoneForm.quantity * phoneFeeCents ? "text-green-700" : "text-red-700 font-medium"}>
+                  Balance: ${(balanceCents / 100).toFixed(2)}
+                </span>
+              </div>
+              {balanceCents < phoneForm.quantity * phoneFeeCents && (
+                <p className="mt-2 text-red-700 font-medium">
+                  Insufficient balance. Add at least ${(((phoneForm.quantity * phoneFeeCents) - balanceCents) / 100).toFixed(2)} to proceed.
+                </p>
+              )}
+            </div>
           </CardContent>
           <CardFooter className="justify-between">
             <Button variant="outline" onClick={() => setStep(1)}>
@@ -606,6 +637,10 @@ export default function RegisterPage() {
                 <dd>{phoneForm.quantity}</dd>
                 <dt className="text-muted-foreground">Area Code</dt>
                 <dd>{phoneForm.areaCode || "Any available"}</dd>
+                <dt className="text-muted-foreground">Monthly Cost</dt>
+                <dd className="font-medium">${((phoneForm.quantity * phoneFeeCents) / 100).toFixed(2)}/month</dd>
+                <dt className="text-muted-foreground">Charged Today</dt>
+                <dd className="font-medium">${((phoneForm.quantity * phoneFeeCents) / 100).toFixed(2)}</dd>
               </dl>
             </div>
 
@@ -618,7 +653,10 @@ export default function RegisterPage() {
                   You can send test messages while waiting for approval
                 </li>
                 <li>
-                  Phone numbers are provisioned immediately and billed monthly
+                  Phone numbers cost ${(phoneFeeCents / 100).toFixed(2)}/month each, charged from your prepaid balance
+                </li>
+                <li>
+                  Your current balance: <span className="font-medium">${(balanceCents / 100).toFixed(2)}</span>
                 </li>
               </ul>
             </div>

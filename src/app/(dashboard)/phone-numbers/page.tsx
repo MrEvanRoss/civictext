@@ -126,9 +126,12 @@ export default function PhoneNumbersPage() {
             <h2 className="text-xl font-semibold mb-2">
               No Phone Numbers Yet
             </h2>
-            <p className="text-muted-foreground text-center max-w-md mb-6">
+            <p className="text-muted-foreground text-center max-w-md mb-4">
               To send text messages, you need to register your brand with carriers
               and provision phone numbers. This process takes 5-15 business days.
+            </p>
+            <p className="text-sm text-muted-foreground mb-6">
+              Phone numbers cost <span className="font-medium">$5.00/month</span> each, charged from your prepaid balance.
             </p>
             <Link href="/phone-numbers/register">
               <Button>Start Registration</Button>
