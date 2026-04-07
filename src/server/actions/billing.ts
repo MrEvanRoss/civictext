@@ -8,7 +8,7 @@ export async function getBillingOverviewAction() {
   const { session } = await requireOrg();
   const orgId = (session.user as any).orgId;
 
-  const [plan, balance, addOns] = await Promise.all([
+  const [plan, balance, addOns, activePhoneNumbers] = await Promise.all([
     db.messagingPlan.findUnique({ where: { orgId } }),
     getCurrentBalance(orgId),
     db.addOnPurchase.findMany({
@@ -16,12 +16,18 @@ export async function getBillingOverviewAction() {
       orderBy: { createdAt: "desc" },
       take: 10,
     }),
+    db.phoneNumber.count({ where: { orgId, status: "ACTIVE" } }),
   ]);
+
+  const phoneFeeCents = plan?.phoneNumberFeeCents || 500;
+  const monthlyPhoneCostCents = activePhoneNumbers * phoneFeeCents;
 
   return {
     plan,
     balance,
     addOns,
+    activePhoneNumbers,
+    monthlyPhoneCostCents,
   };
 }
 

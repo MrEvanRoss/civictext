@@ -258,6 +258,92 @@ async function expandCampaign(orgId: string, campaignId: string, job: Job) {
   return { status: "expanded", messageCount: contacts.length };
 }
 
+// ============================================================
+// PHONE NUMBER BILLING WORKER
+// Runs daily, charges $5/month per active phone number
+// ============================================================
+
+export const billingQueue = new Queue("billing", { connection });
+
+export const billingWorker = new Worker(
+  "billing",
+  async (job: Job) => {
+    if (job.name !== "phone-number-fees") return;
+
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    // Find all active phone numbers that haven't been charged in the last 30 days
+    const phoneNumbers = await db.phoneNumber.findMany({
+      where: {
+        status: "ACTIVE",
+        OR: [
+          { lastChargedAt: null },
+          { lastChargedAt: { lt: thirtyDaysAgo } },
+        ],
+      },
+      include: {
+        org: {
+          include: { messagingPlan: true },
+        },
+      },
+    });
+
+    let charged = 0;
+    let skipped = 0;
+
+    for (const pn of phoneNumbers) {
+      const plan = pn.org.messagingPlan;
+      if (!plan) {
+        skipped++;
+        continue;
+      }
+
+      const feeCents = plan.phoneNumberFeeCents || 500; // default $5
+
+      if (plan.balanceCents >= feeCents) {
+        // Deduct fee
+        await db.$transaction([
+          db.messagingPlan.update({
+            where: { orgId: pn.orgId },
+            data: {
+              balanceCents: { decrement: feeCents },
+              totalSpentCents: { increment: feeCents },
+            },
+          }),
+          db.phoneNumber.update({
+            where: { id: pn.id },
+            data: { lastChargedAt: new Date() },
+          }),
+        ]);
+
+        // Sync Redis balance
+        await syncBalanceToRedis(pn.orgId);
+        charged++;
+      } else {
+        // Insufficient balance — log but don't block
+        console.log(`[BILLING] Insufficient balance for phone ${pn.phoneNumber} (org ${pn.orgId}). Need ${feeCents}¢, have ${plan.balanceCents}¢`);
+        skipped++;
+      }
+    }
+
+    await job.log(`Phone billing: charged ${charged}, skipped ${skipped}`);
+    return { charged, skipped };
+  },
+  { connection, concurrency: 1 }
+);
+
+// Schedule daily phone number billing check
+billingQueue.add(
+  "phone-number-fees",
+  {},
+  {
+    repeat: { pattern: "0 6 * * *" }, // 6 AM daily
+    removeOnComplete: { count: 30 },
+    removeOnFail: { count: 30 },
+  }
+);
+
 // Error handling
 messageWorker.on("failed", (job, err) => {
   console.error(`Message job ${job?.id} failed:`, err.message);
@@ -267,8 +353,12 @@ campaignWorker.on("failed", (job, err) => {
   console.error(`Campaign job ${job?.id} failed:`, err.message);
 });
 
+billingWorker.on("failed", (job, err) => {
+  console.error(`Billing job ${job?.id} failed:`, err.message);
+});
+
 messageWorker.on("completed", (job) => {
   // Logged via job.log
 });
 
-console.log("Message and campaign workers started");
+console.log("Message, campaign, and billing workers started");

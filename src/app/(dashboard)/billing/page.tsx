@@ -69,7 +69,7 @@ export default function BillingPage() {
       )}
 
       {/* Balance & Rates */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Prepaid Balance</CardDescription>
@@ -108,6 +108,20 @@ export default function BillingPage() {
             </p>
             <p className="text-sm text-muted-foreground mt-1">
               per MMS message
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Phone Numbers</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">
+              {data?.activePhoneNumbers || 0}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              ${((data?.monthlyPhoneCostCents || 0) / 100).toFixed(2)}/month
             </p>
           </CardContent>
         </Card>

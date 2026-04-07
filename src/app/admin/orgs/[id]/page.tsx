@@ -249,6 +249,14 @@ export default function AdminOrgDetailPage() {
               <span className="font-medium">{org.messagingPlan?.mmsRateCents || 8}&#162;/message</span>
             </div>
             <div className="flex justify-between">
+              <span className="text-muted-foreground">Phone Number Fee</span>
+              <span className="font-medium">${((org.messagingPlan?.phoneNumberFeeCents || 500) / 100).toFixed(2)}/mo each</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Active Numbers</span>
+              <span className="font-medium">{org.phoneNumbers?.length || 0} (${(((org.phoneNumbers?.length || 0) * (org.messagingPlan?.phoneNumberFeeCents || 500)) / 100).toFixed(2)}/mo)</span>
+            </div>
+            <div className="flex justify-between">
               <span className="text-muted-foreground">Total Spent</span>
               <span className="font-medium font-mono">${totalSpentDollars}</span>
             </div>

@@ -456,6 +456,7 @@ model PhoneNumber {
   phoneNumber  String            // E.164 format
   capabilities Json?             // voice, sms, mms
   status       PhoneNumberStatus @default(ACTIVE)
+  lastChargedAt DateTime?        // last monthly fee charge date
   createdAt    DateTime          @default(now())
 
   // Relations
@@ -516,6 +517,7 @@ model MessagingPlan {
   balanceCents        Int      @default(0)    // prepaid balance in cents
   smsRateCents        Int      @default(4)    // cost per SMS segment: 4¢
   mmsRateCents        Int      @default(8)    // cost per MMS message: 8¢
+  phoneNumberFeeCents Int      @default(500)  // $5/month per active phone number
   totalSpentCents     Int      @default(0)    // lifetime spend in cents
   stripeCustomerId    String?
   createdAt           DateTime @default(now())
