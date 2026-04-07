@@ -349,8 +349,8 @@ model Message {
   deliveredAt  DateTime?
   createdAt    DateTime         @default(now())
 
-  // Relations
-  org          Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  // Relations — no cascade delete: message logs are retained permanently
+  org          Organization  @relation(fields: [orgId], references: [id], onDelete: Restrict)
   campaign     Campaign?     @relation(fields: [campaignId], references: [id])
   contact      Contact       @relation(fields: [contactId], references: [id])
   usageLedger  UsageLedger?
@@ -359,6 +359,8 @@ model Message {
   @@index([orgId, campaignId])
   @@index([contactId, createdAt])
   @@index([twilioSid])
+  @@index([status])
+  @@index([direction])
 }
 
 model AutoReplyRule {

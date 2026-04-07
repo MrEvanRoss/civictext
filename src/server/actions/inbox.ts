@@ -99,6 +99,145 @@ export async function sendReplyAction(conversationId: string, body: string) {
   return message;
 }
 
+export async function exportConversationAction(conversationId: string) {
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
+
+  const conversation = await db.conversation.findFirst({
+    where: { id: conversationId, orgId },
+    include: {
+      contact: { select: { phone: true, firstName: true, lastName: true } },
+    },
+  });
+
+  if (!conversation) throw new Error("Conversation not found");
+
+  const messages = await db.message.findMany({
+    where: { contactId: conversation.contactId, orgId },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const notes = await db.conversationNote.findMany({
+    where: { conversationId },
+    orderBy: { createdAt: "asc" },
+    include: { author: { select: { name: true } } },
+  });
+
+  // Build CSV rows
+  const rows: string[][] = [
+    ["Date", "Time", "Direction", "Type", "From", "Body", "Status"],
+  ];
+
+  const contactName = [conversation.contact.firstName, conversation.contact.lastName]
+    .filter(Boolean)
+    .join(" ") || conversation.contact.phone;
+
+  for (const msg of messages) {
+    const date = new Date(msg.createdAt);
+    rows.push([
+      date.toLocaleDateString(),
+      date.toLocaleTimeString(),
+      msg.direction,
+      "Message",
+      msg.direction === "INBOUND" ? contactName : "You",
+      msg.body || "",
+      msg.status,
+    ]);
+  }
+
+  for (const note of notes) {
+    const date = new Date(note.createdAt);
+    rows.push([
+      date.toLocaleDateString(),
+      date.toLocaleTimeString(),
+      "",
+      "Internal Note",
+      note.author?.name || "Team",
+      note.body,
+      "",
+    ]);
+  }
+
+  // Sort all rows (after header) by date+time
+  const header = rows[0];
+  const dataRows = rows.slice(1).sort((a, b) => {
+    const dateA = new Date(`${a[0]} ${a[1]}`);
+    const dateB = new Date(`${b[0]} ${b[1]}`);
+    return dateA.getTime() - dateB.getTime();
+  });
+
+  // Convert to CSV string
+  const csvLines = [header, ...dataRows].map((row) =>
+    row.map((cell) => {
+      if (cell.includes(",") || cell.includes('"') || cell.includes("\n")) {
+        return `"${cell.replace(/"/g, '""')}"`;
+      }
+      return cell;
+    }).join(",")
+  );
+
+  return {
+    csv: csvLines.join("\n"),
+    filename: `conversation-${conversation.contact.phone}-${new Date().toISOString().split("T")[0]}.csv`,
+  };
+}
+
+export async function exportAllConversationsAction() {
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
+
+  const conversations = await db.conversation.findMany({
+    where: { orgId },
+    include: {
+      contact: { select: { phone: true, firstName: true, lastName: true } },
+    },
+  });
+
+  const contactIds = conversations.map((c) => c.contactId);
+
+  const messages = await db.message.findMany({
+    where: { orgId, contactId: { in: contactIds } },
+    orderBy: { createdAt: "asc" },
+    include: {
+      contact: { select: { phone: true, firstName: true, lastName: true } },
+    },
+  });
+
+  const rows: string[][] = [
+    ["Date", "Time", "Contact Phone", "Contact Name", "Direction", "Body", "Status"],
+  ];
+
+  for (const msg of messages) {
+    const date = new Date(msg.createdAt);
+    const contactName = [msg.contact?.firstName, msg.contact?.lastName]
+      .filter(Boolean)
+      .join(" ") || msg.contact?.phone || "";
+    rows.push([
+      date.toLocaleDateString(),
+      date.toLocaleTimeString(),
+      msg.contact?.phone || "",
+      contactName,
+      msg.direction,
+      msg.body || "",
+      msg.status,
+    ]);
+  }
+
+  const csvLines = rows.map((row) =>
+    row.map((cell) => {
+      if (cell.includes(",") || cell.includes('"') || cell.includes("\n")) {
+        return `"${cell.replace(/"/g, '""')}"`;
+      }
+      return cell;
+    }).join(",")
+  );
+
+  return {
+    csv: csvLines.join("\n"),
+    filename: `all-conversations-${new Date().toISOString().split("T")[0]}.csv`,
+  };
+}
+
 export async function addNoteAction(conversationId: string, body: string) {
   const { session } = await requireOrg();
   const orgId = (session.user as any).orgId;

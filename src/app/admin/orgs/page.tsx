@@ -155,7 +155,7 @@ export default function AdminOrgsPage() {
                 placeholder="0.00"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                SMS: 4&#162;/segment, MMS: 8&#162;/message
+                Minimum $5.00 if adding credits. Leave at $0 for no initial balance.
               </p>
             </div>
           </div>

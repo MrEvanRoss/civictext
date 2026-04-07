@@ -82,3 +82,6 @@ export const UCS2_MULTIPART_SEGMENT_LENGTH = 67;
 // Default messaging rates (in cents)
 export const DEFAULT_SMS_RATE_CENTS = 4;
 export const DEFAULT_MMS_RATE_CENTS = 8;
+
+// Minimum transaction amount (in cents)
+export const MIN_TRANSACTION_CENTS = 500; // $5.00

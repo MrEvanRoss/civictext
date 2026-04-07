@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,12 +82,12 @@ export default function RegisterPage() {
   const [balanceCents, setBalanceCents] = useState(0);
   const [phoneFeeCents, setPhoneFeeCents] = useState(500);
 
-  useState(() => {
+  useEffect(() => {
     getBillingOverviewAction().then((data) => {
       setBalanceCents(data.plan?.balanceCents || 0);
       setPhoneFeeCents(data.plan?.phoneNumberFeeCents || 500);
     }).catch(() => {});
-  });
+  }, []);
 
   const [brandForm, setBrandForm] = useState<BrandForm>({
     brandName: "",

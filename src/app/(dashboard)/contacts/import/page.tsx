@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Steps } from "@/components/ui/steps";
@@ -14,7 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Upload, FileText, CheckCircle2, AlertCircle } from "lucide-react";
+import { Upload, FileText, CheckCircle2, AlertCircle, Download, Info } from "lucide-react";
 
 const WIZARD_STEPS = [
   { title: "Upload", description: "Select file" },
@@ -179,35 +180,136 @@ export default function ImportPage() {
 
       {/* Step 0: Upload */}
       {step === 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Upload CSV File</CardTitle>
-            <CardDescription>
-              Upload a CSV file with contact information. Files up to 500MB are supported.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div
-              className="border-2 border-dashed rounded-lg p-12 text-center cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={() => fileRef.current?.click()}
-            >
-              <Upload className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-              <p className="text-sm font-medium">
-                Click to upload or drag and drop
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                CSV files only (.csv)
-              </p>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".csv"
-                className="hidden"
-                onChange={handleFileSelect}
-              />
-            </div>
-          </CardContent>
-        </Card>
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Upload CSV File</CardTitle>
+              <CardDescription>
+                Upload a CSV file with contact information. Files up to 500MB are supported.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div
+                className="border-2 border-dashed rounded-lg p-12 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => fileRef.current?.click()}
+              >
+                <Upload className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+                <p className="text-sm font-medium">
+                  Click to upload or drag and drop
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  CSV files only (.csv)
+                </p>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Instructions */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Info className="h-5 w-5 text-blue-600" />
+                <CardTitle className="text-base">How to Prepare Your CSV</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div>
+                <h3 className="text-sm font-medium mb-2">Required Column</h3>
+                <p className="text-sm text-muted-foreground">
+                  Your file must include a column with <span className="font-medium text-foreground">phone numbers</span>. All other columns are optional.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium mb-2">Supported Columns</h3>
+                <div className="overflow-x-auto border rounded">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left py-2 px-3 font-medium">Column</th>
+                        <th className="text-left py-2 px-3 font-medium">Required</th>
+                        <th className="text-left py-2 px-3 font-medium">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b">
+                        <td className="py-2 px-3 font-mono text-xs">Phone</td>
+                        <td className="py-2 px-3"><Badge variant="destructive" className="text-xs">Required</Badge></td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs">US phone number in any format</td>
+                      </tr>
+                      <tr className="border-b">
+                        <td className="py-2 px-3 font-mono text-xs">First Name</td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs">Optional</td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs">Used for merge fields like {"{{firstName}}"}</td>
+                      </tr>
+                      <tr className="border-b">
+                        <td className="py-2 px-3 font-mono text-xs">Last Name</td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs">Optional</td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs">Used for merge fields like {"{{lastName}}"}</td>
+                      </tr>
+                      <tr className="border-b">
+                        <td className="py-2 px-3 font-mono text-xs">Email</td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs">Optional</td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs">Contact email address</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 px-3 font-mono text-xs">Tags</td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs">Optional</td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs">Comma-separated tags for grouping</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium mb-2">Example CSV</h3>
+                <div className="bg-muted rounded-lg p-3 font-mono text-xs overflow-x-auto">
+                  <p>Phone,First Name,Last Name,Email,Tags</p>
+                  <p>2125551234,Jane,Smith,jane@example.com,volunteer</p>
+                  <p>(312) 555-6789,John,Doe,john@example.com,"donor,vip"</p>
+                  <p>+14155550100,Maria,Garcia,,supporter</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => {
+                    const csv = 'Phone,First Name,Last Name,Email,Tags\n2125551234,Jane,Smith,jane@example.com,volunteer\n(312) 555-6789,John,Doe,john@example.com,"donor,vip"\n+14155550100,Maria,Garcia,,supporter';
+                    const blob = new Blob([csv], { type: "text/csv" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "sample-contacts.csv";
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  <Download className="h-3 w-3 mr-1" />
+                  Download Sample CSV
+                </Button>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium mb-2">Tips</h3>
+                <ul className="space-y-1 text-sm text-muted-foreground">
+                  <li>Phone numbers can be in any format: (555) 123-4567, 555-123-4567, +15551234567, or 5551234567</li>
+                  <li>Column names are matched automatically. Common names like &quot;Phone&quot;, &quot;Mobile&quot;, &quot;First Name&quot;, etc. are detected.</li>
+                  <li>Duplicate phone numbers are skipped &mdash; existing contacts won&apos;t be overwritten.</li>
+                  <li>Use tags to organize contacts into groups for targeted campaigns.</li>
+                  <li>Your column names don&apos;t need to match exactly &mdash; you&apos;ll map them in the next step.</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+        </>
       )}
 
       {/* Step 1: Column Mapping */}

@@ -308,7 +308,8 @@ export default function AdminOrgDetailPage() {
                   step="0.01"
                   value={addAmount}
                   onChange={(e) => setAddAmount(e.target.value)}
-                  placeholder="0.00"
+                  placeholder="5.00"
+                  min="5"
                   className="pl-7"
                 />
               </div>
@@ -316,6 +317,7 @@ export default function AdminOrgDetailPage() {
                 {addingCredits ? "Adding..." : "Add Credits"}
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground mt-1">Minimum $5.00 per transaction</p>
             <div className="flex gap-2 mt-2">
               {[25, 50, 100, 500].map((amt) => (
                 <Button

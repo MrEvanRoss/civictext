@@ -4,6 +4,7 @@ import { requireSuperAdmin } from "./auth";
 import { db } from "@/lib/db";
 import { redis } from "@/lib/redis";
 import { syncBalanceToRedis, addCredits } from "@/server/services/quota-service";
+import { MIN_TRANSACTION_CENTS } from "@/lib/constants";
 import bcrypt from "bcryptjs";
 
 // ============================================================
@@ -134,6 +135,10 @@ export async function reactivateOrgAction(orgId: string) {
 export async function addCreditsAction(orgId: string, amountCents: number) {
   await requireSuperAdmin();
 
+  if (amountCents < MIN_TRANSACTION_CENTS) {
+    throw new Error(`Minimum transaction is $${(MIN_TRANSACTION_CENTS / 100).toFixed(2)}`);
+  }
+
   await addCredits(orgId, amountCents);
 
   console.log(`[ADMIN] Added ${amountCents}¢ credits to org ${orgId}`);
@@ -180,6 +185,9 @@ export async function createOrgAction(data: {
     .replace(/^-|-$/g, "");
 
   const initialCreditsCents = Math.round((data.initialCreditsDollars || 0) * 100);
+  if (initialCreditsCents > 0 && initialCreditsCents < MIN_TRANSACTION_CENTS) {
+    throw new Error(`Minimum initial credits is $${(MIN_TRANSACTION_CENTS / 100).toFixed(2)}`);
+  }
 
   const result = await db.$transaction(async (tx) => {
     const org = await tx.organization.create({
@@ -405,5 +413,148 @@ export async function getSystemHealthAction() {
     uptime: process.uptime(),
     nodeVersion: process.version,
     environment: process.env.NODE_ENV || "development",
+  };
+}
+
+// ============================================================
+// MESSAGE LOG
+// ============================================================
+
+export async function listMessagesAction(opts?: {
+  orgId?: string;
+  direction?: string;
+  status?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+}) {
+  await requireSuperAdmin();
+  const page = opts?.page || 1;
+  const pageSize = 50;
+
+  const where: any = {};
+  if (opts?.orgId) where.orgId = opts.orgId;
+  if (opts?.direction) where.direction = opts.direction;
+  if (opts?.status) where.status = opts.status;
+  if (opts?.search) {
+    where.OR = [
+      { body: { contains: opts.search, mode: "insensitive" } },
+      { contact: { phone: { contains: opts.search } } },
+      { twilioSid: { contains: opts.search } },
+    ];
+  }
+  if (opts?.startDate || opts?.endDate) {
+    where.createdAt = {};
+    if (opts?.startDate) where.createdAt.gte = new Date(opts.startDate);
+    if (opts?.endDate) {
+      const end = new Date(opts.endDate);
+      end.setHours(23, 59, 59, 999);
+      where.createdAt.lte = end;
+    }
+  }
+
+  const [messages, total] = await Promise.all([
+    db.message.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      include: {
+        org: { select: { name: true } },
+        contact: { select: { phone: true, firstName: true, lastName: true } },
+        campaign: { select: { name: true } },
+      },
+    }),
+    db.message.count({ where }),
+  ]);
+
+  return {
+    messages,
+    total,
+    page,
+    pageSize,
+    totalPages: Math.ceil(total / pageSize),
+  };
+}
+
+export async function exportMessagesAction(opts?: {
+  orgId?: string;
+  direction?: string;
+  status?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+}) {
+  await requireSuperAdmin();
+
+  const where: any = {};
+  if (opts?.orgId) where.orgId = opts.orgId;
+  if (opts?.direction) where.direction = opts.direction;
+  if (opts?.status) where.status = opts.status;
+  if (opts?.search) {
+    where.OR = [
+      { body: { contains: opts.search, mode: "insensitive" } },
+      { contact: { phone: { contains: opts.search } } },
+    ];
+  }
+  if (opts?.startDate || opts?.endDate) {
+    where.createdAt = {};
+    if (opts?.startDate) where.createdAt.gte = new Date(opts.startDate);
+    if (opts?.endDate) {
+      const end = new Date(opts.endDate);
+      end.setHours(23, 59, 59, 999);
+      where.createdAt.lte = end;
+    }
+  }
+
+  const messages = await db.message.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    take: 10000,
+    include: {
+      org: { select: { name: true } },
+      contact: { select: { phone: true, firstName: true, lastName: true } },
+      campaign: { select: { name: true } },
+    },
+  });
+
+  const rows: string[][] = [
+    ["Date", "Time", "Organization", "Contact Phone", "Contact Name", "Direction", "Body", "Status", "Segments", "Cost", "Campaign", "Twilio SID"],
+  ];
+
+  for (const msg of messages) {
+    const date = new Date(msg.createdAt);
+    const contactName = [msg.contact?.firstName, msg.contact?.lastName]
+      .filter(Boolean)
+      .join(" ");
+    rows.push([
+      date.toLocaleDateString(),
+      date.toLocaleTimeString(),
+      msg.org?.name || "",
+      msg.contact?.phone || "",
+      contactName,
+      msg.direction,
+      msg.body || "",
+      msg.status,
+      String(msg.segmentCount),
+      msg.cost ? String(msg.cost) : "",
+      msg.campaign?.name || "",
+      msg.twilioSid || "",
+    ]);
+  }
+
+  const csvLines = rows.map((row) =>
+    row.map((cell) => {
+      if (cell.includes(",") || cell.includes('"') || cell.includes("\n")) {
+        return `"${cell.replace(/"/g, '""')}"`;
+      }
+      return cell;
+    }).join(",")
+  );
+
+  return {
+    csv: csvLines.join("\n"),
+    filename: `message-log-${new Date().toISOString().split("T")[0]}.csv`,
   };
 }

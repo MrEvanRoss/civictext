@@ -11,8 +11,10 @@ import {
   getConversationMessagesAction,
   sendReplyAction,
   addNoteAction,
+  exportConversationAction,
+  exportAllConversationsAction,
 } from "@/server/actions/inbox";
-import { Inbox, Send, StickyNote, User } from "lucide-react";
+import { Inbox, Send, StickyNote, User, Download } from "lucide-react";
 
 export default function InboxPage() {
   const [conversations, setConversations] = useState<any[]>([]);
@@ -68,6 +70,35 @@ export default function InboxPage() {
     }
   }
 
+  function downloadCsv(csv: string, filename: string) {
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleExportConversation() {
+    if (!selectedId) return;
+    try {
+      const { csv, filename } = await exportConversationAction(selectedId);
+      downloadCsv(csv, filename);
+    } catch (err: any) {
+      alert(err.message || "Failed to export conversation");
+    }
+  }
+
+  async function handleExportAll() {
+    try {
+      const { csv, filename } = await exportAllConversationsAction();
+      downloadCsv(csv, filename);
+    } catch (err: any) {
+      alert(err.message || "Failed to export conversations");
+    }
+  }
+
   async function handleAddNote() {
     if (!selectedId || !noteText.trim()) return;
     try {
@@ -84,7 +115,18 @@ export default function InboxPage() {
       {/* Thread List (Left Panel) */}
       <div className="w-80 border-r flex flex-col">
         <div className="p-4 border-b space-y-2">
-          <h2 className="font-semibold">Inbox</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Inbox</h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportAll}
+              title="Export all conversations"
+            >
+              <Download className="h-3 w-3 mr-1" />
+              Export
+            </Button>
+          </div>
           <Select
             value={filter}
             onChange={(e) => setFilter(e.target.value as any)}
@@ -181,15 +223,26 @@ export default function InboxPage() {
                   </p>
                 </div>
               </div>
-              {thread.conversation.contact?.tags?.length > 0 && (
-                <div className="flex gap-1">
-                  {thread.conversation.contact.tags.slice(0, 3).map((tag: string) => (
-                    <Badge key={tag} variant="secondary" className="text-xs">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                {thread.conversation.contact?.tags?.length > 0 && (
+                  <div className="flex gap-1">
+                    {thread.conversation.contact.tags.slice(0, 3).map((tag: string) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportConversation}
+                  title="Export this conversation"
+                >
+                  <Download className="h-3 w-3 mr-1" />
+                  Export
+                </Button>
+              </div>
             </div>
 
             {/* Messages */}

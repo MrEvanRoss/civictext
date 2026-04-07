@@ -8,11 +8,13 @@ import {
   BarChart3,
   Shield,
   Activity,
+  MessageSquare,
   ArrowLeft,
 } from "lucide-react";
 
 const adminNav = [
   { href: "/admin/orgs", label: "Organizations", icon: Building2 },
+  { href: "/admin/messages", label: "Message Log", icon: MessageSquare },
   { href: "/admin/analytics", label: "Global Analytics", icon: BarChart3 },
   { href: "/admin/compliance", label: "Compliance", icon: Shield },
   { href: "/admin/system", label: "System Health", icon: Activity },
