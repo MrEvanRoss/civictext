@@ -30,7 +30,6 @@ import {
   Shield,
   PanelLeftClose,
   PanelLeft,
-  Menu,
 } from "lucide-react";
 
 const navGroups = [

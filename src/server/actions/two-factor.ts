@@ -6,7 +6,6 @@ import {
   generateTOTPSecret,
   verifyTOTPCode,
   generateBackupCodes,
-  verifyBackupCode,
 } from "@/lib/two-factor";
 import { requireAuth } from "./auth";
 import QRCode from "qrcode";

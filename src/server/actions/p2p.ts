@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAuth, requirePermission } from "./auth";
+import { requirePermission } from "./auth";
 import { PERMISSIONS } from "@/lib/constants";
 import {
   assignContactsToAgents,

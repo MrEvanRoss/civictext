@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { getGlobalAnalyticsAction } from "@/server/actions/admin";
 import {
@@ -16,11 +16,7 @@ export default function AdminAnalyticsPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadAnalytics();
-  }, []);
-
-  async function loadAnalytics() {
+  const loadAnalytics = useCallback(async () => {
     try {
       const result = await getGlobalAnalyticsAction();
       setData(result);
@@ -29,7 +25,11 @@ export default function AdminAnalyticsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadAnalytics();
+  }, [loadAnalytics]);
 
   if (loading) {
     return (

@@ -79,7 +79,7 @@ export default function P2PSendPage() {
   const [loading, setLoading] = useState(true);
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [showHistoryMobile, setShowHistoryMobile] = useState(false);
+  const [, setShowHistoryMobile] = useState(false);
   const [skipReason, setSkipReason] = useState("");
   const [showSkipInput, setShowSkipInput] = useState(false);
   const [sessionStart] = useState(Date.now());
@@ -113,11 +113,7 @@ export default function P2PSendPage() {
   }, []);
 
   // Load initial data
-  useEffect(() => {
-    loadInitial();
-  }, [campaignId]);
-
-  async function loadInitial() {
+  const loadInitial = useCallback(async () => {
     setLoading(true);
     try {
       const [batch, stats] = await Promise.all([
@@ -149,7 +145,11 @@ export default function P2PSendPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [campaignId]);
+
+  useEffect(() => {
+    loadInitial();
+  }, [loadInitial]);
 
   // Prefetch more assignments to replenish the buffer
   const prefetchNext = useCallback(() => {
@@ -292,6 +292,18 @@ export default function P2PSendPage() {
     }
   }
 
+  // Stable refs for keyboard shortcut handlers to avoid stale closures
+  const handleSendRef = useRef(handleSend);
+  const handleSkipRef = useRef(handleSkip);
+  const handleResetRef = useRef(handleReset);
+  const showShortcutsRef = useRef(showShortcuts);
+  const showSkipInputRef = useRef(showSkipInput);
+  useEffect(() => { handleSendRef.current = handleSend; });
+  useEffect(() => { handleSkipRef.current = handleSkip; });
+  useEffect(() => { handleResetRef.current = handleReset; });
+  useEffect(() => { showShortcutsRef.current = showShortcuts; }, [showShortcuts]);
+  useEffect(() => { showSkipInputRef.current = showSkipInput; }, [showSkipInput]);
+
   // Keyboard shortcuts
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -305,19 +317,19 @@ export default function P2PSendPage() {
         return;
       }
       if (e.key === "Escape") {
-        if (showShortcuts) { setShowShortcuts(false); return; }
-        if (showSkipInput) { setShowSkipInput(false); return; }
+        if (showShortcutsRef.current) { setShowShortcuts(false); return; }
+        if (showSkipInputRef.current) { setShowSkipInput(false); return; }
         setShowExitDialog(true);
         return;
       }
       if ((e.key === "Enter" && (e.metaKey || e.ctrlKey)) || (e.key === "Enter" && !isInput)) {
         e.preventDefault();
-        handleSend();
+        handleSendRef.current();
         return;
       }
       if (e.key === "s" && !isInput) {
         e.preventDefault();
-        handleSkip();
+        handleSkipRef.current();
         return;
       }
       if (e.key === "e" && !isInput) {
@@ -327,14 +339,14 @@ export default function P2PSendPage() {
       }
       if (e.key === "r" && !isInput) {
         e.preventDefault();
-        handleReset();
+        handleResetRef.current();
         return;
       }
     }
 
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [current, messageBody, showShortcuts, showSkipInput]);
+  }, []);
 
   // Session timer
   const sessionMinutes = Math.floor((Date.now() - sessionStart) / 60000);

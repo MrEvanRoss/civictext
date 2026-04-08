@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,11 +79,7 @@ export default function EditCampaignPage() {
   const WIZARD_STEPS = type === "P2P" ? WIZARD_STEPS_P2P : WIZARD_STEPS_DEFAULT;
   const segmentCount = countSegments(messageBody);
 
-  useEffect(() => {
-    loadAll();
-  }, [campaignId]);
-
-  async function loadAll() {
+  const loadAll = useCallback(async () => {
     setPageLoading(true);
     try {
       const [campaignData, segmentData, listData, memberData] = await Promise.all([
@@ -130,9 +126,11 @@ export default function EditCampaignPage() {
     } finally {
       setPageLoading(false);
     }
-  }
+  }, [campaignId, router]);
 
-  const selectedSegment = segments.find((s) => s.id === segmentId);
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
 
   async function handleSave() {
     setSaving(true);

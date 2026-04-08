@@ -20,7 +20,7 @@ export async function getDashboardAnalyticsAction() {
     totalContacts,
     optedOutContacts,
     activeCampaigns,
-    recentMessages,
+    ,
     topCampaigns,
   ] = await Promise.all([
     db.message.count({

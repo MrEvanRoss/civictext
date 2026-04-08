@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { validateTwilioSignature } from "@/lib/twilio";
 import { db } from "@/lib/db";
 import { OPT_OUT_KEYWORDS, OPT_IN_KEYWORDS } from "@/lib/constants";

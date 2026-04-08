@@ -1,4 +1,3 @@
-import { Prisma, PrismaClient } from "@prisma/client";
 import { db } from "./db";
 
 // Models that are scoped to an organization

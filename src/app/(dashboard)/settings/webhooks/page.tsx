@@ -18,7 +18,6 @@ import {
   createWebhookAction,
   deleteWebhookAction,
   toggleWebhookAction,
-  getAvailableEvents,
 } from "@/server/actions/webhooks";
 import {
   Plus,
@@ -185,10 +184,6 @@ export default function WebhooksPage() {
       clearTimeout(copiedSecretTimeoutRef.current);
     }
     copiedSecretTimeoutRef.current = setTimeout(() => setCopiedSecret(false), 2000);
-  }
-
-  function formatEventLabel(event: string): string {
-    return event.replace(/_/g, " ").replace(/\./g, " ");
   }
 
   function eventCategory(event: string): string {

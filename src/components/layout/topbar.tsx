@@ -24,7 +24,6 @@ import {
   Sun,
   Moon,
   Bell,
-  Search,
 } from "lucide-react";
 
 const PATH_LABELS: Record<string, string> = {

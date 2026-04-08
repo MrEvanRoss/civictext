@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/select";
@@ -38,7 +39,6 @@ import {
   StickyNote,
   User,
   Download,
-  Phone,
   Mail,
   MapPin,
   Calendar,
@@ -101,34 +101,6 @@ function DeliveryIcon({ status }: { status: string }) {
   }
 }
 
-function InboxSkeleton() {
-  return (
-    <div className="flex h-full">
-      <div className="w-80 border-r flex flex-col shrink-0">
-        <div className="p-4 border-b space-y-2">
-          <Skeleton className="h-6 w-16" />
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
-        </div>
-        <div className="flex-1 p-2 space-y-1">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="p-3 flex gap-3">
-              <Skeleton className="h-10 w-10 rounded-full shrink-0" />
-              <div className="flex-1 space-y-2">
-                <Skeleton className="h-4 w-28" />
-                <Skeleton className="h-3 w-full" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="flex-1 flex items-center justify-center">
-        <p className="text-muted-foreground">Select a conversation</p>
-      </div>
-    </div>
-  );
-}
-
 export default function InboxPage() {
   const [conversations, setConversations] = useState<any[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -168,7 +140,7 @@ export default function InboxPage() {
     try {
       const data = await listConversationsAction({ filter });
       setConversations(data.conversations);
-    } catch (err) {
+    } catch {
       toast.error("Failed to load conversations");
     } finally {
       setLoading(false);
@@ -195,11 +167,7 @@ export default function InboxPage() {
     } catch {}
   }
 
-  useEffect(() => {
-    if (selectedId) loadThread(selectedId);
-  }, [selectedId]);
-
-  async function loadThread(id: string) {
+  const loadThread = useCallback(async (id: string) => {
     try {
       const data = await getConversationMessagesAction(id);
       setThread(data);
@@ -207,10 +175,14 @@ export default function InboxPage() {
         clearTimeout(scrollTimeoutRef.current);
       }
       scrollTimeoutRef.current = setTimeout(() => scrollToBottom(), 100);
-    } catch (err) {
+    } catch {
       toast.error("Failed to load thread");
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    if (selectedId) loadThread(selectedId);
+  }, [selectedId, loadThread]);
 
   function scrollToBottom() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -674,11 +646,14 @@ export default function InboxPage() {
                       }`}
                     >
                       {msg.mediaUrl && (
-                        <img
+                        <Image
                           src={msg.mediaUrl}
                           alt={`${msg.direction === "OUTBOUND" ? "Sent" : "Received"} media attachment`}
+                          width={400}
+                          height={192}
                           className="rounded-lg max-w-full max-h-48 mb-1.5 cursor-pointer"
                           onClick={() => window.open(msg.mediaUrl, "_blank")}
+                          unoptimized
                         />
                       )}
                       {msg.body && <p className="whitespace-pre-wrap break-words">{msg.body}</p>}

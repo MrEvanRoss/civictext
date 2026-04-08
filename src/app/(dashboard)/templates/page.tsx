@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +23,7 @@ import {
 import { countSegments } from "@/lib/sms-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Plus, Search, FileText, Trash2, Copy, MessageSquare } from "lucide-react";
+import { Plus, Search, FileText, Trash2, Copy } from "lucide-react";
 
 const CATEGORIES = [
   { value: "all", label: "All Categories" },
@@ -49,11 +49,7 @@ export default function TemplatesPage() {
   const [newCategory, setNewCategory] = useState("general");
   const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
-    loadTemplates();
-  }, [category, search]);
-
-  async function loadTemplates() {
+  const loadTemplates = useCallback(async () => {
     setLoading(true);
     try {
       const data = await listTemplatesAction({
@@ -66,7 +62,11 @@ export default function TemplatesPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [category, search]);
+
+  useEffect(() => {
+    loadTemplates();
+  }, [loadTemplates]);
 
   async function handleCreate() {
     if (!name.trim() || !body.trim()) return;

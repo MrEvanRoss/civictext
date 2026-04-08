@@ -21,14 +21,6 @@ import {
 import { toast } from "sonner";
 import { Users, Plus, X, Trash2, UserPlus } from "lucide-react";
 
-const ROLE_LABELS: Record<string, string> = {
-  OWNER: "Owner",
-  ADMIN: "Admin",
-  MANAGER: "Manager",
-  SENDER: "Sender",
-  VIEWER: "Viewer",
-};
-
 const ROLE_DESCRIPTIONS: Record<string, string> = {
   ADMIN: "Full access except billing and ownership transfer",
   MANAGER: "Create campaigns, import contacts, view analytics",

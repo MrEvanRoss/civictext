@@ -15,7 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Upload, FileText, CheckCircle2, AlertCircle, Download, Info } from "lucide-react";
+import { Upload, CheckCircle2, AlertCircle, Download, Info } from "lucide-react";
 
 const WIZARD_STEPS = [
   { title: "Upload", description: "Select file" },
@@ -53,7 +53,7 @@ export default function ImportPage() {
   });
 
   // Processing state
-  const [processing, setProcessing] = useState(false);
+  const [, setProcessing] = useState(false);
   const [results, setResults] = useState<{
     total: number;
     success: number;
@@ -186,7 +186,7 @@ export default function ImportPage() {
       const data = await res.json();
       setResults(data);
       setStep(4);
-    } catch (err: any) {
+    } catch {
       setResults({
         total: 0,
         success: 0,

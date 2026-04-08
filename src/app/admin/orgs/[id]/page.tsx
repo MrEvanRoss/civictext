@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,10 +48,8 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  ExternalLink,
   ShieldCheck,
   ShieldOff,
-  Archive,
 } from "lucide-react";
 
 type Tab = "overview" | "campaigns" | "contacts" | "interest-lists" | "templates" | "webhooks" | "auto-reply" | "consent";
@@ -108,15 +106,7 @@ export default function AdminOrgDetailPage() {
     { value: "AUTO_REPLY", label: "Auto-Reply", desc: "Keyword-triggered responses" },
   ];
 
-  useEffect(() => {
-    loadOrg();
-  }, [orgId]);
-
-  useEffect(() => {
-    loadTabData();
-  }, [activeTab, contactPage, consentPage]);
-
-  async function loadOrg() {
+  const loadOrg = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getOrgDetailAction(orgId);
@@ -131,7 +121,11 @@ export default function AdminOrgDetailPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [orgId]);
+
+  useEffect(() => {
+    loadOrg();
+  }, [loadOrg]);
 
   async function handleSaveRates() {
     setSavingRates(true);
@@ -168,7 +162,7 @@ export default function AdminOrgDetailPage() {
     }
   }
 
-  async function loadTabData() {
+  const loadTabData = useCallback(async () => {
     if (activeTab === "overview") return;
     setTabLoading(true);
     try {
@@ -200,7 +194,11 @@ export default function AdminOrgDetailPage() {
     } finally {
       setTabLoading(false);
     }
-  }
+  }, [activeTab, orgId, contactPage, contactSearch, consentPage]);
+
+  useEffect(() => {
+    loadTabData();
+  }, [loadTabData]);
 
   async function handleSearchContacts() {
     setContactPage(1);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 
 export default function SettingsPage() {
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
@@ -58,7 +58,7 @@ export default function SettingsPage() {
       // TODO: wire up saveSettingsAction when available
       await new Promise((r) => setTimeout(r, 500));
       toast.success("Settings saved");
-    } catch (err) {
+    } catch {
       toast.error("Failed to save settings. Please try again.");
     } finally {
       setSaving(false);

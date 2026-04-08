@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,19 +28,7 @@ export default function AdminOrgsPage() {
     initialCreditsDollars: 0,
   });
 
-  useEffect(() => {
-    loadOrgs();
-  }, [page, status]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setPage(1);
-      loadOrgs();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [search]);
-
-  async function loadOrgs() {
+  const loadOrgs = useCallback(async () => {
     setLoading(true);
     try {
       const data = await listOrgsAction({
@@ -56,7 +44,18 @@ export default function AdminOrgsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [search, status, page]);
+
+  useEffect(() => {
+    loadOrgs();
+  }, [loadOrgs]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   async function handleCreateOrg() {
     if (!createForm.orgName || !createForm.ownerName || !createForm.ownerEmail || !createForm.ownerPassword) {

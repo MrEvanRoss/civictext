@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -12,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getBillingOverviewAction } from "@/server/actions/billing";
-import { CreditCard, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 export default function BillingPage() {
   const [data, setData] = useState<any>(null);
@@ -74,7 +73,6 @@ export default function BillingPage() {
   }
 
   const plan = data?.plan;
-  const balance = data?.balance || { balanceCents: 0, balanceDollars: "0.00" };
   const balanceLow = (plan?.balanceCents || 0) < 500; // Less than $5
 
   return (

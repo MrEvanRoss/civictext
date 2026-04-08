@@ -42,7 +42,6 @@ export const authConfig: NextAuthConfig = {
         nextUrl.pathname.startsWith("/billing") ||
         nextUrl.pathname.startsWith("/settings");
       const isAdmin = nextUrl.pathname.startsWith("/admin");
-      const isApi = nextUrl.pathname.startsWith("/api");
       const isWebhook = nextUrl.pathname.startsWith("/api/webhooks");
 
       // Webhooks are always public (validated by signature)

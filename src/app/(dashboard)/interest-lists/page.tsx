@@ -43,7 +43,7 @@ export default function InterestListsPage() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [selectedList, setSelectedList] = useState<any>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [, setDetailLoading] = useState(false);
   const [error, setError] = useState("");
 
   // Create form

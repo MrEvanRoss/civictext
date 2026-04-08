@@ -25,7 +25,6 @@ import {
   UserPlus,
   Settings,
   Plus,
-  Search,
   Moon,
   Sun,
 } from "lucide-react";

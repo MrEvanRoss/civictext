@@ -84,7 +84,7 @@ export default function ContactsPage() {
       loadContacts();
     }, 300);
     return () => clearTimeout(timeout);
-  }, [search]);
+  }, [search, loadContacts]);
 
   async function handleDelete(id: string) {
     if (!confirm("Are you sure you want to delete this contact? This cannot be undone.")) return;

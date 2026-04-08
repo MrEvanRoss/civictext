@@ -2,7 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getTenantDb, type TenantDb } from "@/lib/db-tenant";
+import { getTenantDb } from "@/lib/db-tenant";
 import { ROLE_HIERARCHY, ROLE_PERMISSIONS, type Permission } from "@/lib/constants";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";

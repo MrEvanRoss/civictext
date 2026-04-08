@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -16,7 +15,6 @@ import {
   CheckCircle2,
   XCircle,
   Users,
-  TrendingUp,
   BarChart3,
 } from "lucide-react";
 

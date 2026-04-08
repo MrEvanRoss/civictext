@@ -34,16 +34,6 @@ interface CampaignJobData {
   action: "expand" | "complete" | "check-scheduled";
 }
 
-interface QuickSendJobData {
-  orgId: string;
-  contactId: string;
-  messageBody: string;
-  mediaUrl?: string;
-  phone: string;
-  firstName?: string | null;
-  lastName?: string | null;
-}
-
 /**
  * Message Worker: Sends individual messages via Twilio.
  * Pipeline: check org → check consent → check quiet hours → render merge fields → check balance → send
@@ -51,7 +41,7 @@ interface QuickSendJobData {
 export const messageWorker = new Worker<MessageJobData>(
   "messages",
   async (job: Job<MessageJobData>) => {
-    const { orgId, campaignId, contactId, messageBody, mediaUrl, phone, firstName, lastName } = job.data;
+    const { orgId, campaignId, contactId, messageBody, mediaUrl, phone } = job.data;
 
     // 0. Check org is approved
     const org = await db.organization.findUnique({
@@ -373,9 +363,6 @@ async function expandCampaign(orgId: string, campaignId: string, job: Job) {
   // ==========================================
   let contactIds: Set<string>;
 
-  const hasInterestLists = campaign.interestListMode && campaign.interestListMode !== "everyone";
-  const hasInterestListSend = campaign.interestListMode === "everyone" && campaign.interestListIds.length > 0;
-
   if (campaign.interestListMode === "everyone" && campaign.interestListIds.length === 0) {
     // "Send to everyone" — all opted-in contacts
     const allContacts = await db.contact.findMany({
@@ -629,7 +616,8 @@ billingWorker.on("failed", (job, err) => {
   console.error(`Billing job ${job?.id} failed:`, err.message);
 });
 
-messageWorker.on("completed", (job) => {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+messageWorker.on("completed", (_job) => {
   // Logged via job.log
 });
 

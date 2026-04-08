@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -816,10 +817,13 @@ export default function NewCampaignPage() {
                                 [Video attachment]
                               </div>
                             ) : (
-                              <img
+                              <Image
                                 src={mediaUrl}
                                 alt="MMS preview"
+                                width={320}
+                                height={128}
                                 className="max-h-32 rounded-lg border object-contain"
+                                unoptimized
                               />
                             )}
                           </div>

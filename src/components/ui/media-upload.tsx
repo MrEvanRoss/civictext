@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -160,10 +161,13 @@ export function MediaUpload({
               className="max-h-40 rounded-lg border"
             />
           ) : (
-            <img
+            <Image
               src={displayUrl}
               alt="Attached media"
+              width={320}
+              height={160}
               className="max-h-40 rounded-lg border object-contain"
+              unoptimized
             />
           )}
           <button

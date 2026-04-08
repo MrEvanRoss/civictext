@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
 import { renderMergeFields } from "./campaign-service";
-import { isQuietHours, runComplianceChecks } from "./compliance-service";
+import { runComplianceChecks } from "./compliance-service";
 import { P2P_SUSPICIOUS_MIN_INTERVAL_MS } from "@/lib/constants";
 
 const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {

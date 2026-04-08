@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, Suspense } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -361,11 +362,13 @@ function SecuritySettingsContent() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex justify-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={qrCodeUrl}
                 alt="TOTP QR Code"
+                width={256}
+                height={256}
                 className="w-64 h-64 rounded-lg border p-2 bg-white"
+                unoptimized
               />
             </div>
             <div className="space-y-2">

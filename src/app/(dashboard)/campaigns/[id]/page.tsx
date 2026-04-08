@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,11 +53,7 @@ export default function CampaignDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    loadCampaign();
-  }, [campaignId]);
-
-  async function loadCampaign() {
+  const loadCampaign = useCallback(async () => {
     try {
       const data = await getCampaignAction(campaignId);
       if (!data) {
@@ -70,12 +66,16 @@ export default function CampaignDetailPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [campaignId, router]);
+
+  useEffect(() => {
+    loadCampaign();
+  }, [loadCampaign]);
 
   // Auto-refresh every 10 seconds while actively sending
+  const campaignStatus = campaign?.status;
   useEffect(() => {
-    if (!campaign) return;
-    const isActive = campaign.status === "SENDING" || campaign.status === "EXPANDING";
+    const isActive = campaignStatus === "SENDING" || campaignStatus === "EXPANDING";
     if (!isActive) return;
 
     const interval = setInterval(() => {
@@ -83,7 +83,7 @@ export default function CampaignDetailPage() {
     }, 10_000);
 
     return () => clearInterval(interval);
-  }, [campaign?.status, campaignId]);
+  }, [campaignStatus, loadCampaign]);
 
   function getCompletionEstimate() {
     if (!campaign) return null;

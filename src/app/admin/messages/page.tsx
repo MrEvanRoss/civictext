@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/select";
@@ -8,9 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   listMessagesAction,
@@ -47,11 +44,7 @@ export default function AdminMessagesPage() {
     }).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    loadMessages();
-  }, [page, orgId, direction, status, startDate, endDate]);
-
-  async function loadMessages() {
+  const loadMessages = useCallback(async () => {
     setLoading(true);
     try {
       const data = await listMessagesAction({
@@ -71,7 +64,11 @@ export default function AdminMessagesPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [page, orgId, direction, status, search, startDate, endDate]);
+
+  useEffect(() => {
+    loadMessages();
+  }, [loadMessages]);
 
   function handleSearch() {
     setPage(1);

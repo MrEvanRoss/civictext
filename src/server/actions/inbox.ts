@@ -447,8 +447,7 @@ export async function escalateConversationAction(
  * Resolve an escalated conversation.
  */
 export async function resolveEscalationAction(conversationId: string) {
-  const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  await requireOrg();
 
   return db.conversation.update({
     where: { id: conversationId },
@@ -489,8 +488,7 @@ export async function assignConversationAction(
   conversationId: string,
   userId: string | null
 ) {
-  const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  await requireOrg();
 
   return db.conversation.update({
     where: { id: conversationId },
@@ -676,8 +674,7 @@ export async function deleteQuickReplyAction(templateId: string) {
  * Mark a conversation as closed/resolved.
  */
 export async function closeConversationAction(conversationId: string) {
-  const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  await requireOrg();
 
   return db.conversation.update({
     where: { id: conversationId },
@@ -689,8 +686,7 @@ export async function closeConversationAction(conversationId: string) {
  * Reopen a closed conversation.
  */
 export async function reopenConversationAction(conversationId: string) {
-  const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  await requireOrg();
 
   return db.conversation.update({
     where: { id: conversationId },

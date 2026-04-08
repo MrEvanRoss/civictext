@@ -1,7 +1,6 @@
 import Twilio from "twilio";
 import { decrypt } from "@/utils/encryption";
 import { db } from "./db";
-import crypto from "crypto";
 
 /**
  * Get the master Twilio client (CivicText's main account).

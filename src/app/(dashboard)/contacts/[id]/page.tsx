@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +33,7 @@ import {
   removeMemberAction,
 } from "@/server/actions/interest-lists";
 import { quickSendAction } from "@/server/actions/inbox";
-import { ArrowLeft, Save, Trash2, Send, MessageSquare, StickyNote, ShieldCheck, ArrowDownLeft, ArrowUpRight, Hash, Plus, X } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Send, StickyNote, ShieldCheck, ArrowDownLeft, ArrowUpRight, Hash, Plus, X } from "lucide-react";
 
 export default function ContactDetailPage() {
   const params = useParams();
@@ -88,14 +88,7 @@ export default function ContactDetailPage() {
     };
   }, []);
 
-  useEffect(() => {
-    loadContact();
-    loadTimeline();
-    loadNotes();
-    loadInterestLists();
-  }, [contactId]);
-
-  async function loadTimeline() {
+  const loadTimeline = useCallback(async () => {
     setTimelineLoading(true);
     try {
       const data = await getContactTimelineAction(contactId);
@@ -105,18 +98,18 @@ export default function ContactDetailPage() {
     } finally {
       setTimelineLoading(false);
     }
-  }
+  }, [contactId]);
 
-  async function loadNotes() {
+  const loadNotes = useCallback(async () => {
     try {
       const data = await getContactNotesAction(contactId);
       setNotes(data);
     } catch {
       // Non-critical
     }
-  }
+  }, [contactId]);
 
-  async function loadInterestLists() {
+  const loadInterestLists = useCallback(async () => {
     try {
       const [memberData, allData] = await Promise.all([
         getContactInterestListsAction(contactId),
@@ -127,7 +120,7 @@ export default function ContactDetailPage() {
     } catch {
       // Non-critical
     }
-  }
+  }, [contactId]);
 
   async function handleAddNote() {
     if (!newNote.trim()) return;
@@ -176,7 +169,7 @@ export default function ContactDetailPage() {
     }
   }
 
-  async function loadContact() {
+  const loadContact = useCallback(async () => {
     try {
       const data = await getContactAction(contactId);
       if (!data) {
@@ -204,7 +197,14 @@ export default function ContactDetailPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [contactId, router]);
+
+  useEffect(() => {
+    loadContact();
+    loadTimeline();
+    loadNotes();
+    loadInterestLists();
+  }, [loadContact, loadTimeline, loadNotes, loadInterestLists]);
 
   async function handleSave() {
     setSaving(true);

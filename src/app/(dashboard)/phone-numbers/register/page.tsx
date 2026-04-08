@@ -21,7 +21,6 @@ import {
   provisionSubaccountAction,
   createMessagingServiceAction,
   registerBrandAction,
-  registerCampaignAction,
   provisionPhoneNumbersAction,
 } from "@/server/actions/twilio";
 import { getBillingOverviewAction } from "@/server/actions/billing";
