@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MessageCircle, CheckCircle2, AlertCircle } from "lucide-react";
+import Image from "next/image";
+import { CheckCircle2, AlertCircle } from "lucide-react";
 
 export default function PublicJoinPage() {
   const params = useParams();
@@ -108,8 +109,8 @@ export default function PublicJoinPage() {
         <div className="bg-white rounded-2xl shadow-lg p-8 space-y-6">
           {/* Header */}
           <div className="text-center space-y-2">
-            <div className="h-14 w-14 rounded-full bg-blue-100 flex items-center justify-center mx-auto">
-              <MessageCircle className="h-7 w-7 text-blue-600" />
+            <div className="flex justify-center">
+              <Image src="/logo-icon.png" alt="CivicText" width={56} height={40} />
             </div>
             <h1 className="text-2xl font-bold text-gray-900">{displayName}</h1>
             <p className="text-gray-600">
@@ -188,9 +189,10 @@ export default function PublicJoinPage() {
           </form>
 
           {/* Footer */}
-          <p className="text-center text-[10px] text-gray-400 pt-2">
-            Powered by CivicText
-          </p>
+          <div className="flex items-center justify-center gap-1 pt-2">
+            <span className="text-[10px] text-gray-400">Powered by</span>
+            <Image src="/logo.png" alt="CivicText" width={60} height={60} />
+          </div>
         </div>
       </div>
     </div>

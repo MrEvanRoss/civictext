@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import {
   Sheet,
@@ -85,9 +86,7 @@ export default function AdminLayout({
       <aside className="hidden md:flex w-64 border-r bg-card flex-col fixed inset-y-0">
         <div className="flex items-center h-16 px-6 border-b">
           <Link href="/admin/orgs" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-red-600 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">CT</span>
-            </div>
+            <Image src="/logo-icon.png" alt="CivicText" width={32} height={23} className="shrink-0" />
             <div>
               <span className="font-semibold text-lg">CivicText</span>
               <span className="text-xs text-red-600 ml-1">Admin</span>
@@ -109,9 +108,7 @@ export default function AdminLayout({
           <Menu className="h-5 w-5" />
         </Button>
         <div className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-lg bg-red-600 flex items-center justify-center">
-            <span className="text-white font-bold text-xs">CT</span>
-          </div>
+          <Image src="/logo-icon.png" alt="CivicText" width={28} height={20} className="shrink-0" />
           <span className="font-semibold">Admin</span>
         </div>
       </div>
@@ -122,9 +119,7 @@ export default function AdminLayout({
           <SheetTitle className="sr-only">Admin Navigation</SheetTitle>
           <div className="flex items-center h-16 px-6 border-b">
             <Link href="/admin/orgs" className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-red-600 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">CT</span>
-              </div>
+              <Image src="/logo-icon.png" alt="CivicText" width={32} height={23} className="shrink-0" />
               <div>
                 <span className="font-semibold text-lg">CivicText</span>
                 <span className="text-xs text-red-600 ml-1">Admin</span>

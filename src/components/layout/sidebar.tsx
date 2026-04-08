@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { getOrgBrandingAction } from "@/server/actions/org-settings";
 import {
   Sheet,
   SheetContent,
@@ -216,27 +218,47 @@ function CollapsibleNavGroup({
 
 // --- NavContent ---
 
+interface OrgBranding {
+  name: string;
+  logoUrl: string | null;
+}
+
 function NavContent({
   collapsed,
   onToggle,
+  orgBranding,
 }: {
   collapsed: boolean;
   onToggle?: () => void;
+  orgBranding: OrgBranding | null;
 }) {
   const pathname = usePathname();
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* Logo */}
+      {/* Organization Branding Header */}
       <div className="flex items-center h-16 px-4 border-b border-border/50">
         <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0">
-          <div className="h-9 w-9 shrink-0 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-sm">
-            <span className="text-primary-foreground font-bold text-sm">CT</span>
-          </div>
+          {orgBranding?.logoUrl ? (
+            <Image
+              src={orgBranding.logoUrl}
+              alt={orgBranding.name}
+              width={32}
+              height={32}
+              className="h-8 w-8 shrink-0 rounded-lg object-cover"
+            />
+          ) : (
+            <div className="h-8 w-8 shrink-0 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-sm">
+              <span className="text-primary-foreground font-bold text-sm">
+                {orgBranding?.name?.charAt(0)?.toUpperCase() || "O"}
+              </span>
+            </div>
+          )}
           {!collapsed && (
             <div className="min-w-0">
-              <span className="font-semibold text-lg block leading-tight">CivicText</span>
-              <span className="text-[10px] text-muted-foreground leading-none">Making Communication Easy</span>
+              <span className="font-semibold text-sm block leading-tight truncate">
+                {orgBranding?.name || "My Organization"}
+              </span>
             </div>
           )}
         </Link>
@@ -297,36 +319,69 @@ function NavContent({
         })}
       </nav>
 
-      {/* Collapse toggle (desktop only) */}
-      {onToggle && (
-        <div className="p-2 border-t border-border/50">
-          <button
-            onClick={onToggle}
-            className="flex items-center justify-center gap-2 w-full px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {collapsed ? (
-              <PanelLeft className="h-4 w-4" />
-            ) : (
-              <>
-                <PanelLeftClose className="h-4 w-4" />
-                <span>Collapse</span>
-              </>
-            )}
-          </button>
+      {/* Bottom: CivicText branding + collapse toggle */}
+      <div className="border-t border-border/50">
+        {/* CivicText logo */}
+        <div className={cn("flex items-center px-4 py-2", collapsed ? "justify-center" : "gap-2")}>
+          {collapsed ? (
+            <Image src="/logo-icon.png" alt="CivicText" width={24} height={17} className="shrink-0 opacity-50" />
+          ) : (
+            <div className="flex items-center gap-1.5 opacity-50">
+              <Image src="/logo-icon.png" alt="CivicText" width={18} height={13} className="shrink-0" />
+              <span className="text-[10px] text-muted-foreground">Powered by CivicText</span>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Collapse toggle (desktop only) */}
+        {onToggle && (
+          <div className="px-2 pb-2">
+            <button
+              onClick={onToggle}
+              className="flex items-center justify-center gap-2 w-full px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {collapsed ? (
+                <PanelLeft className="h-4 w-4" />
+              ) : (
+                <>
+                  <PanelLeftClose className="h-4 w-4" />
+                  <span>Collapse</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const [orgBranding, setOrgBranding] = useState<OrgBranding | null>(null);
+
+  const loadBranding = useCallback(async () => {
+    try {
+      const data = await getOrgBrandingAction();
+      setOrgBranding(data);
+    } catch {
+      // Silently fail — sidebar will show fallback
+    }
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem("sidebar-collapsed");
     if (saved === "true") setCollapsed(true);
-  }, []);
+    loadBranding();
+  }, [loadBranding]);
+
+  // Re-fetch branding when org settings change (custom event)
+  useEffect(() => {
+    const handleBrandingUpdate = () => { loadBranding(); };
+    window.addEventListener("org-branding-update", handleBrandingUpdate);
+    return () => window.removeEventListener("org-branding-update", handleBrandingUpdate);
+  }, [loadBranding]);
 
   const toggle = () => {
     setCollapsed((prev) => {
@@ -344,7 +399,7 @@ export function Sidebar() {
           collapsed ? "md:w-[60px]" : "md:w-64"
         )}
       >
-        <NavContent collapsed={collapsed} onToggle={toggle} />
+        <NavContent collapsed={collapsed} onToggle={toggle} orgBranding={orgBranding} />
       </aside>
     </TooltipProvider>
   );
@@ -357,11 +412,32 @@ export function MobileSidebar({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const [orgBranding, setOrgBranding] = useState<OrgBranding | null>(null);
+
+  const loadBranding = useCallback(async () => {
+    try {
+      const data = await getOrgBrandingAction();
+      setOrgBranding(data);
+    } catch {
+      // Silently fail
+    }
+  }, []);
+
+  useEffect(() => {
+    loadBranding();
+  }, [loadBranding]);
+
+  useEffect(() => {
+    const handleBrandingUpdate = () => { loadBranding(); };
+    window.addEventListener("org-branding-update", handleBrandingUpdate);
+    return () => window.removeEventListener("org-branding-update", handleBrandingUpdate);
+  }, [loadBranding]);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="left" className="p-0 w-64">
         <SheetTitle className="sr-only">Navigation</SheetTitle>
-        <NavContent collapsed={false} />
+        <NavContent collapsed={false} orgBranding={orgBranding} />
       </SheetContent>
     </Sheet>
   );

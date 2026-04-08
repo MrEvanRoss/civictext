@@ -26,6 +26,8 @@ const orgSettingsSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/, "Invalid hex color")
     .optional()
     .nullable(),
+  // Branding
+  logoUrl: z.string().max(500).optional().nullable(),
 });
 
 export type OrgSettings = z.infer<typeof orgSettingsSchema>;
@@ -50,6 +52,7 @@ export async function getOrgSettingsAction() {
       optOutMessage: true,
       messageSignature: true,
       accentColor: true,
+      logoUrl: true,
     },
   });
 
@@ -82,6 +85,41 @@ export async function getOrgSettingsAction() {
 }
 
 // ---------------------------------------------------------------------------
+// Sidebar branding (lightweight query)
+// ---------------------------------------------------------------------------
+
+export async function getOrgBrandingAction() {
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
+
+  const org = await db.organization.findUniqueOrThrow({
+    where: { id: orgId },
+    select: {
+      name: true,
+      logoUrl: true,
+    },
+  });
+
+  return org;
+}
+
+// ---------------------------------------------------------------------------
+// Update logo URL
+// ---------------------------------------------------------------------------
+
+export async function updateOrgLogoAction(logoUrl: string | null) {
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
+
+  await db.organization.update({
+    where: { id: orgId },
+    data: { logoUrl },
+  });
+
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
 // Update
 // ---------------------------------------------------------------------------
 
@@ -103,6 +141,7 @@ export async function updateOrgSettingsAction(settings: OrgSettings) {
       optOutMessage: validated.optOutMessage ?? null,
       messageSignature: validated.messageSignature ?? null,
       accentColor: validated.accentColor ?? null,
+      logoUrl: validated.logoUrl ?? null,
     },
   });
 

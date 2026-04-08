@@ -24,6 +24,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import Image from "next/image";
 import {
   Save,
   Webhook,
@@ -42,11 +43,15 @@ import {
   ExternalLink,
   CheckCircle2,
   XCircle,
+  Upload,
+  Trash2,
+  ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   getOrgSettingsAction,
   updateOrgSettingsAction,
+  updateOrgLogoAction,
 } from "@/server/actions/org-settings";
 
 // ---------------------------------------------------------------------------
@@ -101,6 +106,7 @@ interface OrgData {
   optOutMessage: string | null;
   messageSignature: string | null;
   accentColor: string | null;
+  logoUrl: string | null;
   phoneNumber: string | null;
   twilioAccountSid: string | null;
   userName: string;
@@ -214,6 +220,8 @@ function SettingsContent() {
       toast.success("Settings saved");
       // Refresh orgData so read-only fields stay in sync
       await loadSettings();
+      // Notify sidebar to re-fetch branding (name may have changed)
+      window.dispatchEvent(new Event("org-branding-update"));
     } catch {
       toast.error("Failed to save settings");
     } finally {
@@ -288,6 +296,11 @@ function SettingsContent() {
             orgData={orgData}
             saving={saving}
             onSave={handleSave}
+            onLogoChange={() => {
+              loadSettings();
+              // Notify sidebar to re-fetch branding
+              window.dispatchEvent(new Event("org-branding-update"));
+            }}
           />
         )}
         {activeTab === "signup" && (
@@ -336,15 +349,142 @@ function GeneralTab({
   orgData,
   saving,
   onSave,
+  onLogoChange,
 }: {
   form: any;
   setForm: React.Dispatch<React.SetStateAction<any>>;
   orgData: OrgData | null;
   saving: boolean;
   onSave: () => void;
+  onLogoChange: () => void;
 }) {
+  const [uploading, setUploading] = useState(false);
+  const [removingLogo, setRemovingLogo] = useState(false);
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      toast.error("Please upload a JPG, PNG, or WebP image");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Logo must be under 2MB");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.error || "Upload failed");
+        return;
+      }
+
+      await updateOrgLogoAction(data.url);
+      toast.success("Logo updated");
+      onLogoChange();
+    } catch {
+      toast.error("Failed to upload logo");
+    } finally {
+      setUploading(false);
+      // Reset the input so the same file can be re-selected
+      e.target.value = "";
+    }
+  }
+
+  async function handleRemoveLogo() {
+    setRemovingLogo(true);
+    try {
+      await updateOrgLogoAction(null);
+      toast.success("Logo removed");
+      onLogoChange();
+    } catch {
+      toast.error("Failed to remove logo");
+    } finally {
+      setRemovingLogo(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
+      {/* Organization Logo */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Organization Logo</CardTitle>
+          <CardDescription>
+            Your logo appears in the sidebar navigation. Recommended: square image, at least 200x200px.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-6">
+            {/* Logo preview */}
+            <div className="shrink-0">
+              {orgData?.logoUrl ? (
+                <div className="relative h-20 w-20 rounded-xl border-2 border-border overflow-hidden bg-muted">
+                  <Image
+                    src={orgData.logoUrl}
+                    alt="Organization logo"
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="h-20 w-20 rounded-xl border-2 border-dashed border-border flex items-center justify-center bg-muted/50">
+                  <ImageIcon className="h-8 w-8 text-muted-foreground/40" />
+                </div>
+              )}
+            </div>
+
+            {/* Upload / Remove buttons */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={uploading}
+                  asChild
+                >
+                  <label className="cursor-pointer">
+                    <Upload className="h-4 w-4 mr-1.5" />
+                    {uploading ? "Uploading..." : orgData?.logoUrl ? "Change Logo" : "Upload Logo"}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleLogoUpload}
+                      className="sr-only"
+                    />
+                  </label>
+                </Button>
+                {orgData?.logoUrl && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={removingLogo}
+                    onClick={handleRemoveLogo}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1.5" />
+                    {removingLogo ? "Removing..." : "Remove"}
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                JPG, PNG, or WebP. Max 2MB.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Organization</CardTitle>

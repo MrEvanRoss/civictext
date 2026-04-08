@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import Image from "next/image";
 import {
   Card,
   CardContent,
@@ -75,6 +76,9 @@ export default function RegisterPage() {
   return (
     <Card>
       <CardHeader className="text-center">
+        <div className="flex justify-center mb-2">
+          <Image src="/logo.png" alt="CivicText" width={160} height={160} priority />
+        </div>
         <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
         <CardDescription>
           Set up your organization on CivicText

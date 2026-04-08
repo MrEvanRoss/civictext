@@ -15,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import Image from "next/image";
 import { ShieldCheck, ArrowLeft } from "lucide-react";
 import { preAuthenticateAction } from "@/server/actions/two-factor";
 
@@ -190,7 +191,9 @@ export default function LoginPage() {
   return (
     <Card>
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl font-bold">CivicText</CardTitle>
+        <div className="flex justify-center mb-2">
+          <Image src="/logo.png" alt="CivicText" width={180} height={180} priority />
+        </div>
         <CardDescription>Sign in to your account</CardDescription>
       </CardHeader>
       <form onSubmit={handleCredentialsSubmit}>

@@ -178,6 +178,7 @@ model Organization {
   optOutMessage            String?   // Confirmation message when a contact opts out
   messageSignature         String?   // Optional footer appended to all outbound messages
   accentColor              String?   // UI accent color preference (hex)
+  logoUrl                  String?   // Organization logo URL (uploaded via /api/upload)
   orgType                  String    @default("political") // political, government, nonprofit, advocacy
   allowedCampaignTypes     String[]  @default(["BROADCAST", "P2P", "GOTV", "DRIP", "AUTO_REPLY"])
   status                   OrgStatus @default(PENDING_APPROVAL)
