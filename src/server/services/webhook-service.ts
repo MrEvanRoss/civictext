@@ -14,8 +14,25 @@ type WebhookEvent =
 /**
  * Dispatch a webhook event to all registered endpoints for an org.
  * Fire-and-forget: errors are logged but never block the caller.
+ *
+ * Uses a short setTimeout to defer the HTTP request until after the
+ * current call stack completes. This prevents a race condition where
+ * the receiving server queries CivicText's API before the database
+ * transaction (or sequential writes) that triggered the webhook have
+ * committed.
  */
-export async function dispatchWebhook(
+export function dispatchWebhook(
+  orgId: string,
+  event: WebhookEvent,
+  payload: Record<string, any>
+) {
+  // Defer dispatch so the caller's remaining DB writes can commit first.
+  setTimeout(() => {
+    deliverWebhook(orgId, event, payload);
+  }, 0);
+}
+
+async function deliverWebhook(
   orgId: string,
   event: WebhookEvent,
   payload: Record<string, any>

@@ -3,6 +3,7 @@ import { validateTwilioSignature } from "@/lib/twilio";
 import { db } from "@/lib/db";
 import { OPT_OUT_KEYWORDS, OPT_IN_KEYWORDS } from "@/lib/constants";
 import { dispatchWebhook } from "@/server/services/webhook-service";
+import { rateLimitInboundWebhook } from "@/lib/rate-limit";
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
 
@@ -54,6 +55,23 @@ export async function POST(request: Request) {
   const body = (params.Body || "").trim();
   const messageSid = params.MessageSid;
   const mediaUrl = params.MediaUrl0;
+
+  // Rate limit by sender phone number (60 requests/minute per phone)
+  if (from) {
+    const { allowed, remaining, resetAt } = await rateLimitInboundWebhook(from);
+    if (!allowed) {
+      console.warn(`Rate limit exceeded for inbound webhook from ${from}`);
+      return new Response(twiml(""), {
+        status: 429,
+        headers: {
+          "Content-Type": "text/xml",
+          "X-RateLimit-Limit": "60",
+          "X-RateLimit-Remaining": remaining.toString(),
+          "X-RateLimit-Reset": resetAt.toString(),
+        },
+      });
+    }
+  }
 
   // Validate that the receiving phone number belongs to the claimed org
   // to prevent cross-org data injection via crafted orgId query params
@@ -168,15 +186,6 @@ export async function POST(request: Request) {
       },
     });
 
-    // Fire webhook (non-blocking)
-    dispatchWebhook(orgId, "message.inbound", {
-      messageId: inboundMessage.id,
-      contactId: contact.id,
-      phone: from,
-      body,
-      mediaUrl,
-    });
-
     // === INTEREST LIST KEYWORD CHECK ===
     const interestList = await db.interestList.findFirst({
       where: {
@@ -192,6 +201,8 @@ export async function POST(request: Request) {
         where: { interestListId: interestList.id, contactId: contact.id },
       });
 
+      let joinedList = false;
+
       if (!existingMember) {
         await db.interestListMember.create({
           data: {
@@ -206,14 +217,7 @@ export async function POST(request: Request) {
           data: { memberCount: { increment: 1 } },
         });
 
-        // Fire webhook (non-blocking)
-        dispatchWebhook(orgId, "interest_list.joined", {
-          contactId: contact.id,
-          phone: from,
-          listId: interestList.id,
-          listName: interestList.name,
-          keyword: interestList.keyword,
-        });
+        joinedList = true;
       }
 
       // Auto opt-in the contact if they're texting a keyword to join
@@ -266,6 +270,26 @@ export async function POST(request: Request) {
           lastName: contact.lastName,
           messageId: welcomeMessage.id,
         }, { priority: 1 });
+      }
+
+      // Dispatch webhooks AFTER all DB writes for this code path are done
+      // so the receiving server sees consistent data when it queries back.
+      dispatchWebhook(orgId, "message.inbound", {
+        messageId: inboundMessage.id,
+        contactId: contact.id,
+        phone: from,
+        body,
+        mediaUrl,
+      });
+
+      if (joinedList) {
+        dispatchWebhook(orgId, "interest_list.joined", {
+          contactId: contact.id,
+          phone: from,
+          listId: interestList.id,
+          listName: interestList.name,
+          keyword: interestList.keyword,
+        });
       }
 
       return new Response(twiml(""), {
@@ -336,12 +360,30 @@ export async function POST(request: Request) {
         }, { priority: 1 });
       }
 
+      // Dispatch inbound webhook AFTER all DB writes are done
+      dispatchWebhook(orgId, "message.inbound", {
+        messageId: inboundMessage.id,
+        contactId: contact.id,
+        phone: from,
+        body,
+        mediaUrl,
+      });
+
       return new Response(twiml(""), {
         headers: { "Content-Type": "text/xml" },
       });
     }
 
     // TODO: Publish SSE event for inbox real-time updates (Phase 7)
+
+    // Dispatch inbound webhook AFTER all DB writes are done
+    dispatchWebhook(orgId, "message.inbound", {
+      messageId: inboundMessage.id,
+      contactId: contact.id,
+      phone: from,
+      body,
+      mediaUrl,
+    });
 
     // No auto-reply; return empty TwiML
     return new Response(twiml(""), {

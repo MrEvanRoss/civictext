@@ -113,7 +113,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // Fire webhook events based on status
+    // Fire webhook events AFTER all DB writes have completed so the
+    // receiving server sees consistent data when it queries back.
     if (status === "DELIVERED" || status === "SENT" || status === "FAILED" || status === "UNDELIVERED") {
       const eventName = status === "DELIVERED" ? "message.delivered"
         : status === "SENT" ? "message.sent"

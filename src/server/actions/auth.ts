@@ -7,7 +7,50 @@ import { ROLE_HIERARCHY, ROLE_PERMISSIONS, type Permission } from "@/lib/constan
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import type { UserRole } from "@prisma/client";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+
+// ---------------------------------------------------------------------------
+// CSRF origin validation (defense-in-depth)
+// ---------------------------------------------------------------------------
+// Next.js 14.2+ performs an Origin-vs-Host check for every server action at
+// the framework level (see experimental.serverActions.allowedOrigins in
+// next.config.mjs). This utility provides an *additional* application-layer
+// check that server actions can call for extra safety — especially useful for
+// sensitive mutations (password changes, financial operations, etc.).
+// ---------------------------------------------------------------------------
+
+const ALLOWED_ORIGINS: string[] = [
+  process.env.NEXT_PUBLIC_APP_URL!, // e.g. https://civictext.com
+].filter(Boolean);
+
+/**
+ * Validate that the incoming request's Origin header matches the app's
+ * configured origin.  Throws if the Origin is present and does not match.
+ *
+ * Call this at the top of any security-sensitive server action as an extra
+ * layer on top of the framework-level CSRF check.
+ */
+export async function validateCsrfOrigin(): Promise<void> {
+  const hdrs = await headers();
+  const origin = hdrs.get("origin");
+
+  // When there is no Origin header the request came from a same-origin
+  // navigation (GET) or a very old browser.  The framework-level check
+  // already handles this case, so we allow it through here.
+  if (!origin) return;
+
+  const allowed = ALLOWED_ORIGINS.some((allowed) => {
+    try {
+      return new URL(allowed).origin === new URL(origin).origin;
+    } catch {
+      return false;
+    }
+  });
+
+  if (!allowed) {
+    throw new Error("Invalid request origin");
+  }
+}
 
 /**
  * Check if the current session is impersonating another org.

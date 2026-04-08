@@ -80,3 +80,16 @@ export async function rateLimitAuth(
 ): Promise<RateLimitResult> {
   return rateLimit(`rl:auth:${ip}`, limit, windowSeconds);
 }
+
+/**
+ * Rate limit for inbound Twilio webhooks by phone number.
+ * Prevents abuse from a single phone number flooding the system.
+ * Default: 60 requests per minute per phone number.
+ */
+export async function rateLimitInboundWebhook(
+  phoneNumber: string,
+  limit = 60,
+  windowSeconds = 60
+): Promise<RateLimitResult> {
+  return rateLimit(`rl:webhook:inbound:${phoneNumber}`, limit, windowSeconds);
+}
