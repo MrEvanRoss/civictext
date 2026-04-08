@@ -111,7 +111,7 @@ export default function SubcommunityDetailPage() {
       const data = await getSubcommunityAction(subcommunityId);
       setSubcommunity(data);
     } catch (err: any) {
-      toast.error(err.message || "Failed to load subcommunity");
+      toast.error(err.message || "Failed to load interest list");
       router.push("/subcommunities");
     } finally {
       setLoading(false);
@@ -179,10 +179,10 @@ export default function SubcommunityDetailPage() {
         isPublic: editIsPublic,
       });
       setShowEdit(false);
-      toast.success("Subcommunity updated");
+      toast.success("Interest list updated");
       await loadSubcommunity();
     } catch (err: any) {
-      toast.error(err.message || "Failed to update subcommunity");
+      toast.error(err.message || "Failed to update interest list");
     } finally {
       setSaving(false);
     }
@@ -194,16 +194,16 @@ export default function SubcommunityDetailPage() {
   async function handleDelete() {
     if (
       !confirm(
-        "Delete this subcommunity? All members will be removed but contacts will remain."
+        "Delete this interest list? All members will be removed but contacts will remain."
       )
     )
       return;
     try {
       await deleteSubcommunityAction(subcommunityId);
-      toast.success("Subcommunity deleted");
+      toast.success("Interest list deleted");
       router.push("/subcommunities");
     } catch (err: any) {
-      toast.error(err.message || "Failed to delete subcommunity");
+      toast.error(err.message || "Failed to delete interest list");
     }
   }
 
@@ -211,7 +211,7 @@ export default function SubcommunityDetailPage() {
   // Remove member handler
   // ---------------------------------------------------------------------------
   async function handleRemoveMember(contactId: string) {
-    if (!confirm("Remove this member from the subcommunity?")) return;
+    if (!confirm("Remove this member from this interest list?")) return;
     try {
       await removeMemberAction(subcommunityId, contactId);
       toast.success("Member removed");
@@ -369,7 +369,7 @@ export default function SubcommunityDetailPage() {
       {showEdit && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Edit Subcommunity</CardTitle>
+            <CardTitle className="text-base">Edit Interest List</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -484,7 +484,7 @@ export default function SubcommunityDetailPage() {
               <p className="text-sm text-muted-foreground text-center max-w-sm">
                 {searchQuery
                   ? "Try a different search term."
-                  : "Add contacts to this subcommunity to get started."}
+                  : "Add contacts to this interest list to get started."}
               </p>
             </div>
           ) : (

@@ -25,7 +25,7 @@ import {
 import { Plus, Users } from "lucide-react";
 
 // ---------------------------------------------------------------------------
-// Color helper for subcommunity avatars
+// Color helper for interest list avatars
 // ---------------------------------------------------------------------------
 const SUBCOMMUNITY_COLORS = [
   "bg-pink-500",
@@ -68,7 +68,7 @@ export default function SubcommunitiesPage() {
       const data = await listSubcommunitiesAction();
       setSubcommunities(data);
     } catch (err: any) {
-      toast.error(err.message || "Failed to load subcommunities");
+      toast.error(err.message || "Failed to load interest lists");
     } finally {
       setLoading(false);
     }
@@ -88,10 +88,10 @@ export default function SubcommunitiesPage() {
       setJoinKeyword("");
       setIsPublic(true);
       setShowCreate(false);
-      toast.success("Subcommunity created successfully");
+      toast.success("Interest list created successfully");
       await loadSubcommunities();
     } catch (err: any) {
-      toast.error(err.message || "Failed to create subcommunity");
+      toast.error(err.message || "Failed to create interest list");
     } finally {
       setCreating(false);
     }
@@ -110,9 +110,9 @@ export default function SubcommunitiesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Subcommunities</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Interest Lists</h1>
           <p className="text-muted-foreground">
-            Groups within your Community
+            Groups within your community
           </p>
         </div>
         <Button onClick={() => setShowCreate(true)}>
@@ -125,7 +125,7 @@ export default function SubcommunitiesPage() {
       {showCreate && (
         <Card>
           <CardHeader>
-            <CardTitle>Create Subcommunity</CardTitle>
+            <CardTitle>Create Interest List</CardTitle>
             <CardDescription>
               Create a group to organize contacts within your community.
             </CardDescription>
@@ -195,7 +195,7 @@ export default function SubcommunitiesPage() {
               onClick={handleCreate}
               disabled={!name.trim() || creating}
             >
-              {creating ? "Creating..." : "Create Subcommunity"}
+              {creating ? "Creating..." : "Create Interest List"}
             </Button>
           </CardFooter>
         </Card>
@@ -226,20 +226,20 @@ export default function SubcommunitiesPage() {
               <Users className="h-8 w-8 text-muted-foreground/50" />
             </div>
             <h3 className="text-lg font-medium mb-1">
-              No subcommunities yet
+              No interest lists yet
             </h3>
             <p className="text-sm text-muted-foreground text-center max-w-sm mb-4">
-              Subcommunities let you organize contacts into groups. Create one
+              Interest lists let you organize contacts into groups. Create one
               to start grouping your community members.
             </p>
             <Button onClick={() => setShowCreate(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Create Your First Subcommunity
+              Create Your First Interest List
             </Button>
           </CardContent>
         </Card>
       ) : (
-        /* Subcommunities Grid */
+        /* Interest Lists Grid */
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {subcommunities.map((sub) => {
             const color = getSubcommunityColor(sub.name);
