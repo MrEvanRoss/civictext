@@ -5,6 +5,22 @@ import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { ROLE_HIERARCHY, PERMISSIONS } from "@/lib/constants";
 import type { UserRole } from "@prisma/client";
+import { z } from "zod";
+
+const addTeamMemberSchema = z.object({
+  name: z.string().min(1, "Name is required").max(200),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(12, "Password must be at least 12 characters"),
+  role: z.enum(["ADMIN", "MANAGER", "SENDER", "VIEWER"]),
+});
+
+const adminAddUserSchema = z.object({
+  orgId: z.string().uuid(),
+  name: z.string().min(1, "Name is required").max(200),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(12, "Password must be at least 12 characters"),
+  role: z.enum(["OWNER", "ADMIN", "MANAGER", "SENDER", "VIEWER"]),
+});
 
 /**
  * List team members for the current org.
@@ -43,38 +59,30 @@ export async function addTeamMemberAction(data: {
   const orgId = (session.user as any).orgId;
   const callerRole = (session.user as any).role as string;
 
-  // Validate role
-  const validRoles = ["ADMIN", "MANAGER", "SENDER", "VIEWER"];
-  if (!validRoles.includes(data.role)) {
-    throw new Error("Invalid role");
-  }
+  const validated = addTeamMemberSchema.parse(data);
 
   // Can't assign a role higher than your own
   const callerRoleIndex = ROLE_HIERARCHY.indexOf(callerRole as any);
-  const targetRoleIndex = ROLE_HIERARCHY.indexOf(data.role as any);
+  const targetRoleIndex = ROLE_HIERARCHY.indexOf(validated.role as any);
   if (targetRoleIndex >= callerRoleIndex) {
     throw new Error("You cannot assign a role equal to or higher than your own");
   }
 
   // Check if email already exists
-  const existing = await db.user.findUnique({ where: { email: data.email } });
+  const existing = await db.user.findUnique({ where: { email: validated.email } });
   if (existing) {
     throw new Error("A user with that email already exists");
   }
 
-  if (data.password.length < 12) {
-    throw new Error("Password must be at least 12 characters");
-  }
-
-  const passwordHash = await bcrypt.hash(data.password, 12);
+  const passwordHash = await bcrypt.hash(validated.password, 12);
 
   const user = await db.user.create({
     data: {
-      email: data.email,
+      email: validated.email,
       passwordHash,
-      name: data.name,
+      name: validated.name,
       orgId,
-      role: data.role as UserRole,
+      role: validated.role as UserRole,
     },
   });
 
@@ -91,19 +99,17 @@ export async function updateTeamMemberRoleAction(userId: string, newRole: string
   const callerRole = (session.user as any).role as string;
   const callerId = (session.user as any).id;
 
+  z.string().uuid().parse(userId);
+  const validatedRole = z.enum(["ADMIN", "MANAGER", "SENDER", "VIEWER"]).parse(newRole);
+
   // Can't change your own role
   if (userId === callerId) {
     throw new Error("You cannot change your own role");
   }
 
-  const validRoles = ["ADMIN", "MANAGER", "SENDER", "VIEWER"];
-  if (!validRoles.includes(newRole)) {
-    throw new Error("Invalid role");
-  }
-
   // Can't assign a role higher than your own
   const callerRoleIndex = ROLE_HIERARCHY.indexOf(callerRole as any);
-  const targetRoleIndex = ROLE_HIERARCHY.indexOf(newRole as any);
+  const targetRoleIndex = ROLE_HIERARCHY.indexOf(validatedRole as any);
   if (targetRoleIndex >= callerRoleIndex) {
     throw new Error("You cannot assign a role equal to or higher than your own");
   }
@@ -122,7 +128,7 @@ export async function updateTeamMemberRoleAction(userId: string, newRole: string
 
   await db.user.update({
     where: { id: userId },
-    data: { role: newRole as UserRole },
+    data: { role: validatedRole as UserRole },
   });
 
   return { success: true };
@@ -171,34 +177,27 @@ export async function adminAddUserToOrgAction(data: {
 }) {
   await requireSuperAdmin();
 
-  const validRoles = ["OWNER", "ADMIN", "MANAGER", "SENDER", "VIEWER"];
-  if (!validRoles.includes(data.role)) {
-    throw new Error("Invalid role");
-  }
+  const validated = adminAddUserSchema.parse(data);
 
-  const existing = await db.user.findUnique({ where: { email: data.email } });
+  const existing = await db.user.findUnique({ where: { email: validated.email } });
   if (existing) {
     throw new Error("A user with that email already exists");
   }
 
-  const org = await db.organization.findUnique({ where: { id: data.orgId } });
+  const org = await db.organization.findUnique({ where: { id: validated.orgId } });
   if (!org) {
     throw new Error("Organization not found");
   }
 
-  if (data.password.length < 12) {
-    throw new Error("Password must be at least 12 characters");
-  }
-
-  const passwordHash = await bcrypt.hash(data.password, 12);
+  const passwordHash = await bcrypt.hash(validated.password, 12);
 
   const user = await db.user.create({
     data: {
-      email: data.email,
+      email: validated.email,
       passwordHash,
-      name: data.name,
-      orgId: data.orgId,
-      role: data.role as UserRole,
+      name: validated.name,
+      orgId: validated.orgId,
+      role: validated.role as UserRole,
     },
   });
 

@@ -3,6 +3,25 @@
 import { requireOrg, requirePermission } from "./auth";
 import { PERMISSIONS } from "@/lib/constants";
 import { db } from "@/lib/db";
+import { z } from "zod";
+
+const createTemplateSchema = z.object({
+  name: z.string().min(1, "Template name is required").max(200),
+  body: z.string().min(1, "Template body is required").max(1600),
+  category: z.string().max(50).optional(),
+  mediaUrl: z.string().url().optional().or(z.literal("")),
+  language: z.string().max(10).optional(),
+  tags: z.array(z.string().max(50)).max(20).optional(),
+});
+
+const updateTemplateSchema = z.object({
+  name: z.string().min(1, "Template name is required").max(200).optional(),
+  body: z.string().min(1, "Template body is required").max(1600).optional(),
+  category: z.string().max(50).optional(),
+  mediaUrl: z.string().url().optional().or(z.literal("")),
+  language: z.string().max(10).optional(),
+  tags: z.array(z.string().max(50)).max(20).optional(),
+});
 
 export async function listTemplatesAction(opts?: {
   category?: string;
@@ -44,15 +63,17 @@ export async function createTemplateAction(input: {
   const orgId = (session.user as any).orgId;
   const userId = (session.user as any).id;
 
+  const validated = createTemplateSchema.parse(input);
+
   return db.messageTemplate.create({
     data: {
       orgId,
-      name: input.name.trim(),
-      body: input.body,
-      category: input.category || "general",
-      mediaUrl: input.mediaUrl || null,
-      language: input.language || "en",
-      tags: input.tags || [],
+      name: validated.name.trim(),
+      body: validated.body,
+      category: validated.category || "general",
+      mediaUrl: validated.mediaUrl || null,
+      language: validated.language || "en",
+      tags: validated.tags || [],
       createdById: userId,
     },
   });
@@ -73,6 +94,9 @@ export async function updateTemplateAction(
   const { session } = await requireOrg();
   const orgId = (session.user as any).orgId;
 
+  z.string().uuid().parse(templateId);
+  const validated = updateTemplateSchema.parse(input);
+
   const existing = await db.messageTemplate.findFirst({
     where: { id: templateId, orgId },
   });
@@ -81,12 +105,12 @@ export async function updateTemplateAction(
   return db.messageTemplate.update({
     where: { id: templateId },
     data: {
-      ...(input.name !== undefined && { name: input.name.trim() }),
-      ...(input.body !== undefined && { body: input.body }),
-      ...(input.category !== undefined && { category: input.category }),
-      ...(input.mediaUrl !== undefined && { mediaUrl: input.mediaUrl || null }),
-      ...(input.language !== undefined && { language: input.language }),
-      ...(input.tags !== undefined && { tags: input.tags }),
+      ...(validated.name !== undefined && { name: validated.name.trim() }),
+      ...(validated.body !== undefined && { body: validated.body }),
+      ...(validated.category !== undefined && { category: validated.category }),
+      ...(validated.mediaUrl !== undefined && { mediaUrl: validated.mediaUrl || null }),
+      ...(validated.language !== undefined && { language: validated.language }),
+      ...(validated.tags !== undefined && { tags: validated.tags }),
     },
   });
 }

@@ -23,6 +23,17 @@ import { db } from "@/lib/db";
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
+import { z } from "zod";
+
+const campaignStatusSchema = z.enum([
+  "DRAFT", "SCHEDULED", "SENDING", "PAUSED", "COMPLETED", "CANCELLED",
+]);
+
+const sendTestMessageSchema = z.object({
+  phone: z.string().min(1, "Phone number is required"),
+  messageBody: z.string().max(1600),
+  mediaUrl: z.string().url().optional().or(z.literal("")),
+});
 
 const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
   maxRetriesPerRequest: null,
@@ -87,7 +98,11 @@ export async function changeCampaignStatusAction(
   await requirePermission(PERMISSIONS.CAMPAIGN_SEND);
   const { session } = await requireOrg();
   const orgId = (session.user as any).orgId;
-  return changeCampaignStatus(orgId, campaignId, newStatus);
+
+  z.string().uuid().parse(campaignId);
+  const validatedStatus = campaignStatusSchema.parse(newStatus);
+
+  return changeCampaignStatus(orgId, campaignId, validatedStatus);
 }
 
 export async function duplicateCampaignAction(campaignId: string) {
@@ -173,12 +188,14 @@ export async function sendTestMessageAction(data: {
   const { session } = await requireOrg();
   const orgId = (session.user as any).orgId;
 
-  if (!data.messageBody.trim() && !data.mediaUrl) {
+  const validated = sendTestMessageSchema.parse(data);
+
+  if (!validated.messageBody.trim() && !validated.mediaUrl) {
     throw new Error("Message body or media is required");
   }
 
   // Validate phone number
-  const parsed = parsePhoneNumberFromString(data.phone, "US");
+  const parsed = parsePhoneNumberFromString(validated.phone, "US");
   if (!parsed || !parsed.isValid()) {
     throw new Error("Invalid phone number. Use a valid US phone number.");
   }
@@ -207,8 +224,8 @@ export async function sendTestMessageAction(data: {
       orgId,
       contactId: contact.id,
       direction: "OUTBOUND",
-      body: data.messageBody,
-      mediaUrl: data.mediaUrl || null,
+      body: validated.messageBody,
+      mediaUrl: validated.mediaUrl || null,
       status: "QUEUED",
     },
   });
@@ -217,8 +234,8 @@ export async function sendTestMessageAction(data: {
   await messageQueue.add("send", {
     orgId,
     contactId: contact.id,
-    messageBody: data.messageBody,
-    mediaUrl: data.mediaUrl || undefined,
+    messageBody: validated.messageBody,
+    mediaUrl: validated.mediaUrl || undefined,
     phone: e164Phone,
     firstName: contact.firstName,
     lastName: contact.lastName,

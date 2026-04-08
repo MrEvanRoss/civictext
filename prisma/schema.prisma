@@ -269,6 +269,7 @@ model Contact {
   @@index([orgId, createdAt])
   @@index([tags], type: Gin)
   @@index([orgId, precinct])
+  @@index([orgId, optInStatus, optOutTimestamp])
 }
 
 model ContactNote {
@@ -319,6 +320,7 @@ model ConsentAuditLog {
 
   @@index([orgId, contactId])
   @@index([orgId, createdAt])
+  @@index([orgId, action, createdAt])
 }
 
 // ============================================================
@@ -373,6 +375,7 @@ model Campaign {
 
   @@index([orgId, status])
   @@index([orgId, createdAt])
+  @@index([orgId, type])
 }
 
 model DripStep {
@@ -424,6 +427,9 @@ model Message {
   @@index([twilioSid])
   @@index([status])
   @@index([direction])
+  @@index([orgId, direction, createdAt])
+  @@index([orgId, direction, status, createdAt])
+  @@index([campaignId, status])
 }
 
 model AutoReplyRule {
@@ -475,6 +481,7 @@ model Conversation {
   @@index([orgId, assignedToId])
   @@index([orgId, lastMessageAt])
   @@index([orgId, isEscalated])
+  @@index([orgId, state, assignedToId])
 }
 
 model ConversationNote {
@@ -628,6 +635,7 @@ model BrandRegistration {
   campaignRegistrations CampaignRegistration[]
 
   @@index([orgId])
+  @@index([orgId, createdAt])
 }
 
 model CampaignRegistration {
@@ -649,6 +657,7 @@ model CampaignRegistration {
   brandRegistration BrandRegistration @relation(fields: [brandRegistrationId], references: [id])
 
   @@index([orgId])
+  @@index([orgId, createdAt])
 }
 
 // ============================================================
@@ -783,6 +792,7 @@ model ImportJob {
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
+  @@index([orgId, createdAt])
 }
 
 // ============================================================

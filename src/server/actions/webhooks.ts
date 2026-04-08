@@ -4,6 +4,7 @@ import { requireOrg, requirePermission } from "./auth";
 import { PERMISSIONS } from "@/lib/constants";
 import { db } from "@/lib/db";
 import crypto from "crypto";
+import { z } from "zod";
 
 const VALID_EVENTS = [
   "message.sent",
@@ -14,7 +15,14 @@ const VALID_EVENTS = [
   "contact.opted_out",
   "campaign.completed",
   "interest_list.joined",
-];
+] as const;
+
+const createWebhookSchema = z.object({
+  url: z.string().url().refine((url) => url.startsWith("https://"), {
+    message: "Webhook URL must use HTTPS",
+  }),
+  events: z.array(z.enum(VALID_EVENTS)).min(1, "At least one event is required"),
+});
 
 export async function listWebhooksAction() {
   await requirePermission(PERMISSIONS.API_KEYS);
@@ -35,22 +43,15 @@ export async function createWebhookAction(input: {
   const { session } = await requireOrg();
   const orgId = (session.user as any).orgId;
 
-  if (!input.url.startsWith("https://")) {
-    throw new Error("Webhook URL must use HTTPS");
-  }
-
-  const invalidEvents = input.events.filter((e) => !VALID_EVENTS.includes(e));
-  if (invalidEvents.length > 0) {
-    throw new Error(`Invalid events: ${invalidEvents.join(", ")}`);
-  }
+  const validated = createWebhookSchema.parse(input);
 
   const secret = crypto.randomBytes(32).toString("hex");
 
   return db.webhookEndpoint.create({
     data: {
       orgId,
-      url: input.url,
-      events: input.events,
+      url: validated.url,
+      events: [...validated.events],
       secret,
     },
   });

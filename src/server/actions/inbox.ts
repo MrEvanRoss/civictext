@@ -5,6 +5,22 @@ import { PERMISSIONS } from "@/lib/constants";
 import { db } from "@/lib/db";
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
+import { z } from "zod";
+
+const sendReplySchema = z.object({
+  body: z.string().min(1, "Message body is required").max(1600),
+  mediaUrl: z.string().url().optional().or(z.literal("")),
+});
+
+const quickSendSchema = z.object({
+  contactId: z.string().uuid(),
+  body: z.string().min(1, "Message body is required").max(1600),
+  mediaUrl: z.string().url().optional().or(z.literal("")),
+});
+
+const noteSchema = z.object({
+  body: z.string().min(1, "Note body is required").max(5000),
+});
 
 const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
   maxRetriesPerRequest: null,
@@ -91,6 +107,9 @@ export async function sendReplyAction(conversationId: string, body: string, medi
   const { session } = await requireOrg();
   const orgId = (session.user as any).orgId;
 
+  z.string().uuid().parse(conversationId);
+  const validated = sendReplySchema.parse({ body, mediaUrl });
+
   const conversation = await db.conversation.findFirst({
     where: { id: conversationId, orgId },
     include: { contact: true },
@@ -104,8 +123,8 @@ export async function sendReplyAction(conversationId: string, body: string, medi
       orgId,
       contactId: conversation.contactId,
       direction: "OUTBOUND",
-      body,
-      mediaUrl: mediaUrl || null,
+      body: validated.body,
+      mediaUrl: validated.mediaUrl || null,
       status: "QUEUED",
     },
   });
@@ -114,8 +133,8 @@ export async function sendReplyAction(conversationId: string, body: string, medi
   await messageQueue.add("send", {
     orgId,
     contactId: conversation.contactId,
-    messageBody: body,
-    mediaUrl: mediaUrl || undefined,
+    messageBody: validated.body,
+    mediaUrl: validated.mediaUrl || undefined,
     phone: conversation.contact.phone,
     firstName: conversation.contact.firstName,
     lastName: conversation.contact.lastName,
@@ -145,8 +164,10 @@ export async function quickSendAction(data: {
   const { session } = await requireOrg();
   const orgId = (session.user as any).orgId;
 
+  const validated = quickSendSchema.parse(data);
+
   const contact = await db.contact.findFirst({
-    where: { id: data.contactId, orgId },
+    where: { id: validated.contactId, orgId },
   });
 
   if (!contact) throw new Error("Contact not found");
@@ -160,8 +181,8 @@ export async function quickSendAction(data: {
       orgId,
       contactId: contact.id,
       direction: "OUTBOUND",
-      body: data.body,
-      mediaUrl: data.mediaUrl || null,
+      body: validated.body,
+      mediaUrl: validated.mediaUrl || null,
       status: "QUEUED",
     },
   });
@@ -170,8 +191,8 @@ export async function quickSendAction(data: {
   await messageQueue.add("send", {
     orgId,
     contactId: contact.id,
-    messageBody: data.body,
-    mediaUrl: data.mediaUrl || undefined,
+    messageBody: validated.body,
+    mediaUrl: validated.mediaUrl || undefined,
     phone: contact.phone,
     firstName: contact.firstName,
     lastName: contact.lastName,
@@ -202,6 +223,9 @@ export async function addContactNoteAction(contactId: string, body: string) {
   const orgId = (session.user as any).orgId;
   const userId = (session.user as any).id;
 
+  z.string().uuid().parse(contactId);
+  const validatedBody = noteSchema.parse({ body }).body;
+
   const contact = await db.contact.findFirst({
     where: { id: contactId, orgId },
   });
@@ -212,7 +236,7 @@ export async function addContactNoteAction(contactId: string, body: string) {
       orgId,
       contactId,
       authorId: userId,
-      body,
+      body: validatedBody,
     },
     include: { author: { select: { name: true } } },
   });
@@ -362,11 +386,20 @@ export async function addNoteAction(conversationId: string, body: string) {
   const orgId = (session.user as any).orgId;
   const userId = (session.user as any).id;
 
+  z.string().uuid().parse(conversationId);
+  const validatedBody = noteSchema.parse({ body }).body;
+
+  // Verify conversation belongs to this org
+  const conversation = await db.conversation.findFirst({
+    where: { id: conversationId, orgId },
+  });
+  if (!conversation) throw new Error("Conversation not found");
+
   return db.conversationNote.create({
     data: {
       conversationId,
       authorId: userId,
-      body,
+      body: validatedBody,
     },
     include: { author: { select: { name: true } } },
   });

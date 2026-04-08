@@ -24,6 +24,10 @@ import {
 } from "@/lib/validators/contacts";
 import { PERMISSIONS } from "@/lib/constants";
 import { db } from "@/lib/db";
+import { z } from "zod";
+
+const bulkContactIdsSchema = z.array(z.string().uuid()).min(1).max(10000);
+const bulkTagsSchema = z.array(z.string().min(1).max(100)).min(1).max(50);
 
 export async function listContactsAction(filter: Partial<ContactFilter>) {
   const { session } = await requireOrg();
@@ -94,10 +98,13 @@ export async function bulkAddTagsAction(contactIds: string[], tags: string[]) {
   const { session } = await requireOrg();
   const orgId = (session.user as any).orgId;
 
-  if (contactIds.length === 0 || tags.length === 0) return { updated: 0 };
+  const validatedIds = bulkContactIdsSchema.parse(contactIds);
+  const validatedTags = bulkTagsSchema.parse(tags);
+
+  if (validatedIds.length === 0 || validatedTags.length === 0) return { updated: 0 };
 
   let updated = 0;
-  for (const contactId of contactIds) {
+  for (const contactId of validatedIds) {
     const contact = await db.contact.findFirst({
       where: { id: contactId, orgId },
       select: { tags: true },
@@ -105,7 +112,7 @@ export async function bulkAddTagsAction(contactIds: string[], tags: string[]) {
     if (!contact) continue;
 
     const existingTags = contact.tags || [];
-    const newTags = [...new Set([...existingTags, ...tags])];
+    const newTags = [...new Set([...existingTags, ...validatedTags])];
 
     await db.contact.update({
       where: { id: contactId },
@@ -124,15 +131,18 @@ export async function bulkRemoveTagsAction(contactIds: string[], tags: string[])
   const { session } = await requireOrg();
   const orgId = (session.user as any).orgId;
 
+  const validatedIds = bulkContactIdsSchema.parse(contactIds);
+  const validatedTags = bulkTagsSchema.parse(tags);
+
   let updated = 0;
-  for (const contactId of contactIds) {
+  for (const contactId of validatedIds) {
     const contact = await db.contact.findFirst({
       where: { id: contactId, orgId },
       select: { tags: true },
     });
     if (!contact) continue;
 
-    const newTags = (contact.tags || []).filter((t: string) => !tags.includes(t));
+    const newTags = (contact.tags || []).filter((t: string) => !validatedTags.includes(t));
     await db.contact.update({
       where: { id: contactId },
       data: { tags: newTags },
@@ -151,8 +161,10 @@ export async function bulkDeleteContactsAction(contactIds: string[]) {
   const { session } = await requireOrg();
   const orgId = (session.user as any).orgId;
 
+  const validatedIds = bulkContactIdsSchema.parse(contactIds);
+
   const result = await db.contact.deleteMany({
-    where: { id: { in: contactIds }, orgId },
+    where: { id: { in: validatedIds }, orgId },
   });
 
   return { deleted: result.count };

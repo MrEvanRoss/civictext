@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
+import { z } from "zod";
 
 /**
  * Admin impersonation endpoint.
@@ -16,12 +17,22 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const userId = url.searchParams.get("userId");
-  const orgId = url.searchParams.get("orgId");
+  const rawUserId = url.searchParams.get("userId");
+  const rawOrgId = url.searchParams.get("orgId");
 
-  if (!userId || !orgId) {
+  if (!rawUserId || !rawOrgId) {
     return NextResponse.json({ error: "Missing userId or orgId" }, { status: 400 });
   }
+
+  // Validate UUID format to prevent injection
+  const uuidSchema = z.string().uuid();
+  const userIdResult = uuidSchema.safeParse(rawUserId);
+  const orgIdResult = uuidSchema.safeParse(rawOrgId);
+  if (!userIdResult.success || !orgIdResult.success) {
+    return NextResponse.json({ error: "Invalid userId or orgId format" }, { status: 400 });
+  }
+  const userId = userIdResult.data;
+  const orgId = orgIdResult.data;
 
   // Verify the target user exists and belongs to the org
   const targetUser = await db.user.findFirst({

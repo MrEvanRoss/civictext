@@ -24,8 +24,6 @@ import {
   XCircle,
   Copy,
   Send,
-  CheckCircle2,
-  AlertCircle,
   Download,
   Pencil,
 } from "lucide-react";

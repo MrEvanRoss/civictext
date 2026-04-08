@@ -538,7 +538,7 @@ export const billingWorker = new Worker(
         await syncBalanceToRedis(pn.orgId);
         charged++;
       } else {
-        console.log(`[BILLING] Insufficient balance for phone ${pn.phoneNumber} (org ${pn.orgId}). Need ${feeCents}¢, have ${plan.balanceCents}¢`);
+        console.warn(`[BILLING] Insufficient balance for phone ${pn.phoneNumber} (org ${pn.orgId}). Need ${feeCents}¢, have ${plan.balanceCents}¢`);
         skipped++;
       }
     }
@@ -577,4 +577,4 @@ messageWorker.on("completed", (job) => {
   // Logged via job.log
 });
 
-console.log("Message, campaign, and billing workers started");
+console.info("Message, campaign, and billing workers started");

@@ -360,6 +360,7 @@ export default function SecuritySettingsPage() {
                     toast.success("Secret copied");
                   }}
                   className="shrink-0"
+                  aria-label="Copy secret key"
                 >
                   <Copy className="h-4 w-4" />
                 </Button>

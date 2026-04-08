@@ -6,6 +6,21 @@ import { redis } from "@/lib/redis";
 import { syncBalanceToRedis, addCredits } from "@/server/services/quota-service";
 import { MIN_TRANSACTION_CENTS } from "@/lib/constants";
 import bcrypt from "bcryptjs";
+import { z } from "zod";
+
+const createOrgSchema = z.object({
+  orgName: z.string().min(1, "Organization name is required").max(200),
+  ownerName: z.string().min(1, "Owner name is required").max(200),
+  ownerEmail: z.string().email("Invalid email address"),
+  ownerPassword: z.string().min(12, "Password must be at least 12 characters"),
+  initialCreditsDollars: z.number().min(0).optional(),
+});
+
+const updateRatesSchema = z.object({
+  smsRateCents: z.number().int().min(0).max(100).optional(),
+  mmsRateCents: z.number().int().min(0).max(200).optional(),
+  phoneNumberFeeCents: z.number().int().min(0).max(10000).optional(),
+});
 
 // ============================================================
 // ORG MANAGEMENT
@@ -101,7 +116,7 @@ export async function suspendOrgAction(orgId: string, reason: string) {
     data: { status: "SUSPENDED" },
   });
 
-  console.log(`[ADMIN] Org ${orgId} suspended. Reason: ${reason}`);
+  console.info(`[ADMIN] Org ${orgId} suspended. Reason: ${reason}`);
   return { success: true };
 }
 
@@ -113,7 +128,7 @@ export async function approveOrgAction(orgId: string) {
     data: { status: "ACTIVE" },
   });
 
-  console.log(`[ADMIN] Org ${orgId} approved`);
+  console.info(`[ADMIN] Org ${orgId} approved`);
   return { success: true };
 }
 
@@ -125,7 +140,7 @@ export async function reactivateOrgAction(orgId: string) {
     data: { status: "ACTIVE" },
   });
 
-  console.log(`[ADMIN] Org ${orgId} reactivated`);
+  console.info(`[ADMIN] Org ${orgId} reactivated`);
   return { success: true };
 }
 
@@ -135,13 +150,16 @@ export async function reactivateOrgAction(orgId: string) {
 export async function addCreditsAction(orgId: string, amountCents: number) {
   await requireSuperAdmin();
 
+  z.string().uuid().parse(orgId);
+  z.number().int().positive().parse(amountCents);
+
   if (amountCents < MIN_TRANSACTION_CENTS) {
     throw new Error(`Minimum transaction is $${(MIN_TRANSACTION_CENTS / 100).toFixed(2)}`);
   }
 
   await addCredits(orgId, amountCents);
 
-  console.log(`[ADMIN] Added ${amountCents}¢ credits to org ${orgId}`);
+  console.info(`[ADMIN] Added ${amountCents}¢ credits to org ${orgId}`);
   return { success: true };
 }
 
@@ -154,9 +172,12 @@ export async function updateOrgRatesAction(
 ) {
   await requireSuperAdmin();
 
+  z.string().uuid().parse(orgId);
+  const validated = updateRatesSchema.parse(updates);
+
   await db.messagingPlan.update({
     where: { orgId },
-    data: updates,
+    data: validated,
   });
 
   return { success: true };
@@ -195,20 +216,22 @@ export async function createOrgAction(data: {
 }) {
   await requireSuperAdmin();
 
+  const validated = createOrgSchema.parse(data);
+
   const existing = await db.user.findUnique({
-    where: { email: data.ownerEmail },
+    where: { email: validated.ownerEmail },
   });
   if (existing) {
     throw new Error("A user with that email already exists");
   }
 
-  const passwordHash = await bcrypt.hash(data.ownerPassword, 12);
-  const slug = data.orgName
+  const passwordHash = await bcrypt.hash(validated.ownerPassword, 12);
+  const slug = validated.orgName
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
-  const initialCreditsCents = Math.round((data.initialCreditsDollars || 0) * 100);
+  const initialCreditsCents = Math.round((validated.initialCreditsDollars || 0) * 100);
   if (initialCreditsCents > 0 && initialCreditsCents < MIN_TRANSACTION_CENTS) {
     throw new Error(`Minimum initial credits is $${(MIN_TRANSACTION_CENTS / 100).toFixed(2)}`);
   }
@@ -216,16 +239,16 @@ export async function createOrgAction(data: {
   const result = await db.$transaction(async (tx) => {
     const org = await tx.organization.create({
       data: {
-        name: data.orgName,
+        name: validated.orgName,
         slug,
       },
     });
 
     const user = await tx.user.create({
       data: {
-        email: data.ownerEmail,
+        email: validated.ownerEmail,
         passwordHash,
-        name: data.ownerName,
+        name: validated.ownerName,
         orgId: org.id,
         role: "OWNER",
       },

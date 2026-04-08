@@ -136,6 +136,7 @@ export default function CampaignsPage() {
               value={statusFilter}
               onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
               className="w-40"
+              aria-label="Filter by status"
             >
               <option value="">All statuses</option>
               <option value="DRAFT">Draft</option>
@@ -149,6 +150,7 @@ export default function CampaignsPage() {
               value={typeFilter}
               onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
               className="w-40"
+              aria-label="Filter by type"
             >
               <option value="">All types</option>
               <option value="BROADCAST">Broadcast</option>
@@ -165,14 +167,14 @@ export default function CampaignsPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/50">
-                        <th className="text-left py-3 px-4 font-medium">Name</th>
-                        <th className="text-left py-3 px-4 font-medium">Type</th>
-                        <th className="text-left py-3 px-4 font-medium">Status</th>
-                        <th className="text-left py-3 px-4 font-medium">Audience</th>
-                        <th className="text-left py-3 px-4 font-medium">Sent</th>
-                        <th className="text-left py-3 px-4 font-medium">Delivered</th>
-                        <th className="text-left py-3 px-4 font-medium">Created</th>
-                        <th className="text-right py-3 px-4 font-medium">Actions</th>
+                        <th scope="col" className="text-left py-3 px-4 font-medium">Name</th>
+                        <th scope="col" className="text-left py-3 px-4 font-medium">Type</th>
+                        <th scope="col" className="text-left py-3 px-4 font-medium">Status</th>
+                        <th scope="col" className="text-left py-3 px-4 font-medium">Audience</th>
+                        <th scope="col" className="text-left py-3 px-4 font-medium">Sent</th>
+                        <th scope="col" className="text-left py-3 px-4 font-medium">Delivered</th>
+                        <th scope="col" className="text-left py-3 px-4 font-medium">Created</th>
+                        <th scope="col" className="text-right py-3 px-4 font-medium">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -196,22 +198,25 @@ export default function CampaignsPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/50">
-                        <th className="text-left py-3 px-4 font-medium">Name</th>
-                        <th className="text-left py-3 px-4 font-medium">Type</th>
-                        <th className="text-left py-3 px-4 font-medium">Status</th>
-                        <th className="text-left py-3 px-4 font-medium">Audience</th>
-                        <th className="text-left py-3 px-4 font-medium">Sent</th>
-                        <th className="text-left py-3 px-4 font-medium">Delivered</th>
-                        <th className="text-left py-3 px-4 font-medium">Created</th>
-                        <th className="text-right py-3 px-4 font-medium">Actions</th>
+                        <th scope="col" className="text-left py-3 px-4 font-medium">Name</th>
+                        <th scope="col" className="text-left py-3 px-4 font-medium">Type</th>
+                        <th scope="col" className="text-left py-3 px-4 font-medium">Status</th>
+                        <th scope="col" className="text-left py-3 px-4 font-medium">Audience</th>
+                        <th scope="col" className="text-left py-3 px-4 font-medium">Sent</th>
+                        <th scope="col" className="text-left py-3 px-4 font-medium">Delivered</th>
+                        <th scope="col" className="text-left py-3 px-4 font-medium">Created</th>
+                        <th scope="col" className="text-right py-3 px-4 font-medium">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {data?.campaigns.map((campaign: any) => (
                         <tr
                           key={campaign.id}
-                          className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                          className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                          tabIndex={0}
+                          role="link"
                           onClick={() => router.push(`/campaigns/${campaign.id}`)}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); router.push(`/campaigns/${campaign.id}`); } }}
                         >
                           <td className="py-3 px-4 font-medium">
                             {campaign.name}
@@ -223,7 +228,7 @@ export default function CampaignsPage() {
                           </td>
                           <td className="py-3 px-4">
                             <Badge variant={STATUS_VARIANTS[campaign.status] || "outline"}>
-                              <span className={`inline-block h-2 w-2 rounded-full mr-1.5 ${STATUS_DOT_COLORS[campaign.status] || "bg-muted-foreground/40"}`} />
+                              <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full mr-1.5 ${STATUS_DOT_COLORS[campaign.status] || "bg-muted-foreground/40"}`} />
                               {campaign.status}
                             </Badge>
                           </td>

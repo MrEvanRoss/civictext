@@ -12,8 +12,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   listContactsAction,
@@ -237,12 +235,13 @@ export default function ContactsPage() {
         <>
           <div className="flex gap-4">
             <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <Input
                 placeholder="Search by name, phone, or email..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10"
+                aria-label="Search contacts"
               />
             </div>
             <NativeSelect
@@ -252,6 +251,7 @@ export default function ContactsPage() {
                 setPage(1);
               }}
               className="w-40"
+              aria-label="Filter by opt-in status"
             >
               <option value="">All statuses</option>
               <option value="OPTED_IN">Opted In</option>
@@ -280,6 +280,7 @@ export default function ContactsPage() {
                     onChange={(e) => setBulkTagInput(e.target.value)}
                     placeholder="tag1, tag2"
                     className="w-48 h-8"
+                    aria-label="Tags to add to selected contacts"
                     onKeyDown={(e) => { if (e.key === "Enter") handleBulkTag(); }}
                   />
                   <Button size="sm" onClick={handleBulkTag} disabled={!bulkTagInput.trim()}>
@@ -312,31 +313,36 @@ export default function ContactsPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/50">
-                        <th className="py-3 px-4 w-10">
+                        <th scope="col" className="py-3 px-4 w-10">
                           <Checkbox
                             checked={data ? selected.size === data.contacts.length && data.contacts.length > 0 : false}
                             onCheckedChange={toggleSelectAll}
+                            aria-label="Select all contacts"
                           />
                         </th>
-                        <th className="text-left py-3 px-4 font-medium">Name</th>
-                        <th className="text-left py-3 px-4 font-medium">Phone</th>
-                        <th className="text-left py-3 px-4 font-medium">Email</th>
-                        <th className="text-left py-3 px-4 font-medium">Tags</th>
-                        <th className="text-left py-3 px-4 font-medium">Status</th>
-                        <th className="text-right py-3 px-4 font-medium">Actions</th>
+                        <th scope="col" className="text-left py-3 px-4 font-medium">Name</th>
+                        <th scope="col" className="text-left py-3 px-4 font-medium">Phone</th>
+                        <th scope="col" className="text-left py-3 px-4 font-medium">Email</th>
+                        <th scope="col" className="text-left py-3 px-4 font-medium">Tags</th>
+                        <th scope="col" className="text-left py-3 px-4 font-medium">Status</th>
+                        <th scope="col" className="text-right py-3 px-4 font-medium">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {data?.contacts.map((contact) => (
                         <tr
                           key={contact.id}
-                          className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                          className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                          tabIndex={0}
+                          role="link"
                           onClick={() => router.push(`/contacts/${contact.id}`)}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); router.push(`/contacts/${contact.id}`); } }}
                         >
                           <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
                             <Checkbox
                               checked={selected.has(contact.id)}
                               onCheckedChange={() => toggleSelect(contact.id)}
+                              aria-label={`Select ${contact.firstName || contact.lastName ? `${contact.firstName || ""} ${contact.lastName || ""}`.trim() : contact.phone}`}
                             />
                           </td>
                           <td className="py-3 px-4">

@@ -21,7 +21,7 @@ function createRedisClient(): Redis {
   });
 
   client.on("connect", () => {
-    console.log("Redis connected");
+    // Connection confirmed — no-op in production; use debug tooling if needed.
   });
 
   return client;

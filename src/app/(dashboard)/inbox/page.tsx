@@ -419,18 +419,20 @@ export default function InboxPage() {
             </Button>
           </div>
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search conversations..."
               className="pl-8 h-8 text-sm"
+              aria-label="Search conversations"
             />
           </div>
           <NativeSelect
             value={filter}
             onChange={(e) => setFilter(e.target.value as any)}
             className="text-sm h-8"
+            aria-label="Filter conversations"
           >
             <option value="all">All Conversations</option>
             <option value="mine">Assigned to Me</option>
@@ -466,12 +468,17 @@ export default function InboxPage() {
             filteredConversations.map((conv) => (
               <div
                 key={conv.id}
-                className={`flex items-start gap-3 p-3 cursor-pointer transition-all duration-150 border-l-2 ${
+                className={`flex items-start gap-3 p-3 cursor-pointer transition-all duration-150 border-l-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${
                   selectedId === conv.id
                     ? "bg-muted border-l-primary"
                     : "border-l-transparent hover:bg-muted/50"
                 }`}
+                role="button"
+                tabIndex={0}
+                aria-label={`Conversation with ${getContactName(conv.contact)}`}
+                aria-current={selectedId === conv.id ? "true" : undefined}
                 onClick={() => setSelectedId(conv.id)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedId(conv.id); } }}
               >
                 <Avatar className="h-10 w-10 shrink-0">
                   <AvatarFallback className="text-xs bg-primary/10 text-primary font-medium">
@@ -617,8 +624,8 @@ export default function InboxPage() {
 
             {/* Escalation Banner */}
             {thread?.conversation?.isEscalated && (
-              <div className="px-4 py-2 bg-warning/10 border-b border-warning/20 flex items-center gap-2">
-                <AlertTriangle className="h-3.5 w-3.5 text-warning" />
+              <div role="alert" className="px-4 py-2 bg-warning/10 border-b border-warning/20 flex items-center gap-2">
+                <AlertTriangle className="h-3.5 w-3.5 text-warning" aria-hidden="true" />
                 <span className="text-xs text-warning font-medium">Escalated</span>
                 {thread.conversation.escalatedReason && (
                   <span className="text-xs text-warning/80">&mdash; {thread.conversation.escalatedReason}</span>
@@ -634,6 +641,7 @@ export default function InboxPage() {
                   onChange={(e) => setEscalateReason(e.target.value)}
                   placeholder="Reason for escalation..."
                   className="flex-1 text-sm h-8"
+                  aria-label="Escalation reason"
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleEscalate(); } }}
                 />
                 <Button size="sm" onClick={handleEscalate} disabled={!escalateReason.trim()}>Escalate</Button>
@@ -668,7 +676,7 @@ export default function InboxPage() {
                       {msg.mediaUrl && (
                         <img
                           src={msg.mediaUrl}
-                          alt="Media"
+                          alt={`${msg.direction === "OUTBOUND" ? "Sent" : "Received"} media attachment`}
                           className="rounded-lg max-w-full max-h-48 mb-1.5 cursor-pointer"
                           onClick={() => window.open(msg.mediaUrl, "_blank")}
                         />
@@ -748,8 +756,10 @@ export default function InboxPage() {
                     size="sm"
                     onClick={() => setShowQuickReplies(!showQuickReplies)}
                     className="text-xs text-muted-foreground h-7"
+                    aria-expanded={showQuickReplies}
+                    aria-haspopup="true"
                   >
-                    <ChevronDown className="h-3 w-3 mr-1" />
+                    <ChevronDown className="h-3 w-3 mr-1" aria-hidden="true" />
                     Quick Replies
                   </Button>
                   {showQuickReplies && (
@@ -794,6 +804,7 @@ export default function InboxPage() {
                   onChange={(e) => setReplyText(e.target.value)}
                   placeholder="Type a reply..."
                   rows={1}
+                  aria-label="Reply message"
                   className="flex-1 min-h-[36px] max-h-32 resize-none"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
@@ -819,6 +830,7 @@ export default function InboxPage() {
                   onChange={(e) => setNoteText(e.target.value)}
                   placeholder="Add internal note (team only)..."
                   className="flex-1 text-xs h-7"
+                  aria-label="Internal note"
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddNote(); } }}
                 />
                 <Button variant="outline" size="sm" onClick={handleAddNote} disabled={!noteText.trim()} className="h-7 text-xs">
@@ -962,6 +974,7 @@ function ContactSidebarContent({
           value={thread?.conversation?.assignedToId || ""}
           onChange={(e) => handleAssign(e.target.value || null)}
           className="text-xs h-8"
+          aria-label="Assign conversation to team member"
         >
           <option value="">Unassigned</option>
           {teamMembers.map((member: any) => (
@@ -991,9 +1004,10 @@ function ContactSidebarContent({
             onChange={(e) => setResponseTagInput(e.target.value)}
             placeholder="Add tag..."
             className="flex-1 text-xs h-7"
+            aria-label="Add response tag"
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddResponseTag(); } }}
           />
-          <Button variant="outline" size="sm" onClick={handleAddResponseTag} disabled={!responseTagInput.trim()} className="h-7">
+          <Button variant="outline" size="sm" onClick={handleAddResponseTag} disabled={!responseTagInput.trim()} className="h-7" aria-label="Add tag">
             <Tag className="h-3 w-3" />
           </Button>
         </div>
@@ -1003,6 +1017,7 @@ function ContactSidebarContent({
               key={preset}
               className="text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded border border-dashed hover:border-solid transition-colors"
               onClick={() => { setResponseTagInput(preset); handleAddResponseTag(); }}
+              aria-label={`Add "${preset}" tag`}
             >
               {preset}
             </button>
@@ -1035,6 +1050,7 @@ function ContactSidebarContent({
             onChange={(e) => setContactNoteText(e.target.value)}
             placeholder="Add a note..."
             className="flex-1 text-xs h-7"
+            aria-label="Add contact note"
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddContactNote(); } }}
           />
           <Button variant="outline" size="sm" onClick={handleAddContactNote} disabled={!contactNoteText.trim()} className="h-7 text-xs">

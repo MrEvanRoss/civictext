@@ -88,7 +88,7 @@ function NavContent({
           {!collapsed && (
             <div className="min-w-0">
               <span className="font-semibold text-lg block leading-tight">CivicText</span>
-              <span className="text-[10px] text-muted-foreground leading-none">Political Texting Platform</span>
+              <span className="text-[10px] text-muted-foreground leading-none">Making Communication Easy</span>
             </div>
           )}
         </Link>

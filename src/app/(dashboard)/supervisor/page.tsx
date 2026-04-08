@@ -27,7 +27,6 @@ import {
   Send,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { P2P_SUSPICIOUS_RATE_PER_HOUR } from "@/lib/constants";
 
 export default function SupervisorPage() {
   const [data, setData] = useState<any>(null);

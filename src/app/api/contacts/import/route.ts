@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { columnMappingSchema } from "@/lib/validators/contacts";
 
 /**
  * CSV Import API
@@ -26,9 +27,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing file or mapping" }, { status: 400 });
   }
 
-  const mapping = JSON.parse(mappingStr);
-  if (!mapping.phone) {
-    return NextResponse.json({ error: "Phone column mapping required" }, { status: 400 });
+  let mapping;
+  try {
+    mapping = columnMappingSchema.parse(JSON.parse(mappingStr));
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid column mapping. A valid phone column is required." },
+      { status: 400 }
+    );
   }
 
   const text = await file.text();
