@@ -35,6 +35,19 @@ export async function POST(request: Request) {
     }
   }
 
+  // Validate that the phone number belongs to the claimed org
+  // to prevent cross-org data injection via crafted orgId query params
+  const to = params.To;
+  if (to) {
+    const phoneNumber = await db.phoneNumber.findFirst({
+      where: { orgId, phoneNumber: to },
+    });
+    if (!phoneNumber) {
+      console.error(`Phone number ${to} does not belong to org ${orgId}`);
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
   const messageSid = params.MessageSid;
   const messageStatus = params.MessageStatus;
   const errorCode = params.ErrorCode;

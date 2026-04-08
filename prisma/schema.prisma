@@ -307,7 +307,7 @@ model Segment {
 model ConsentAuditLog {
   id        String   @id @default(uuid())
   orgId     String
-  contactId String
+  contactId String?
   action    String   // OPTED_IN, OPTED_OUT, CONSENT_UPDATED, DELETED
   source    String   // csv_import, keyword, web_form, manual, api
   metadata  Json?
@@ -315,7 +315,7 @@ model ConsentAuditLog {
 
   // Relations
   org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  contact Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contact Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
   @@index([orgId, contactId])
   @@index([orgId, createdAt])

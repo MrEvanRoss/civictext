@@ -48,6 +48,21 @@ export async function POST(request: Request) {
   const messageSid = params.MessageSid;
   const mediaUrl = params.MediaUrl0;
 
+  // Validate that the receiving phone number belongs to the claimed org
+  // to prevent cross-org data injection via crafted orgId query params
+  if (to) {
+    const phoneNumber = await db.phoneNumber.findFirst({
+      where: { orgId, phoneNumber: to },
+    });
+    if (!phoneNumber) {
+      console.error(`Phone number ${to} does not belong to org ${orgId}`);
+      return new Response(twiml(""), {
+        status: 403,
+        headers: { "Content-Type": "text/xml" },
+      });
+    }
+  }
+
   if (!from || !body) {
     return new Response(twiml(""), {
       headers: { "Content-Type": "text/xml" },

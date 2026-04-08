@@ -138,13 +138,25 @@ export const messageWorker = new Worker<MessageJobData>(
 
     const client = await getOrgClient(orgId);
 
-    // 8. Send via Twilio
-    const twilioMsg = await client.messages.create({
-      messagingServiceSid: subaccount.messagingServiceSid,
-      to: phone,
-      body: finalBody,
-      ...(mediaUrl ? { mediaUrl: [mediaUrl] } : {}),
-    });
+    // 8. Send via Twilio (wrapped in try-catch to refund balance on failure)
+    let twilioMsg;
+    try {
+      twilioMsg = await client.messages.create({
+        messagingServiceSid: subaccount.messagingServiceSid,
+        to: phone,
+        body: finalBody,
+        ...(mediaUrl ? { mediaUrl: [mediaUrl] } : {}),
+      });
+    } catch (twilioError) {
+      // Refund the deducted balance back to DB + Redis since the send failed
+      await db.messagingPlan.update({
+        where: { orgId },
+        data: { balanceCents: { increment: costCents } },
+      });
+      await syncBalanceToRedis(orgId);
+      await job.log(`Twilio send failed, refunded ${costCents}¢: ${twilioError}`);
+      throw twilioError;
+    }
 
     // 9. Record spend in DB
     await db.messagingPlan.update({
