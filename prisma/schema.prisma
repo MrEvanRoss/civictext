@@ -255,6 +255,7 @@ model Contact {
   optInTimestamp   DateTime?
   optOutTimestamp  DateTime?
   lastMessageAt   DateTime?
+  deletedAt       DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 

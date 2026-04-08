@@ -53,6 +53,8 @@ export default function ContactsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkTagInput, setBulkTagInput] = useState("");
   const [showBulkTag, setShowBulkTag] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const loadContacts = useCallback(async () => {
     setLoading(true);
@@ -86,11 +88,14 @@ export default function ContactsPage() {
 
   async function handleDelete(id: string) {
     if (!confirm("Are you sure you want to delete this contact? This cannot be undone.")) return;
+    setDeletingId(id);
     try {
       await deleteContactAction(id);
       loadContacts();
     } catch (err: any) {
       toast.error(err.message || "Failed to delete contact");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -114,12 +119,15 @@ export default function ContactsPage() {
   async function handleBulkDelete() {
     if (selected.size === 0) return;
     if (!confirm(`Delete ${selected.size} contacts? This cannot be undone.`)) return;
+    setBulkDeleting(true);
     try {
       await bulkDeleteContactsAction(Array.from(selected));
       setSelected(new Set());
       loadContacts();
     } catch (err: any) {
       toast.error(err.message || "Failed to delete contacts");
+    } finally {
+      setBulkDeleting(false);
     }
   }
 
@@ -267,8 +275,8 @@ export default function ContactsPage() {
               <Button variant="outline" size="sm" onClick={() => setShowBulkTag(!showBulkTag)}>
                 <Tag className="h-3.5 w-3.5 mr-1" /> Add Tags
               </Button>
-              <Button variant="outline" size="sm" className="text-destructive" onClick={handleBulkDelete}>
-                <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+              <Button variant="outline" size="sm" className="text-destructive" onClick={handleBulkDelete} disabled={bulkDeleting}>
+                <Trash2 className="h-3.5 w-3.5 mr-1" /> {bulkDeleting ? "Deleting..." : "Delete"}
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
                 <X className="h-3.5 w-3.5 mr-1" /> Clear
@@ -378,12 +386,13 @@ export default function ContactsPage() {
                               variant="ghost"
                               size="sm"
                               className="text-destructive"
+                              disabled={deletingId === contact.id}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleDelete(contact.id);
                               }}
                             >
-                              Delete
+                              {deletingId === contact.id ? "Deleting..." : "Delete"}
                             </Button>
                           </td>
                         </tr>

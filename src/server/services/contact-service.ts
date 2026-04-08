@@ -17,7 +17,7 @@ function normalizePhone(phone: string): string {
  * List contacts with filtering, search, and pagination.
  */
 export async function listContacts(orgId: string, filter: ContactFilter) {
-  const where: Prisma.ContactWhereInput = { orgId };
+  const where: Prisma.ContactWhereInput = { orgId, deletedAt: null };
 
   if (filter.search) {
     where.OR = [
@@ -60,7 +60,7 @@ export async function listContacts(orgId: string, filter: ContactFilter) {
  */
 export async function getContact(orgId: string, contactId: string) {
   return db.contact.findFirst({
-    where: { id: contactId, orgId },
+    where: { id: contactId, orgId, deletedAt: null },
     include: {
       messages: {
         orderBy: { createdAt: "desc" },
@@ -76,9 +76,9 @@ export async function getContact(orgId: string, contactId: string) {
 export async function createContact(orgId: string, input: CreateContactInput) {
   const phone = normalizePhone(input.phone);
 
-  // Check for duplicate
+  // Check for duplicate (ignore soft-deleted contacts)
   const existing = await db.contact.findFirst({
-    where: { orgId, phone },
+    where: { orgId, phone, deletedAt: null },
   });
   if (existing) {
     throw new Error(`Contact with phone ${phone} already exists`);
@@ -120,7 +120,7 @@ export async function createContact(orgId: string, input: CreateContactInput) {
  */
 export async function updateContact(orgId: string, input: UpdateContactInput) {
   const existing = await db.contact.findFirst({
-    where: { id: input.id, orgId },
+    where: { id: input.id, orgId, deletedAt: null },
   });
   if (!existing) throw new Error("Contact not found");
 
@@ -167,27 +167,18 @@ export async function updateContact(orgId: string, input: UpdateContactInput) {
 }
 
 /**
- * Delete a contact (hard delete with anonymized message history).
+ * Soft-delete a contact by setting deletedAt.
  */
 export async function deleteContact(orgId: string, contactId: string) {
   const contact = await db.contact.findFirst({
-    where: { id: contactId, orgId },
+    where: { id: contactId, orgId, deletedAt: null },
   });
   if (!contact) throw new Error("Contact not found");
 
-  // Anonymize message history (keep for analytics, remove PII)
-  await db.message.updateMany({
-    where: { contactId, orgId },
-    data: { contactId: null as any },
+  await db.contact.update({
+    where: { id: contactId },
+    data: { deletedAt: new Date() },
   });
-
-  // Delete consent audit logs
-  await db.consentAuditLog.deleteMany({
-    where: { contactId, orgId },
-  });
-
-  // Delete the contact
-  await db.contact.delete({ where: { id: contactId } });
 }
 
 /**
@@ -195,7 +186,7 @@ export async function deleteContact(orgId: string, contactId: string) {
  */
 export async function getOrgTags(orgId: string): Promise<string[]> {
   const contacts = await db.contact.findMany({
-    where: { orgId, tags: { isEmpty: false } },
+    where: { orgId, deletedAt: null, tags: { isEmpty: false } },
     select: { tags: true },
   });
 
@@ -308,9 +299,9 @@ export function buildSegmentWhere(
   });
 
   if (rules.operator === "AND") {
-    return { orgId, AND: conditions as Prisma.ContactWhereInput[] };
+    return { orgId, deletedAt: null, AND: conditions as Prisma.ContactWhereInput[] };
   }
-  return { orgId, OR: conditions as Prisma.ContactWhereInput[] };
+  return { orgId, deletedAt: null, OR: conditions as Prisma.ContactWhereInput[] };
 }
 
 function buildStringCondition(

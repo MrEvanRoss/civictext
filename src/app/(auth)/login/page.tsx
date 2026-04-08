@@ -105,7 +105,7 @@ export default function LoginPage() {
           router.push(redirectTo);
         } else {
           const session = await getSession();
-          const destination = (session?.user as any)?.isSuperAdmin ? "/admin/orgs" : "/dashboard";
+          const destination = session?.user?.isSuperAdmin ? "/admin/orgs" : "/dashboard";
           router.push(destination);
         }
         router.refresh();

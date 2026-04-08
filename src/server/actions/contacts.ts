@@ -106,7 +106,7 @@ export async function bulkAddTagsAction(contactIds: string[], tags: string[]) {
   let updated = 0;
   for (const contactId of validatedIds) {
     const contact = await db.contact.findFirst({
-      where: { id: contactId, orgId },
+      where: { id: contactId, orgId, deletedAt: null },
       select: { tags: true },
     });
     if (!contact) continue;
@@ -137,7 +137,7 @@ export async function bulkRemoveTagsAction(contactIds: string[], tags: string[])
   let updated = 0;
   for (const contactId of validatedIds) {
     const contact = await db.contact.findFirst({
-      where: { id: contactId, orgId },
+      where: { id: contactId, orgId, deletedAt: null },
       select: { tags: true },
     });
     if (!contact) continue;
@@ -154,7 +154,7 @@ export async function bulkRemoveTagsAction(contactIds: string[], tags: string[])
 }
 
 /**
- * Bulk delete contacts.
+ * Bulk soft-delete contacts.
  */
 export async function bulkDeleteContactsAction(contactIds: string[]) {
   await requirePermission(PERMISSIONS.CONTACTS_DELETE);
@@ -163,8 +163,9 @@ export async function bulkDeleteContactsAction(contactIds: string[]) {
 
   const validatedIds = bulkContactIdsSchema.parse(contactIds);
 
-  const result = await db.contact.deleteMany({
-    where: { id: { in: validatedIds }, orgId },
+  const result = await db.contact.updateMany({
+    where: { id: { in: validatedIds }, orgId, deletedAt: null },
+    data: { deletedAt: new Date() },
   });
 
   return { deleted: result.count };
@@ -177,7 +178,7 @@ export async function exportContactsAction(filter?: Partial<ContactFilter>) {
   const { session } = await requireOrg();
   const orgId = (session.user as any).orgId;
 
-  const where: any = { orgId };
+  const where: any = { orgId, deletedAt: null };
   if (filter?.search) {
     where.OR = [
       { phone: { contains: filter.search } },
@@ -245,7 +246,7 @@ export async function getContactTimelineAction(contactId: string) {
   const orgId = (session.user as any).orgId;
 
   const contact = await db.contact.findFirst({
-    where: { id: contactId, orgId },
+    where: { id: contactId, orgId, deletedAt: null },
   });
   if (!contact) throw new Error("Contact not found");
 
@@ -331,7 +332,7 @@ export async function addContactNoteAction(contactId: string, body: string) {
   if (!body.trim()) throw new Error("Note body is required");
 
   const contact = await db.contact.findFirst({
-    where: { id: contactId, orgId },
+    where: { id: contactId, orgId, deletedAt: null },
   });
   if (!contact) throw new Error("Contact not found");
 

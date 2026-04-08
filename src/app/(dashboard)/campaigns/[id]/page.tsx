@@ -26,6 +26,7 @@ import {
   Send,
   Download,
   Pencil,
+  Clock,
 } from "lucide-react";
 
 const STATUS_VARIANTS: Record<string, "default" | "success" | "warning" | "destructive" | "secondary" | "outline"> = {
@@ -69,6 +70,60 @@ export default function CampaignDetailPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  // Auto-refresh every 10 seconds while actively sending
+  useEffect(() => {
+    if (!campaign) return;
+    const isActive = campaign.status === "SENDING" || campaign.status === "EXPANDING";
+    if (!isActive) return;
+
+    const interval = setInterval(() => {
+      loadCampaign();
+    }, 10_000);
+
+    return () => clearInterval(interval);
+  }, [campaign?.status, campaignId]);
+
+  function getCompletionEstimate() {
+    if (!campaign) return null;
+    const isActive = campaign.status === "SENDING" || campaign.status === "EXPANDING";
+    if (!isActive) return null;
+
+    const sent = campaign.sentCount || 0;
+    const total = campaign.totalRecipients || 0;
+    const remaining = total - sent;
+
+    if (total === 0 || remaining <= 0) return null;
+    if (sent < 10) return { label: "Calculating...", detail: `${sent} of ${total} sent` };
+
+    const startedAt = campaign.startedAt ? new Date(campaign.startedAt).getTime() : null;
+    if (!startedAt) return { label: "Calculating...", detail: `${sent} of ${total} sent` };
+
+    const elapsedMs = Date.now() - startedAt;
+    if (elapsedMs <= 0) return { label: "Calculating...", detail: `${sent} of ${total} sent` };
+
+    const msPerMessage = elapsedMs / sent;
+    const remainingMs = remaining * msPerMessage;
+    const remainingMinutes = Math.ceil(remainingMs / 60_000);
+
+    let label: string;
+    if (remainingMinutes < 1) {
+      label = "~less than a minute remaining";
+    } else if (remainingMinutes < 60) {
+      label = `~${remainingMinutes} minute${remainingMinutes === 1 ? "" : "s"} remaining`;
+    } else {
+      const hours = Math.floor(remainingMinutes / 60);
+      const mins = remainingMinutes % 60;
+      label = mins > 0
+        ? `~${hours} hour${hours === 1 ? "" : "s"} ${mins} min remaining`
+        : `~${hours} hour${hours === 1 ? "" : "s"} remaining`;
+    }
+
+    const rate = (1000 / msPerMessage).toFixed(1);
+    const detail = `${sent.toLocaleString()} of ${total.toLocaleString()} sent (${rate} msg/sec)`;
+
+    return { label, detail };
   }
 
   async function handleStatusChange(newStatus: string) {
@@ -245,6 +300,21 @@ export default function CampaignDetailPage() {
           </Card>
         ))}
       </div>
+
+      {/* Completion Estimate */}
+      {(() => {
+        const estimate = getCompletionEstimate();
+        if (!estimate) return null;
+        return (
+          <div className="flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-3">
+            <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
+            <div className="text-sm">
+              <span className="font-medium">{estimate.label}</span>
+              <span className="text-muted-foreground ml-2">{estimate.detail}</span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Campaign Details */}
       <div className="grid gap-6 md:grid-cols-2">

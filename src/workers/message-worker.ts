@@ -497,6 +497,25 @@ async function expandCampaign(orgId: string, campaignId: string, job: Job) {
 // Runs daily, charges $5/month per active phone number
 // ============================================================
 
+/**
+ * Convert a UTC Date to year/month/day in a specific IANA timezone.
+ * Uses Node.js built-in Intl so no external library is needed.
+ */
+function getDateInTimezone(date: Date, timezone: string): { year: number; month: number; day: number } {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = formatter.formatToParts(date);
+  return {
+    year: parseInt(parts.find(p => p.type === 'year')!.value),
+    month: parseInt(parts.find(p => p.type === 'month')!.value),
+    day: parseInt(parts.find(p => p.type === 'day')!.value),
+  };
+}
+
 export const billingQueue = new Queue("billing", { connection });
 
 export const billingWorker = new Worker(
@@ -505,14 +524,13 @@ export const billingWorker = new Worker(
     if (job.name !== "phone-number-fees") return;
 
     const now = new Date();
-    const todayDate = now.getDate(); // 1-31
 
     // Find all active phone numbers
     const phoneNumbers = await db.phoneNumber.findMany({
       where: { status: "ACTIVE" },
       include: {
         org: {
-          include: { messagingPlan: true },
+          select: { timezone: true, messagingPlan: true },
         },
       },
     });
@@ -527,25 +545,30 @@ export const billingWorker = new Worker(
         continue;
       }
 
+      // Use the org's timezone (default to America/New_York if unset)
+      const tz = pn.org.timezone || "America/New_York";
+      const today = getDateInTimezone(now, tz);
+
       // Determine if this number is due for a charge today.
       // Charge on the same calendar date each month as the original provision date.
       const chargeDate = pn.lastChargedAt || pn.createdAt;
-      const billingDayOfMonth = new Date(chargeDate).getDate();
+      const chargeDateLocal = getDateInTimezone(new Date(chargeDate), tz);
+      const billingDayOfMonth = chargeDateLocal.day;
 
       // Check if today is the billing day (or past it, for months with fewer days)
-      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const lastDayOfMonth = new Date(today.year, today.month, 0).getDate();
       const effectiveBillingDay = Math.min(billingDayOfMonth, lastDayOfMonth);
 
-      if (todayDate !== effectiveBillingDay) {
+      if (today.day !== effectiveBillingDay) {
         continue; // Not this number's billing day
       }
 
-      // Check if already charged this month
+      // Check if already charged this month (in org-local timezone)
       if (pn.lastChargedAt) {
-        const lastCharged = new Date(pn.lastChargedAt);
+        const lastChargedLocal = getDateInTimezone(new Date(pn.lastChargedAt), tz);
         if (
-          lastCharged.getMonth() === now.getMonth() &&
-          lastCharged.getFullYear() === now.getFullYear()
+          lastChargedLocal.month === today.month &&
+          lastChargedLocal.year === today.year
         ) {
           continue; // Already charged this month
         }
