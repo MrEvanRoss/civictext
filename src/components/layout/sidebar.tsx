@@ -66,7 +66,7 @@ const navItems: NavEntry[] = [
   { href: "/campaigns", label: "Campaigns", icon: MessageSquare },
   { href: "/flows", label: "Flows", icon: GitBranch },
   { href: "/surveys", label: "Surveys", icon: ClipboardList },
-  { href: "/subcommunities", label: "Subcommunities", icon: UsersRound },
+  { href: "/subcommunities", label: "Interest Lists", icon: UsersRound },
   { href: "/analytics", label: "Insights", icon: TrendingUp },
   { href: "/scheduled", label: "Scheduled", icon: CalendarClock },
   {
@@ -322,14 +322,11 @@ function NavContent({
       {/* Bottom: CivicText branding + collapse toggle */}
       <div className="border-t border-border/50">
         {/* CivicText logo */}
-        <div className={cn("flex items-center px-4 py-2", collapsed ? "justify-center" : "gap-2")}>
+        <div className={cn("flex items-center justify-center px-4 py-3", collapsed ? "" : "")}>
           {collapsed ? (
-            <Image src="/logo-icon.png" alt="CivicText" width={24} height={17} className="shrink-0 opacity-50" />
+            <Image src="/logo-icon.png" alt="CivicText" width={32} height={23} className="shrink-0 opacity-40" />
           ) : (
-            <div className="flex items-center gap-1.5 opacity-50">
-              <Image src="/logo-icon.png" alt="CivicText" width={18} height={13} className="shrink-0" />
-              <span className="text-[10px] text-muted-foreground">Powered by CivicText</span>
-            </div>
+            <Image src="/logo.png" alt="CivicText" width={120} height={120} className="shrink-0 opacity-40" />
           )}
         </div>
 

@@ -913,6 +913,7 @@ export default function NewCampaignPage() {
                   message={messageBody}
                   mediaUrl={mediaUrl || undefined}
                   orgName="CivicText"
+                  showSendTest
                   mergeOverrides={{
                     "{{pollingLocation}}": gotvDefaultLocation || "Your local polling place",
                     "{{electionDate}}": gotvElectionDate || "Election Day",

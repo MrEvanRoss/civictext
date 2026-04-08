@@ -17,8 +17,8 @@ const createOrgSchema = z.object({
 });
 
 const updateRatesSchema = z.object({
-  smsRateCents: z.number().int().min(0).max(100).optional(),
-  mmsRateCents: z.number().int().min(0).max(200).optional(),
+  smsRateCents: z.number().min(0).max(100).optional(),
+  mmsRateCents: z.number().min(0).max(200).optional(),
   phoneNumberFeeCents: z.number().int().min(0).max(10000).optional(),
 });
 
@@ -201,9 +201,15 @@ export async function updateOrgRatesAction(
   z.string().uuid().parse(orgId);
   const validated = updateRatesSchema.parse(updates);
 
-  await db.messagingPlan.update({
+  await db.messagingPlan.upsert({
     where: { orgId },
-    data: validated,
+    update: validated,
+    create: {
+      orgId,
+      smsRateCents: validated.smsRateCents ?? 4,
+      mmsRateCents: validated.mmsRateCents ?? 8,
+      phoneNumberFeeCents: validated.phoneNumberFeeCents ?? 500,
+    },
   });
 
   return { success: true };

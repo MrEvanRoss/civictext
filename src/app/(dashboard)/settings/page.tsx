@@ -553,7 +553,27 @@ function GeneralTab({
 // SIGNUP MESSAGES TAB
 // ===========================================================================
 
-function PhonePreview({ message, orgName }: { message: string; orgName: string }) {
+const SETTINGS_URL_REGEX = /https?:\/\/[^\s]+/g;
+
+function renderSettingsLinks(text: string): React.ReactNode {
+  if (!text) return null;
+  const parts = text.split(SETTINGS_URL_REGEX);
+  const urls = text.match(SETTINGS_URL_REGEX) || [];
+  if (urls.length === 0) return text;
+
+  const result: React.ReactNode[] = [];
+  parts.forEach((part, i) => {
+    if (part) result.push(part);
+    if (i < urls.length) {
+      result.push(
+        <span key={i} className="underline text-primary break-all cursor-pointer">{urls[i]}</span>
+      );
+    }
+  });
+  return result;
+}
+
+function SettingsPhonePreview({ message, orgName }: { message: string; orgName: string }) {
   const rendered = message
     .replace(/\{firstName\}/g, "Jane")
     .replace(/\{orgName\}/g, orgName || "Your Org");
@@ -569,8 +589,8 @@ function PhonePreview({ message, orgName }: { message: string; orgName: string }
         </div>
         <div className="space-y-2">
           {rendered ? (
-            <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-primary/10 px-3 py-2 text-sm">
-              {rendered}
+            <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-primary/10 px-3 py-2 text-sm whitespace-pre-wrap break-words">
+              {renderSettingsLinks(rendered)}
             </div>
           ) : (
             <p className="text-xs text-muted-foreground text-center py-4">
@@ -645,7 +665,7 @@ function SignupMessagesTab({
                 ))}
               </div>
             </div>
-            <PhonePreview
+            <SettingsPhonePreview
               message={form.welcomeMessage}
               orgName={form.name}
             />
@@ -706,7 +726,7 @@ function SignupMessagesTab({
                 ))}
               </div>
             </div>
-            <PhonePreview
+            <SettingsPhonePreview
               message={form.optOutMessage}
               orgName={form.name}
             />

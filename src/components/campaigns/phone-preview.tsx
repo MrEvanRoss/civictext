@@ -1,42 +1,67 @@
 "use client";
 
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Send, X, CheckCircle2, AlertCircle } from "lucide-react";
 import { countSegments, hasUnicodeChars, getRemainingChars } from "@/lib/sms-utils";
+import { sendTestMessageAction } from "@/server/actions/campaigns";
 
 const URL_REGEX = /https?:\/\/[^\s]+/g;
 
 /**
- * Client-side preview: replace URLs with sample short-link format.
+ * Extract domain from a URL for display.
  */
-function previewWithShortLinks(text: string): string {
-  return text.replace(URL_REGEX, () => {
-    const domain =
-      typeof window !== "undefined" ? window.location.host : "civictext.app";
-    return `${window.location.protocol}//${domain}/r/xxxxxx`;
-  });
+function extractDomain(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
 }
 
 /**
- * Render message text with links styled as they appear on phones.
+ * Render message text with links styled as they appear on iOS iMessage.
+ * Links show as underlined blue text with a tappable link preview card beneath.
  */
 function renderPreviewWithLinks(text: string): React.ReactNode {
   if (!text) return null;
-  const shortened = previewWithShortLinks(text);
-  const parts = shortened.split(URL_REGEX);
-  const urls = shortened.match(URL_REGEX) || [];
+  const parts = text.split(URL_REGEX);
+  const urls = text.match(URL_REGEX) || [];
 
-  if (urls.length === 0) return shortened;
+  if (urls.length === 0) return text;
 
   const result: React.ReactNode[] = [];
   parts.forEach((part, i) => {
     if (part) result.push(part);
     if (i < urls.length) {
+      const domain = extractDomain(urls[i]);
       result.push(
-        <span key={i} className="underline text-blue-200 break-all">
-          {urls[i]}
+        <span key={`link-${i}`} className="inline">
+          <span className="underline text-[#6bbbff] break-all cursor-pointer">
+            {urls[i]}
+          </span>
         </span>
       );
+      // Add a link preview card beneath the last URL
+      if (i === urls.length - 1) {
+        result.push(
+          <span key={`card-${i}`} className="block mt-1.5 rounded-lg bg-white/10 border border-white/10 overflow-hidden">
+            <span className="block bg-white/5 h-16 flex items-center justify-center">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-gray-500">
+                <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </span>
+            <span className="block px-2.5 py-1.5">
+              <span className="block text-[11px] text-gray-400 truncate">{domain}</span>
+            </span>
+          </span>
+        );
+      }
     }
   });
   return result;
@@ -71,6 +96,8 @@ export interface PhonePreviewProps {
   orgName?: string;
   /** Override merge field example values (e.g. GOTV fields) */
   mergeOverrides?: Record<string, string>;
+  /** Show "Send Test Message" button below the preview */
+  showSendTest?: boolean;
 }
 
 export function PhonePreview({
@@ -78,6 +105,7 @@ export function PhonePreview({
   mediaUrl,
   orgName,
   mergeOverrides,
+  showSendTest = false,
 }: PhonePreviewProps) {
   // Build resolved message with merge field examples
   const examples = { ...MERGE_FIELD_EXAMPLES, ...mergeOverrides };
@@ -271,6 +299,116 @@ export function PhonePreview({
           </p>
         )}
       </div>
+
+      {/* Send Test Message button */}
+      {showSendTest && message.trim() && (
+        <SendTestButton message={message} mediaUrl={mediaUrl} />
+      )}
+    </div>
+  );
+}
+
+// ===========================================================================
+// Send Test Message inline component
+// ===========================================================================
+
+function SendTestButton({ message, mediaUrl }: { message: string; mediaUrl?: string }) {
+  const [open, setOpen] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ success?: string; error?: string } | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  async function handleSend() {
+    if (!phone.trim() || !message.trim()) return;
+    setSending(true);
+    setResult(null);
+    try {
+      const res = await sendTestMessageAction({
+        phone: phone.trim(),
+        messageBody: message,
+        mediaUrl: mediaUrl || undefined,
+      });
+      setResult({ success: `Sent to ${res.phone}` });
+      timeoutRef.current = setTimeout(() => {
+        setResult(null);
+        setOpen(false);
+        setPhone("");
+      }, 3000);
+    } catch (err: any) {
+      setResult({ error: err.message || "Failed to send" });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <div className="mt-3">
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={() => setOpen(true)}
+        >
+          <Send className="h-3.5 w-3.5 mr-1.5" />
+          Send Test Message
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 rounded-lg border bg-card p-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium">Send Test Message</p>
+        <button onClick={() => { setOpen(false); setResult(null); }} className="text-muted-foreground hover:text-foreground">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Send this message to a phone number for testing. Test messages count toward your balance.
+      </p>
+      <div className="space-y-1.5">
+        <Label htmlFor="test-phone" className="text-xs">Phone Number</Label>
+        <Input
+          id="test-phone"
+          type="tel"
+          placeholder="(555) 123-4567"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          className="h-8 text-sm"
+        />
+      </div>
+
+      {result?.success && (
+        <div className="flex items-center gap-1.5 text-xs text-green-600">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          {result.success}
+        </div>
+      )}
+      {result?.error && (
+        <div className="flex items-center gap-1.5 text-xs text-destructive">
+          <AlertCircle className="h-3.5 w-3.5" />
+          {result.error}
+        </div>
+      )}
+
+      <Button
+        size="sm"
+        className="w-full"
+        disabled={sending || !phone.trim()}
+        onClick={handleSend}
+      >
+        <Send className="h-3.5 w-3.5 mr-1.5" />
+        {sending ? "Sending..." : "Send Test"}
+      </Button>
     </div>
   );
 }

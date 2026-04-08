@@ -186,6 +186,7 @@ export default function ActivationTextPage() {
                 `Welcome to ${orgName}! You'll now receive updates from us. Reply STOP at any time to opt out.`
               }
               orgName={orgName}
+              showSendTest
             />
           </CardContent>
         </Card>
