@@ -119,6 +119,7 @@ export async function getDashboardInsightsAction(dateRange: DateRange) {
     inboundCount,
     deliveredCount,
     optOutsInRange,
+    linkClicksInRange,
   ] = await Promise.all([
     // Total OPTED_IN contacts (all time, not date-scoped)
     db.contact.count({
@@ -157,6 +158,13 @@ export async function getDashboardInsightsAction(dateRange: DateRange) {
         optOutTimestamp: { gte: start, lte: end },
       },
     }),
+    // Link clicks in date range
+    db.linkClick.count({
+      where: {
+        trackedLink: { orgId },
+        clickedAt: { gte: start, lte: end },
+      },
+    }),
   ]);
 
   const responseRate =
@@ -180,6 +188,7 @@ export async function getDashboardInsightsAction(dateRange: DateRange) {
     responseRate,
     optOutRate,
     deliveryRate,
+    linkClicks: linkClicksInRange,
   };
 }
 

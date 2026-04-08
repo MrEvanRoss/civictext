@@ -25,6 +25,7 @@ import {
   UserMinus,
   CheckCircle,
   BarChart3,
+  MousePointerClick,
 } from "lucide-react";
 import {
   LineChart,
@@ -56,6 +57,7 @@ interface KPIData {
   responseRate: number;
   optOutRate: number;
   deliveryRate: number;
+  linkClicks: number;
 }
 
 interface MessageTrendEntry {
@@ -160,8 +162,8 @@ function DashboardSkeleton() {
           <Skeleton className="h-9 w-24" />
         </div>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, i) => (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, i) => (
           <Card key={i}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <Skeleton className="h-4 w-24" />
@@ -284,7 +286,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
@@ -346,6 +348,20 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{kpi?.deliveryRate ?? 0}%</p>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Link Clicks
+            </CardTitle>
+            <MousePointerClick className="h-4 w-4 text-purple-500" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">
+              {kpi?.linkClicks?.toLocaleString() ?? 0}
+            </p>
           </CardContent>
         </Card>
       </div>
