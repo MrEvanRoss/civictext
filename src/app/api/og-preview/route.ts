@@ -98,7 +98,14 @@ export async function GET(request: Request) {
     const ogTitle = extractMeta(html, "og:title") || extractTitle(html);
     const ogDescription =
       extractMeta(html, "og:description") || extractMeta(html, "description");
-    const ogImage = extractMeta(html, "og:image");
+
+    // Image fallback chain: og:image → twitter:image → apple-touch-icon → large favicon → Google favicon
+    const ogImage =
+      extractMeta(html, "og:image") ||
+      extractMeta(html, "twitter:image") ||
+      extractLinkHref(html, "apple-touch-icon") ||
+      extractLinkHref(html, "icon", "image/png") ||
+      extractLinkHref(html, "shortcut icon");
 
     // Resolve relative image URLs
     let resolvedImage = ogImage;
@@ -110,11 +117,23 @@ export async function GET(request: Request) {
       }
     }
 
+    // Determine image type: "og" for full-size images, "icon" for small fallbacks
+    const imageType = extractMeta(html, "og:image") || extractMeta(html, "twitter:image")
+      ? "og"
+      : resolvedImage
+        ? "icon"
+        : null;
+
+    // If still no image at all, use Google's high-res favicon API
+    const finalImage = resolvedImage || `https://www.google.com/s2/favicons?domain=${getDomain(targetUrl)}&sz=128`;
+    const finalImageType = imageType || "icon";
+
     return NextResponse.json(
       {
         title: ogTitle || null,
         description: ogDescription || null,
-        image: resolvedImage || null,
+        image: finalImage,
+        imageType: finalImageType,
         domain: getDomain(targetUrl),
       },
       {
@@ -185,6 +204,31 @@ function extractMeta(html: string, property: string): string | null {
     "i"
   );
   match = nameRegexReverse.exec(html);
+  if (match) return decodeHtmlEntities(match[1]);
+
+  return null;
+}
+
+/**
+ * Extract href from a <link> tag by rel attribute.
+ * Optionally filter by type attribute (e.g., "image/png").
+ */
+function extractLinkHref(html: string, rel: string, type?: string): string | null {
+  // Build regex to match <link> with the specified rel
+  const typeFilter = type ? `[^>]*type=["']${escapeRegex(type)}["']` : "";
+  const regex = new RegExp(
+    `<link[^>]*rel=["'][^"']*${escapeRegex(rel)}[^"']*["']${typeFilter}[^>]*href=["']([^"']*)["']`,
+    "i"
+  );
+  let match = regex.exec(html);
+  if (match) return decodeHtmlEntities(match[1]);
+
+  // Try reverse attribute order (href before rel)
+  const regexReverse = new RegExp(
+    `<link[^>]*href=["']([^"']*)["'][^>]*rel=["'][^"']*${escapeRegex(rel)}[^"']*["']`,
+    "i"
+  );
+  match = regexReverse.exec(html);
   if (match) return decodeHtmlEntities(match[1]);
 
   return null;

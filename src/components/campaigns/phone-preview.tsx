@@ -96,6 +96,8 @@ interface OgData {
   title: string | null;
   description: string | null;
   image: string | null;
+  /** "og" = full-size Open Graph image, "icon" = small favicon/apple-touch-icon */
+  imageType: "og" | "icon" | null;
   domain: string;
 }
 
@@ -146,8 +148,10 @@ function LinkPreviewCard({ url }: { url: string }) {
   const title = ogData?.title || fallbackTitle;
   const displayDomain = ogData?.domain || domain;
   const imageUrl = ogData?.image || null;
+  const imageType = ogData?.imageType || null;
+  const isFullImage = imageType === "og";
 
-  // Pick a branded accent color for the fallback gradient
+  // Pick a branded accent color for the gradient background
   const colors = [
     "from-blue-600 to-blue-800",
     "from-indigo-600 to-indigo-800",
@@ -162,7 +166,18 @@ function LinkPreviewCard({ url }: { url: string }) {
   return (
     <div className="ml-auto max-w-[85%] w-fit rounded-2xl overflow-hidden shadow-sm">
       {/* Image / hero area */}
-      {imageUrl ? (
+      {loading ? (
+        <div
+          className={`bg-gradient-to-br ${colorClass} flex items-center justify-center`}
+          style={{ width: "100%", height: 120 }}
+        >
+          <svg className="animate-spin h-6 w-6 text-white/30" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+        </div>
+      ) : isFullImage && imageUrl ? (
+        /* Full-size OG/Twitter image — fills the hero area */
         <div className="relative bg-gray-900" style={{ width: "100%", height: 120 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -170,50 +185,59 @@ function LinkPreviewCard({ url }: { url: string }) {
             alt=""
             className="w-full h-full object-cover"
             onError={(e) => {
-              // If image fails to load, hide it and show gradient fallback
               (e.target as HTMLImageElement).style.display = "none";
               const parent = (e.target as HTMLImageElement).parentElement;
               if (parent) {
                 parent.classList.add("bg-gradient-to-br", ...colorClass.split(" "));
-                parent.classList.add("flex", "items-center", "justify-center");
               }
             }}
           />
         </div>
-      ) : (
+      ) : imageUrl ? (
+        /* Icon-size image (favicon/apple-touch-icon) — centered on gradient */
         <div
           className={`bg-gradient-to-br ${colorClass} flex items-center justify-center`}
           style={{ width: "100%", height: 120 }}
         >
-          {loading ? (
-            <svg className="animate-spin h-6 w-6 text-white/30" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-          ) : (
-            <svg
-              width="40"
-              height="40"
-              viewBox="0 0 24 24"
-              fill="none"
-              className="text-white/30"
-            >
-              <path
-                d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={imageUrl}
+            alt=""
+            className="rounded-xl shadow-lg object-contain"
+            style={{ width: 56, height: 56 }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = "none";
+            }}
+          />
+        </div>
+      ) : (
+        /* No image at all — just the gradient */
+        <div
+          className={`bg-gradient-to-br ${colorClass} flex items-center justify-center`}
+          style={{ width: "100%", height: 120 }}
+        >
+          <svg
+            width="40"
+            height="40"
+            viewBox="0 0 24 24"
+            fill="none"
+            className="text-white/30"
+          >
+            <path
+              d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </div>
       )}
       {/* Title + domain */}

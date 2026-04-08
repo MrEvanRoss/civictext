@@ -76,6 +76,22 @@ export async function recordClick(
 }
 
 /**
+ * Match URLs in message text — handles https://, http://, www., and bare
+ * domains with common TLDs (e.g. google.com, example.org/path).
+ */
+const URL_REGEX =
+  /(?:https?:\/\/[^\s]+|(?:www\.)[^\s]+|[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.(?:com|org|net|gov|edu|io|co|us|info|biz|me|app|dev|xyz|tv|ai|news|site|store|tech|online|shop|club|pro|page|link)(?:\/[^\s]*)?)/gi;
+
+/**
+ * Normalise a matched URL so the tracked link stores a full URL and the
+ * redirect actually works.
+ */
+function ensureProtocol(url: string): string {
+  if (/^https?:\/\//i.test(url)) return url;
+  return `https://${url}`;
+}
+
+/**
  * Replace URLs in a message body with tracked short links.
  */
 export async function shortenLinksInMessage(
@@ -83,14 +99,14 @@ export async function shortenLinksInMessage(
   messageBody: string,
   campaignId?: string
 ): Promise<string> {
-  const urlRegex = /https?:\/\/[^\s]+/g;
-  const urls = messageBody.match(urlRegex);
+  const urls = messageBody.match(URL_REGEX);
 
   if (!urls || urls.length === 0) return messageBody;
 
   let result = messageBody;
   for (const url of urls) {
-    const { shortUrl } = await createTrackedLink(orgId, url, campaignId);
+    const fullUrl = ensureProtocol(url);
+    const { shortUrl } = await createTrackedLink(orgId, fullUrl, campaignId);
     result = result.replace(url, shortUrl);
   }
 

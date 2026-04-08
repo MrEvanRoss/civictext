@@ -34,7 +34,8 @@ import { listInterestListsAction } from "@/server/actions/interest-lists";
 import { countSegments, hasUnicodeChars, getRemainingChars } from "@/lib/sms-utils";
 import { DEFAULT_SMS_RATE_CENTS, DEFAULT_MMS_RATE_CENTS } from "@/lib/constants";
 
-const URL_REGEX = /https?:\/\/[^\s]+/g;
+// Matches https://, http://, www., and bare domain URLs (e.g. google.com, example.org/path)
+const URL_REGEX = /(?:https?:\/\/[^\s]+|(?:www\.)[^\s]+|[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.(?:com|org|net|gov|edu|io|co|us|info|biz|me|app|dev|xyz|tv|ai|news|site|store|tech|online|shop|club|pro|page|link)(?:\/[^\s]*)?)/gi;
 
 /**
  * Insert text at the current cursor position in a textarea.
