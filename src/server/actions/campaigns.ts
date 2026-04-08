@@ -73,3 +73,65 @@ export async function duplicateCampaignAction(campaignId: string) {
   const userId = (session.user as any).id;
   return duplicateCampaign(orgId, campaignId, userId);
 }
+
+/**
+ * Export campaign message-level data as CSV.
+ */
+export async function exportCampaignAction(campaignId: string) {
+  await requirePermission(PERMISSIONS.DATA_EXPORT);
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
+
+  const campaign = await getCampaign(orgId, campaignId);
+  if (!campaign) throw new Error("Campaign not found");
+
+  const { db } = await import("@/lib/db");
+
+  const messages = await db.message.findMany({
+    where: { orgId, campaignId },
+    orderBy: { createdAt: "asc" },
+    include: {
+      contact: {
+        select: { phone: true, firstName: true, lastName: true, email: true, precinct: true, tags: true },
+      },
+    },
+    take: 50000,
+  });
+
+  const rows: string[][] = [
+    ["Date", "Time", "Phone", "First Name", "Last Name", "Email", "Precinct", "Tags", "Direction", "Body", "Status", "Segments", "Cost"],
+  ];
+
+  for (const msg of messages) {
+    const date = new Date(msg.createdAt);
+    rows.push([
+      date.toLocaleDateString(),
+      date.toLocaleTimeString(),
+      msg.contact?.phone || "",
+      msg.contact?.firstName || "",
+      msg.contact?.lastName || "",
+      msg.contact?.email || "",
+      msg.contact?.precinct || "",
+      msg.contact?.tags?.join("; ") || "",
+      msg.direction,
+      msg.body || "",
+      msg.status,
+      String(msg.segmentCount),
+      msg.cost ? String(msg.cost) : "",
+    ]);
+  }
+
+  const csvLines = rows.map((row) =>
+    row.map((cell) => {
+      if (cell.includes(",") || cell.includes('"') || cell.includes("\n")) {
+        return `"${cell.replace(/"/g, '""')}"`;
+      }
+      return cell;
+    }).join(",")
+  );
+
+  return {
+    csv: csvLines.join("\n"),
+    filename: `campaign-${campaign.name.replace(/[^a-zA-Z0-9]/g, "-")}-${new Date().toISOString().split("T")[0]}.csv`,
+  };
+}

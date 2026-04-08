@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { validateTwilioSignature } from "@/lib/twilio";
 import { db } from "@/lib/db";
 import { OPT_OUT_KEYWORDS, OPT_IN_KEYWORDS } from "@/lib/constants";
+import { dispatchWebhook } from "@/server/services/webhook-service";
 
 /**
  * Twilio Inbound Message Webhook
@@ -60,6 +61,9 @@ export async function POST(request: Request) {
     if (OPT_OUT_KEYWORDS.includes(normalizedBody)) {
       await processOptOut(orgId, from);
 
+      // Fire webhook (non-blocking)
+      dispatchWebhook(orgId, "contact.opted_out", { phone: from, keyword: normalizedBody });
+
       return new Response(
         twiml("You have been unsubscribed. You will not receive any more messages. Reply START to re-subscribe."),
         { headers: { "Content-Type": "text/xml" } }
@@ -68,7 +72,22 @@ export async function POST(request: Request) {
 
     // === OPT-IN CHECK ===
     if (OPT_IN_KEYWORDS.includes(normalizedBody)) {
+      // Check if this is a double opt-in confirmation (contact is PENDING)
+      const pendingContact = await db.contact.findFirst({
+        where: { orgId, phone: from, optInStatus: "PENDING" },
+      });
+
       await processOptIn(orgId, from);
+
+      // Fire webhook (non-blocking)
+      dispatchWebhook(orgId, "contact.opted_in", { phone: from, keyword: normalizedBody, doubleOptIn: !!pendingContact });
+
+      if (pendingContact) {
+        return new Response(
+          twiml("Your subscription is confirmed! You will now receive messages. Reply STOP to unsubscribe."),
+          { headers: { "Content-Type": "text/xml" } }
+        );
+      }
 
       return new Response(
         twiml("You have been re-subscribed. Reply STOP to unsubscribe at any time."),
@@ -94,7 +113,7 @@ export async function POST(request: Request) {
     }
 
     // Create inbound message record
-    await db.message.create({
+    const inboundMessage = await db.message.create({
       data: {
         orgId,
         contactId: contact.id,
@@ -112,6 +131,103 @@ export async function POST(request: Request) {
       where: { id: contact.id },
       data: { lastMessageAt: new Date() },
     });
+
+    // Create or update conversation
+    await db.conversation.upsert({
+      where: { orgId_contactId: { orgId, contactId: contact.id } },
+      create: {
+        orgId,
+        contactId: contact.id,
+        lastMessageAt: new Date(),
+      },
+      update: {
+        lastMessageAt: new Date(),
+        state: "OPEN",
+      },
+    });
+
+    // Fire webhook (non-blocking)
+    dispatchWebhook(orgId, "message.inbound", {
+      messageId: inboundMessage.id,
+      contactId: contact.id,
+      phone: from,
+      body,
+      mediaUrl,
+    });
+
+    // === INTEREST LIST KEYWORD CHECK ===
+    const interestList = await db.interestList.findFirst({
+      where: {
+        orgId,
+        keyword: normalizedBody,
+        isActive: true,
+      },
+    });
+
+    if (interestList) {
+      // Add contact to interest list (skip if already a member)
+      const existingMember = await db.interestListMember.findFirst({
+        where: { interestListId: interestList.id, contactId: contact.id },
+      });
+
+      if (!existingMember) {
+        await db.interestListMember.create({
+          data: {
+            interestListId: interestList.id,
+            contactId: contact.id,
+            source: "keyword",
+          },
+        });
+
+        await db.interestList.update({
+          where: { id: interestList.id },
+          data: { memberCount: { increment: 1 } },
+        });
+
+        // Fire webhook (non-blocking)
+        dispatchWebhook(orgId, "interest_list.joined", {
+          contactId: contact.id,
+          phone: from,
+          listId: interestList.id,
+          listName: interestList.name,
+          keyword: interestList.keyword,
+        });
+      }
+
+      // Auto opt-in the contact if they're texting a keyword to join
+      if (contact.optInStatus !== "OPTED_IN") {
+        await db.contact.update({
+          where: { id: contact.id },
+          data: {
+            optInStatus: "OPTED_IN",
+            optInTimestamp: new Date(),
+            optInSource: `interest_list:${interestList.keyword}`,
+          },
+        });
+
+        await db.consentAuditLog.create({
+          data: {
+            orgId,
+            contactId: contact.id,
+            action: "OPTED_IN",
+            source: "interest_list_keyword",
+            metadata: { keyword: interestList.keyword, listName: interestList.name },
+          },
+        });
+      }
+
+      // Send welcome message if configured
+      if (interestList.welcomeMessage) {
+        return new Response(twiml(interestList.welcomeMessage), {
+          headers: { "Content-Type": "text/xml" },
+        });
+      }
+
+      return new Response(
+        twiml(`You've been added to ${interestList.name}! Reply STOP to opt out.`),
+        { headers: { "Content-Type": "text/xml" } }
+      );
+    }
 
     // Check auto-reply rules
     const autoReply = await db.autoReplyRule.findFirst({

@@ -85,8 +85,8 @@ export const messageWorker = new Worker<MessageJobData>(
       return { status: "delayed", reason: "quiet_hours" };
     }
 
-    // 3. Render merge fields
-    const renderedBody = renderMergeFields(messageBody, { firstName, lastName, phone }, org.name);
+    // 3. Render merge fields (use full contact from DB for all merge tags)
+    const renderedBody = renderMergeFields(messageBody, contact, org.name);
 
     // 4. Append political disclaimer if configured
     let finalBody = renderedBody;

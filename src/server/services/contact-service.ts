@@ -127,9 +127,17 @@ export async function updateContact(orgId: string, input: UpdateContactInput) {
   const data: Prisma.ContactUpdateInput = {};
 
   if (input.phone) data.phone = normalizePhone(input.phone);
+  if (input.prefix !== undefined) data.prefix = input.prefix || null;
   if (input.firstName !== undefined) data.firstName = input.firstName;
   if (input.lastName !== undefined) data.lastName = input.lastName;
+  if (input.suffix !== undefined) data.suffix = input.suffix || null;
   if (input.email !== undefined) data.email = input.email || null;
+  if (input.dateOfBirth !== undefined) data.dateOfBirth = input.dateOfBirth ? new Date(input.dateOfBirth) : null;
+  if (input.street !== undefined) data.street = input.street || null;
+  if (input.city !== undefined) data.city = input.city || null;
+  if (input.state !== undefined) data.state = input.state || null;
+  if (input.zip !== undefined) data.zip = input.zip || null;
+  if (input.precinct !== undefined) data.precinct = input.precinct || null;
   if (input.tags) data.tags = input.tags;
   if (input.customFields) data.customFields = input.customFields as any;
 

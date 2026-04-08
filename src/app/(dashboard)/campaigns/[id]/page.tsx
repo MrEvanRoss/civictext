@@ -15,6 +15,7 @@ import {
   getCampaignAction,
   changeCampaignStatusAction,
   duplicateCampaignAction,
+  exportCampaignAction,
 } from "@/server/actions/campaigns";
 import {
   ArrowLeft,
@@ -25,6 +26,7 @@ import {
   Send,
   CheckCircle2,
   AlertCircle,
+  Download,
 } from "lucide-react";
 
 const STATUS_VARIANTS: Record<string, "default" | "success" | "warning" | "destructive" | "secondary" | "outline"> = {
@@ -171,6 +173,28 @@ export default function CampaignDetailPage() {
             <Copy className="h-4 w-4 mr-1" />
             Duplicate
           </Button>
+          {campaign.sentCount > 0 && (
+            <Button
+              variant="outline"
+              onClick={async () => {
+                try {
+                  const { csv, filename } = await exportCampaignAction(campaignId);
+                  const blob = new Blob([csv], { type: "text/csv" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = filename;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                } catch (err: any) {
+                  setError(err.message || "Failed to export");
+                }
+              }}
+            >
+              <Download className="h-4 w-4 mr-1" />
+              Export CSV
+            </Button>
+          )}
         </div>
       </div>
 

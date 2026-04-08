@@ -5,9 +5,17 @@ export const createContactSchema = z.object({
     .string()
     .min(10, "Phone number must be at least 10 digits")
     .regex(/^\+?[1-9]\d{9,14}$/, "Invalid phone number format"),
+  prefix: z.string().optional(),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
+  suffix: z.string().optional(),
   email: z.string().email().optional().or(z.literal("")),
+  dateOfBirth: z.string().optional(), // ISO date string
+  street: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().max(2).optional(),
+  zip: z.string().max(10).optional(),
+  precinct: z.string().optional(),
   tags: z.array(z.string()).default([]),
   customFields: z.record(z.string(), z.string()).default({}),
   optInStatus: z.enum(["OPTED_IN", "PENDING"]).default("PENDING"),
@@ -52,9 +60,17 @@ export type CreateSegmentInput = z.infer<typeof createSegmentSchema>;
 
 export const columnMappingSchema = z.object({
   phone: z.string().min(1, "Phone column is required"),
+  prefix: z.string().optional(),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
+  suffix: z.string().optional(),
   email: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  street: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zip: z.string().optional(),
+  precinct: z.string().optional(),
   tags: z.string().optional(),
 });
 

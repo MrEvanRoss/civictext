@@ -98,6 +98,7 @@ export async function createCampaign(
         segmentId: input.segmentId,
         scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : undefined,
         createdById: userId,
+        settings: input.gotvSettings ? { gotv: input.gotvSettings } : undefined,
       },
     });
 
@@ -268,17 +269,66 @@ export async function duplicateCampaign(
 }
 
 /**
- * Render merge fields in a message template.
+ * Available merge tags:
+ * {{prefix}}      - Mr., Mrs., Dr., etc.
+ * {{firstName}}   - First name (defaults to "Friend")
+ * {{lastName}}    - Last name
+ * {{suffix}}      - Jr., Sr., III, etc.
+ * {{fullName}}    - Prefix + First + Last + Suffix
+ * {{phone}}       - Phone number
+ * {{email}}       - Email address
+ * {{street}}      - Street address
+ * {{city}}        - City
+ * {{state}}       - State
+ * {{zip}}         - ZIP code
+ * {{address}}     - Full address (street, city, state zip)
+ * {{precinct}}    - Precinct/district
+ * {{orgName}}     - Organization name
  */
 export function renderMergeFields(
   template: string,
-  contact: { firstName?: string | null; lastName?: string | null; phone: string },
+  contact: {
+    prefix?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    suffix?: string | null;
+    phone: string;
+    email?: string | null;
+    street?: string | null;
+    city?: string | null;
+    state?: string | null;
+    zip?: string | null;
+    precinct?: string | null;
+  },
   orgName?: string
 ): string {
+  const fullName = [
+    contact.prefix,
+    contact.firstName,
+    contact.lastName,
+    contact.suffix,
+  ].filter(Boolean).join(" ") || "Friend";
+
+  const address = [
+    contact.street,
+    [contact.city, contact.state].filter(Boolean).join(", "),
+    contact.zip,
+  ].filter(Boolean).join(", ");
+
   return template
+    .replace(/\{\{prefix\}\}/g, contact.prefix || "")
     .replace(/\{\{firstName\}\}/g, contact.firstName || "Friend")
     .replace(/\{\{lastName\}\}/g, contact.lastName || "")
+    .replace(/\{\{suffix\}\}/g, contact.suffix || "")
+    .replace(/\{\{fullName\}\}/g, fullName)
     .replace(/\{\{phone\}\}/g, contact.phone)
+    .replace(/\{\{email\}\}/g, contact.email || "")
+    .replace(/\{\{street\}\}/g, contact.street || "")
+    .replace(/\{\{city\}\}/g, contact.city || "")
+    .replace(/\{\{state\}\}/g, contact.state || "")
+    .replace(/\{\{zip\}\}/g, contact.zip || "")
+    .replace(/\{\{address\}\}/g, address)
+    .replace(/\{\{precinct\}\}/g, contact.precinct || "")
     .replace(/\{\{orgName\}\}/g, orgName || "");
 }
 

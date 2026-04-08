@@ -20,9 +20,10 @@ import {
   getContactAction,
   updateContactAction,
   deleteContactAction,
+  getContactTimelineAction,
 } from "@/server/actions/contacts";
 import { quickSendAction } from "@/server/actions/inbox";
-import { ArrowLeft, Save, Trash2, Send } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Send, MessageSquare, StickyNote, ShieldCheck, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 
 export default function ContactDetailPage() {
   const params = useParams();
@@ -35,19 +36,42 @@ export default function ContactDetailPage() {
   const [error, setError] = useState("");
 
   const [form, setForm] = useState({
+    prefix: "",
     firstName: "",
     lastName: "",
+    suffix: "",
     email: "",
+    dateOfBirth: "",
+    street: "",
+    city: "",
+    state: "",
+    zip: "",
+    precinct: "",
     tags: "",
     optInStatus: "",
   });
   const [quickMessage, setQuickMessage] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
   const [sendSuccess, setSendSuccess] = useState("");
+  const [timeline, setTimeline] = useState<any[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
 
   useEffect(() => {
     loadContact();
+    loadTimeline();
   }, [contactId]);
+
+  async function loadTimeline() {
+    setTimelineLoading(true);
+    try {
+      const data = await getContactTimelineAction(contactId);
+      setTimeline(data);
+    } catch {
+      // Timeline is non-critical, don't block the page
+    } finally {
+      setTimelineLoading(false);
+    }
+  }
 
   async function loadContact() {
     try {
@@ -58,9 +82,17 @@ export default function ContactDetailPage() {
       }
       setContact(data);
       setForm({
+        prefix: data.prefix || "",
         firstName: data.firstName || "",
         lastName: data.lastName || "",
+        suffix: data.suffix || "",
         email: data.email || "",
+        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString().split("T")[0] : "",
+        street: data.street || "",
+        city: data.city || "",
+        state: data.state || "",
+        zip: data.zip || "",
+        precinct: data.precinct || "",
         tags: data.tags.join(", "),
         optInStatus: data.optInStatus,
       });
@@ -77,9 +109,17 @@ export default function ContactDetailPage() {
     try {
       await updateContactAction({
         id: contactId,
+        prefix: form.prefix || undefined,
         firstName: form.firstName || undefined,
         lastName: form.lastName || undefined,
+        suffix: form.suffix || undefined,
         email: form.email || undefined,
+        dateOfBirth: form.dateOfBirth || undefined,
+        street: form.street || undefined,
+        city: form.city || undefined,
+        state: form.state || undefined,
+        zip: form.zip || undefined,
+        precinct: form.precinct || undefined,
         tags: form.tags
           .split(",")
           .map((t) => t.trim())
@@ -163,7 +203,16 @@ export default function ContactDetailPage() {
             <CardDescription>Update contact information.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="prefix">Prefix</Label>
+                <Input
+                  id="prefix"
+                  value={form.prefix}
+                  onChange={(e) => setForm((p) => ({ ...p, prefix: e.target.value }))}
+                  placeholder="Mr."
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="firstName">First Name</Label>
                 <Input
@@ -180,14 +229,79 @@ export default function ContactDetailPage() {
                   onChange={(e) => setForm((p) => ({ ...p, lastName: e.target.value }))}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="suffix">Suffix</Label>
+                <Input
+                  id="suffix"
+                  value={form.suffix}
+                  onChange={(e) => setForm((p) => ({ ...p, suffix: e.target.value }))}
+                  placeholder="Jr."
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                <Input
+                  id="dateOfBirth"
+                  type="date"
+                  value={form.dateOfBirth}
+                  onChange={(e) => setForm((p) => ({ ...p, dateOfBirth: e.target.value }))}
+                />
+              </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="street">Street Address</Label>
               <Input
-                id="email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                id="street"
+                value={form.street}
+                onChange={(e) => setForm((p) => ({ ...p, street: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  value={form.city}
+                  onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="state">State</Label>
+                <Input
+                  id="state"
+                  value={form.state}
+                  onChange={(e) => setForm((p) => ({ ...p, state: e.target.value }))}
+                  maxLength={2}
+                  placeholder="NY"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="zip">ZIP</Label>
+                <Input
+                  id="zip"
+                  value={form.zip}
+                  onChange={(e) => setForm((p) => ({ ...p, zip: e.target.value }))}
+                  maxLength={10}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="precinct">Precinct</Label>
+              <Input
+                id="precinct"
+                value={form.precinct}
+                onChange={(e) => setForm((p) => ({ ...p, precinct: e.target.value }))}
               />
             </div>
             <div className="space-y-2">
@@ -375,6 +489,64 @@ export default function ContactDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Activity Timeline */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Activity Timeline</CardTitle>
+          <CardDescription>Recent messages, notes, and consent changes.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {timelineLoading ? (
+            <p className="text-muted-foreground text-sm">Loading timeline...</p>
+          ) : timeline.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No activity yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {timeline.slice(0, 30).map((item) => (
+                <div key={`${item.type}-${item.id}`} className="flex items-start gap-3 text-sm">
+                  <div className="mt-0.5 shrink-0">
+                    {item.type === "message" ? (
+                      item.direction === "INBOUND" ? (
+                        <ArrowDownLeft className="h-4 w-4 text-blue-500" />
+                      ) : (
+                        <ArrowUpRight className="h-4 w-4 text-green-500" />
+                      )
+                    ) : item.type === "note" ? (
+                      <StickyNote className="h-4 w-4 text-yellow-500" />
+                    ) : (
+                      <ShieldCheck className="h-4 w-4 text-purple-500" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">
+                        {item.type === "message"
+                          ? item.direction === "INBOUND" ? "Received" : "Sent"
+                          : item.type === "note"
+                          ? `Note by ${item.authorName || "Team"}`
+                          : `${item.action}`}
+                      </span>
+                      {item.campaignName && (
+                        <Badge variant="outline" className="text-xs">{item.campaignName}</Badge>
+                      )}
+                      {item.source && (
+                        <Badge variant="outline" className="text-xs">{item.source}</Badge>
+                      )}
+                      <span className="text-xs text-muted-foreground ml-auto shrink-0">
+                        {new Date(item.date).toLocaleString()}
+                      </span>
+                    </div>
+                    {item.body && (
+                      <p className="text-muted-foreground mt-0.5 line-clamp-2">{item.body}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

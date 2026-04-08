@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateTwilioSignature } from "@/lib/twilio";
 import { db } from "@/lib/db";
+import { dispatchWebhook } from "@/server/services/webhook-service";
 
 /**
  * Twilio Delivery Status Webhook
@@ -99,7 +100,17 @@ export async function POST(request: Request) {
       }
     }
 
-    // TODO: Publish SSE event for real-time dashboard updates (Phase 7)
+    // Fire webhook events based on status
+    if (status === "DELIVERED" || status === "SENT" || status === "FAILED" || status === "UNDELIVERED") {
+      const eventName = status === "DELIVERED" ? "message.delivered"
+        : status === "SENT" ? "message.sent"
+        : "message.failed";
+      dispatchWebhook(orgId, eventName as any, {
+        messageSid,
+        status,
+        errorCode: errorCode || null,
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

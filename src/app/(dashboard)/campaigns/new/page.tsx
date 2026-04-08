@@ -19,7 +19,8 @@ import {
 import { Steps } from "@/components/ui/steps";
 import { createCampaignAction } from "@/server/actions/campaigns";
 import { listSegmentsAction } from "@/server/actions/contacts";
-import { countSegments } from "@/lib/sms-utils";
+import { countSegments, hasUnicodeChars, getRemainingChars } from "@/lib/sms-utils";
+import { DEFAULT_SMS_RATE_CENTS, DEFAULT_MMS_RATE_CENTS } from "@/lib/constants";
 
 const WIZARD_STEPS = [
   { title: "Name & Type" },
@@ -39,6 +40,11 @@ const CAMPAIGN_TYPES = [
     value: "P2P",
     label: "Peer-to-Peer",
     description: "Initial broadcast, replies routed to human agents.",
+  },
+  {
+    value: "GOTV",
+    label: "GOTV",
+    description: "Get Out The Vote — multi-touch Election Day sequence with polling reminders.",
   },
   {
     value: "DRIP",
@@ -68,6 +74,11 @@ export default function NewCampaignPage() {
   const [scheduleType, setScheduleType] = useState<"now" | "later">("now");
   const [scheduledAt, setScheduledAt] = useState("");
 
+  // GOTV settings
+  const [gotvElectionDate, setGotvElectionDate] = useState("");
+  const [gotvPollHours, setGotvPollHours] = useState("7:00 AM - 8:00 PM");
+  const [gotvDefaultLocation, setGotvDefaultLocation] = useState("");
+
   useEffect(() => {
     loadSegments();
   }, []);
@@ -83,6 +94,12 @@ export default function NewCampaignPage() {
 
   const charCount = messageBody.length;
   const segmentCount = countSegments(messageBody);
+  const isUnicode = hasUnicodeChars(messageBody);
+  const remaining = getRemainingChars(messageBody);
+  const hasMms = !!mediaUrl;
+  const costPerRecipientCents = hasMms
+    ? DEFAULT_MMS_RATE_CENTS
+    : segmentCount * DEFAULT_SMS_RATE_CENTS;
 
   function canProceed(): boolean {
     switch (step) {
@@ -114,6 +131,13 @@ export default function NewCampaignPage() {
           scheduleType === "later" && scheduledAt
             ? new Date(scheduledAt).toISOString()
             : undefined,
+        ...(type === "GOTV" && {
+          gotvSettings: {
+            electionDate: gotvElectionDate || undefined,
+            pollHours: gotvPollHours || undefined,
+            defaultPollingLocation: gotvDefaultLocation || undefined,
+          },
+        }),
       });
       router.push(`/campaigns/${campaign.id}`);
     } catch (err: any) {
@@ -270,19 +294,93 @@ export default function NewCampaignPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* GOTV Quick Templates */}
+            {type === "GOTV" && (
+              <div className="space-y-2">
+                <Label>GOTV Message Templates</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: "Polling Reminder", body: "Hi {{firstName}}, Election Day is {{electionDate}}! Your polling place is {{pollingLocation}}. Polls are open {{pollHours}}. Make your voice heard! Reply STOP to opt out." },
+                    { label: "Early Vote", body: "{{firstName}}, early voting is open now through {{earlyVoteEnd}}! Skip the lines and vote early at {{pollingLocation}}. Reply STOP to opt out." },
+                    { label: "Ride to Polls", body: "Hi {{firstName}}, need a ride to vote? Reply YES and we'll help arrange transportation to your polling place. Every vote matters! Reply STOP to opt out." },
+                    { label: "Have You Voted?", body: "Hi {{firstName}}, have you voted yet? Polls close at {{pollCloseTime}} today. Your polling place: {{pollingLocation}}. Reply VOTED if you already voted! Reply STOP to opt out." },
+                  ].map((tpl) => (
+                    <button
+                      key={tpl.label}
+                      type="button"
+                      className="text-left p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                      onClick={() => setMessageBody(tpl.body)}
+                    >
+                      <span className="text-sm font-medium">{tpl.label}</span>
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{tpl.body}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>Message Body *</Label>
               <Textarea
                 value={messageBody}
                 onChange={(e) => setMessageBody(e.target.value)}
-                placeholder="Hi {{firstName}}, early voting starts tomorrow! Find your polling location at..."
+                placeholder={type === "GOTV" ? "Hi {{firstName}}, Election Day is tomorrow! Your polling place is {{pollingLocation}}..." : "Hi {{firstName}}, early voting starts tomorrow! Find your polling location at..."}
                 rows={6}
               />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>{charCount} characters</span>
-                <span>
-                  {segmentCount} SMS segment{segmentCount !== 1 ? "s" : ""}
-                </span>
+              {/* Character & Segment Counter */}
+              <div className="rounded-lg border p-3 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-4">
+                    <span className="text-muted-foreground">
+                      {charCount} character{charCount !== 1 ? "s" : ""}
+                    </span>
+                    <span className="text-muted-foreground">&middot;</span>
+                    <span className={`font-medium ${segmentCount > 3 ? "text-orange-600" : segmentCount > 1 ? "text-yellow-600" : "text-green-600"}`}>
+                      {segmentCount} segment{segmentCount !== 1 ? "s" : ""}
+                    </span>
+                    <span className="text-muted-foreground">&middot;</span>
+                    <span className="text-muted-foreground">
+                      {remaining} char{remaining !== 1 ? "s" : ""} left in segment
+                    </span>
+                  </div>
+                  <span className="text-sm font-medium">
+                    {(costPerRecipientCents / 100).toFixed(2)}¢/recipient
+                  </span>
+                </div>
+
+                {/* Segment progress bar */}
+                {charCount > 0 && (
+                  <div className="flex gap-1">
+                    {Array.from({ length: Math.min(segmentCount, 10) }).map((_, i) => (
+                      <div
+                        key={i}
+                        className={`h-1.5 flex-1 rounded-full ${
+                          i < segmentCount
+                            ? segmentCount > 3
+                              ? "bg-orange-400"
+                              : segmentCount > 1
+                                ? "bg-yellow-400"
+                                : "bg-green-400"
+                            : "bg-muted"
+                        }`}
+                      />
+                    ))}
+                    {segmentCount > 10 && (
+                      <span className="text-xs text-muted-foreground">+{segmentCount - 10}</span>
+                    )}
+                  </div>
+                )}
+
+                {isUnicode && (
+                  <p className="text-xs text-orange-600">
+                    Unicode detected (emoji or special characters). Segment limit reduced from 160 to 70 characters.
+                  </p>
+                )}
+                {segmentCount > 3 && (
+                  <p className="text-xs text-orange-600">
+                    Long messages cost more. Consider shortening to reduce per-recipient cost.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -290,7 +388,23 @@ export default function NewCampaignPage() {
               <span className="text-xs text-muted-foreground">
                 Insert merge field:
               </span>
-              {["{{firstName}}", "{{lastName}}", "{{orgName}}"].map((field) => (
+              {[
+                "{{firstName}}",
+                "{{lastName}}",
+                "{{fullName}}",
+                "{{prefix}}",
+                "{{suffix}}",
+                "{{address}}",
+                "{{precinct}}",
+                "{{orgName}}",
+                ...(type === "GOTV" ? [
+                  "{{pollingLocation}}",
+                  "{{electionDate}}",
+                  "{{pollHours}}",
+                  "{{pollCloseTime}}",
+                  "{{earlyVoteEnd}}",
+                ] : []),
+              ].map((field) => (
                 <Button
                   key={field}
                   variant="outline"
@@ -323,8 +437,19 @@ export default function NewCampaignPage() {
                 <div className="bg-muted rounded-2xl p-4 text-sm">
                   <div className="bg-primary text-primary-foreground rounded-xl px-3 py-2 ml-auto max-w-[85%] w-fit">
                     {messageBody
+                      .replace(/\{\{prefix\}\}/g, "Ms.")
                       .replace(/\{\{firstName\}\}/g, "Jane")
                       .replace(/\{\{lastName\}\}/g, "Smith")
+                      .replace(/\{\{suffix\}\}/g, "")
+                      .replace(/\{\{fullName\}\}/g, "Ms. Jane Smith")
+                      .replace(/\{\{phone\}\}/g, "(212) 555-1234")
+                      .replace(/\{\{email\}\}/g, "jane@example.com")
+                      .replace(/\{\{street\}\}/g, "123 Main St")
+                      .replace(/\{\{city\}\}/g, "Springfield")
+                      .replace(/\{\{state\}\}/g, "IL")
+                      .replace(/\{\{zip\}\}/g, "62701")
+                      .replace(/\{\{address\}\}/g, "123 Main St, Springfield, IL 62701")
+                      .replace(/\{\{precinct\}\}/g, "District 5")
                       .replace(/\{\{orgName\}\}/g, "CivicText") || (
                       <span className="opacity-50">Your message here...</span>
                     )}
@@ -395,6 +520,48 @@ export default function NewCampaignPage() {
                 <p className="text-xs text-muted-foreground">
                   Messages will respect quiet hours (8AM-9PM in recipient timezone).
                 </p>
+              </div>
+            )}
+
+            {/* GOTV Settings */}
+            {type === "GOTV" && (
+              <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                <h4 className="font-medium text-sm">GOTV Settings</h4>
+                <p className="text-xs text-muted-foreground">
+                  Set default values for GOTV merge fields. These will be used when contact-specific data is not available.
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="gotvElectionDate">Election Date</Label>
+                    <Input
+                      id="gotvElectionDate"
+                      type="date"
+                      value={gotvElectionDate}
+                      onChange={(e) => setGotvElectionDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="gotvPollHours">Poll Hours</Label>
+                    <Input
+                      id="gotvPollHours"
+                      value={gotvPollHours}
+                      onChange={(e) => setGotvPollHours(e.target.value)}
+                      placeholder="7:00 AM - 8:00 PM"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="gotvDefaultLocation">Default Polling Location</Label>
+                  <Input
+                    id="gotvDefaultLocation"
+                    value={gotvDefaultLocation}
+                    onChange={(e) => setGotvDefaultLocation(e.target.value)}
+                    placeholder="Check your local board of elections for your polling place"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Used when a contact does not have a specific polling location assigned.
+                  </p>
+                </div>
               </div>
             )}
           </CardContent>

@@ -38,6 +38,7 @@ enum OptInStatus {
 enum CampaignType {
   BROADCAST
   P2P
+  GOTV
   DRIP
   AUTO_REPLY
 }
@@ -132,6 +133,11 @@ model Organization {
   billingAlerts            BillingAlert[]
   quickReplyTemplates      QuickReplyTemplate[]
   dripSteps                DripStep[]
+  interestLists            InterestList[]
+  messageTemplates         MessageTemplate[]
+  trackedLinks             TrackedLink[]
+  webhookEndpoints         WebhookEndpoint[]
+  apiKeys                  ApiKey[]
 
   @@index([status])
 }
@@ -159,6 +165,9 @@ model User {
   createdCampaigns Campaign[]      @relation("CampaignCreator")
   assignedConversations Conversation[] @relation("ConversationAssignee")
   conversationNotes ConversationNote[]
+  contactNotes     ContactNote[]
+  createdTemplates MessageTemplate[] @relation("TemplateCreator")
+  createdApiKeys   ApiKey[]
 
   @@index([orgId])
   @@index([email])
@@ -209,9 +218,17 @@ model Contact {
   id              String      @id @default(uuid())
   orgId           String
   phone           String
+  prefix          String?  // Mr., Mrs., Dr., etc.
   firstName       String?
   lastName        String?
+  suffix          String?  // Jr., Sr., III, etc.
   email           String?
+  dateOfBirth     DateTime?
+  street          String?
+  city            String?
+  state           String?
+  zip             String?
+  precinct        String?
   tags            String[]
   customFields    Json?
   optInStatus     OptInStatus @default(NEVER_OPTED_IN)
@@ -223,15 +240,33 @@ model Contact {
   updatedAt       DateTime    @updatedAt
 
   // Relations
-  org              Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org              Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
   messages         Message[]
   consentAuditLogs ConsentAuditLog[]
   conversations    Conversation[]
+  contactNotes     ContactNote[]
+  interestListMemberships InterestListMember[]
 
   @@unique([orgId, phone])
   @@index([orgId, optInStatus])
   @@index([orgId, createdAt])
   @@index([tags], type: Gin)
+  @@index([orgId, precinct])
+}
+
+model ContactNote {
+  id        String   @id @default(uuid())
+  orgId     String
+  contactId String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  // Relations
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId], references: [id])
+
+  @@index([contactId, createdAt])
 }
 
 model Segment {
@@ -307,6 +342,7 @@ model Campaign {
   messages  Message[]
   dripSteps DripStep[]
   usageLedger UsageLedger[]
+  trackedLinks TrackedLink[]
 
   @@index([orgId, status])
   @@index([orgId, createdAt])
@@ -392,6 +428,11 @@ model Conversation {
   state        ConversationState @default(OPEN)
   assignedToId String?
   isStarred    Boolean           @default(false)
+  isEscalated  Boolean           @default(false)
+  escalatedReason String?
+  escalatedAt  DateTime?
+  escalatedById String?
+  responseTags String[]          // tags applied to this conversation (e.g., "supportive", "undecided")
   lastMessageAt DateTime?
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
@@ -406,6 +447,7 @@ model Conversation {
   @@index([orgId, state])
   @@index([orgId, assignedToId])
   @@index([orgId, lastMessageAt])
+  @@index([orgId, isEscalated])
 }
 
 model ConversationNote {
@@ -434,6 +476,79 @@ model QuickReplyTemplate {
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
+}
+
+model MessageTemplate {
+  id          String   @id @default(uuid())
+  orgId       String
+  name        String
+  category    String   @default("general") // general, gotv, fundraising, event, survey, follow-up
+  body        String
+  mediaUrl    String?
+  language    String   @default("en")
+  tags        String[]
+  usageCount  Int      @default(0)
+  isArchived  Boolean  @default(false)
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy User         @relation("TemplateCreator", fields: [createdById], references: [id])
+
+  @@index([orgId, category])
+  @@index([orgId, isArchived])
+}
+
+model TrackedLink {
+  id          String   @id @default(uuid())
+  orgId       String
+  campaignId  String?
+  shortCode   String   @unique // unique short code for the link
+  originalUrl String
+  clickCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign Campaign?    @relation(fields: [campaignId], references: [id])
+  clicks   LinkClick[]
+
+  @@index([orgId])
+  @@index([shortCode])
+}
+
+model LinkClick {
+  id            String   @id @default(uuid())
+  trackedLinkId String
+  contactId     String?
+  ip            String?
+  userAgent     String?
+  clickedAt     DateTime @default(now())
+
+  // Relations
+  trackedLink TrackedLink @relation(fields: [trackedLinkId], references: [id], onDelete: Cascade)
+
+  @@index([trackedLinkId])
+}
+
+model WebhookEndpoint {
+  id        String   @id @default(uuid())
+  orgId     String
+  url       String
+  events    String[] // message.sent, message.delivered, message.failed, contact.opted_in, contact.opted_out, campaign.completed
+  secret    String   // HMAC signing secret
+  isActive  Boolean  @default(true)
+  failCount Int      @default(0)
+  lastError String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, isActive])
 }
 
 // ============================================================
@@ -578,6 +693,45 @@ model BillingAlert {
 }
 
 // ============================================================
+// INTEREST LISTS
+// ============================================================
+
+model InterestList {
+  id              String   @id @default(uuid())
+  orgId           String
+  name            String
+  keyword         String   // case-insensitive keyword contacts text to join
+  description     String?
+  welcomeMessage  String?  // auto-reply when someone joins via keyword
+  isActive        Boolean  @default(true)
+  memberCount     Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  org     Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  members InterestListMember[]
+
+  @@unique([orgId, keyword])
+  @@index([orgId, isActive])
+}
+
+model InterestListMember {
+  id             String   @id @default(uuid())
+  interestListId String
+  contactId      String
+  source         String   @default("keyword") // keyword, manual, import
+  joinedAt       DateTime @default(now())
+
+  // Relations
+  interestList InterestList @relation(fields: [interestListId], references: [id], onDelete: Cascade)
+  contact      Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([interestListId, contactId])
+  @@index([contactId])
+}
+
+// ============================================================
 // IMPORT JOBS
 // ============================================================
 
@@ -602,4 +756,30 @@ model ImportJob {
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
+}
+
+// ============================================================
+// API KEYS
+// ============================================================
+
+model ApiKey {
+  id          String    @id @default(uuid())
+  orgId       String
+  name        String
+  keyHash     String    @unique // SHA-256 hash of the key (never store plaintext)
+  keyPrefix   String    // First 8 chars for identification (e.g., "ct_live_ab")
+  permissions String[]  // e.g., ["contacts:read", "contacts:write", "messages:send"]
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy User         @relation(fields: [createdById], references: [id])
+
+  @@index([orgId])
+  @@index([keyHash])
 }

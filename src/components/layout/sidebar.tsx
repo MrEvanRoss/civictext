@@ -13,13 +13,19 @@ import {
   CreditCard,
   Settings,
   UserPlus,
+  Hash,
+  FileText,
+  Shield,
 } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/contacts", label: "Contacts", icon: Users },
   { href: "/campaigns", label: "Campaigns", icon: MessageSquare },
+  { href: "/templates", label: "Templates", icon: FileText },
+  { href: "/interest-lists", label: "Interest Lists", icon: Hash },
   { href: "/inbox", label: "Inbox", icon: Inbox },
+  { href: "/supervisor", label: "Supervisor", icon: Shield },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/phone-numbers", label: "Phone Numbers", icon: Phone },
   { href: "/billing", label: "Billing", icon: CreditCard },

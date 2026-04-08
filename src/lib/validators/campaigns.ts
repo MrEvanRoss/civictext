@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const createCampaignSchema = z.object({
   name: z.string().min(1, "Campaign name is required"),
-  type: z.enum(["BROADCAST", "P2P", "DRIP", "AUTO_REPLY"]),
+  type: z.enum(["BROADCAST", "P2P", "GOTV", "DRIP", "AUTO_REPLY"]),
   segmentId: z.string().uuid().optional(),
   messageBody: z.string().min(1, "Message body is required"),
   mediaUrl: z.string().url().optional(),
@@ -30,6 +30,14 @@ export const createCampaignSchema = z.object({
       })
     )
     .optional(),
+  // GOTV-specific settings (stored in Campaign.settings JSON)
+  gotvSettings: z
+    .object({
+      electionDate: z.string().optional(),
+      pollHours: z.string().optional(),
+      defaultPollingLocation: z.string().optional(),
+    })
+    .optional(),
 });
 
 export type CreateCampaignInput = z.infer<typeof createCampaignSchema>;
@@ -43,7 +51,7 @@ export type UpdateCampaignInput = z.infer<typeof updateCampaignSchema>;
 
 export const campaignFilterSchema = z.object({
   status: z.enum(["DRAFT", "SCHEDULED", "SENDING", "PAUSED", "COMPLETED", "CANCELLED"]).optional(),
-  type: z.enum(["BROADCAST", "P2P", "DRIP", "AUTO_REPLY"]).optional(),
+  type: z.enum(["BROADCAST", "P2P", "GOTV", "DRIP", "AUTO_REPLY"]).optional(),
   page: z.number().int().min(1).default(1),
   pageSize: z.number().int().min(1).max(50).default(20),
 });

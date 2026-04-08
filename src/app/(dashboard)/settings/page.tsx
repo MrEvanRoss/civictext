@@ -13,7 +13,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Save } from "lucide-react";
+import { Save, Webhook, KeyRound, MessageSquareReply } from "lucide-react";
+import Link from "next/link";
 
 export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
@@ -132,6 +133,53 @@ export default function SettingsPage() {
             {saving ? "Saving..." : "Save Settings"}
           </Button>
         </CardFooter>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Integrations</CardTitle>
+          <CardDescription>
+            Connect CivicText with external services.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Link
+            href="/settings/webhooks"
+            className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors"
+          >
+            <Webhook className="h-5 w-5 text-primary" />
+            <div>
+              <p className="font-medium text-sm">Webhooks</p>
+              <p className="text-xs text-muted-foreground">
+                Send real-time events to your servers when messages are sent, delivered, or contacts opt in/out.
+              </p>
+            </div>
+          </Link>
+          <Link
+            href="/settings/api-keys"
+            className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors"
+          >
+            <KeyRound className="h-5 w-5 text-primary" />
+            <div>
+              <p className="font-medium text-sm">API Keys</p>
+              <p className="text-xs text-muted-foreground">
+                Manage API keys for programmatic access to CivicText.
+              </p>
+            </div>
+          </Link>
+          <Link
+            href="/settings/auto-reply"
+            className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors"
+          >
+            <MessageSquareReply className="h-5 w-5 text-primary" />
+            <div>
+              <p className="font-medium text-sm">Auto-Reply Rules</p>
+              <p className="text-xs text-muted-foreground">
+                Automatically respond to inbound messages matching specific keywords.
+              </p>
+            </div>
+          </Link>
+        </CardContent>
       </Card>
     </div>
   );

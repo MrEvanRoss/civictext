@@ -16,8 +16,11 @@ import {
 import {
   listContactsAction,
   deleteContactAction,
+  bulkAddTagsAction,
+  bulkDeleteContactsAction,
+  exportContactsAction,
 } from "@/server/actions/contacts";
-import { Users, Plus, Upload, Search, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users, Plus, Upload, Search, Filter, ChevronLeft, ChevronRight, Download, Tag, Trash2, X } from "lucide-react";
 
 interface Contact {
   id: string;
@@ -46,6 +49,9 @@ export default function ContactsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkTagInput, setBulkTagInput] = useState("");
+  const [showBulkTag, setShowBulkTag] = useState(false);
 
   const loadContacts = useCallback(async () => {
     setLoading(true);
@@ -87,6 +93,67 @@ export default function ContactsPage() {
     }
   }
 
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (!data) return;
+    if (selected.size === data.contacts.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(data.contacts.map((c) => c.id)));
+    }
+  }
+
+  async function handleBulkDelete() {
+    if (selected.size === 0) return;
+    if (!confirm(`Delete ${selected.size} contacts? This cannot be undone.`)) return;
+    try {
+      await bulkDeleteContactsAction(Array.from(selected));
+      setSelected(new Set());
+      loadContacts();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  }
+
+  async function handleBulkTag() {
+    if (selected.size === 0 || !bulkTagInput.trim()) return;
+    const tags = bulkTagInput.split(",").map((t) => t.trim()).filter(Boolean);
+    try {
+      await bulkAddTagsAction(Array.from(selected), tags);
+      setBulkTagInput("");
+      setShowBulkTag(false);
+      setSelected(new Set());
+      loadContacts();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  }
+
+  async function handleExport() {
+    try {
+      const result = await exportContactsAction({
+        search: search || undefined,
+        optInStatus: statusFilter as any || undefined,
+      });
+      const blob = new Blob([result.csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = result.filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  }
+
   function OptInBadge({ status }: { status: string }) {
     switch (status) {
       case "OPTED_IN":
@@ -112,6 +179,10 @@ export default function ContactsPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport}>
+            <Download className="mr-2 h-4 w-4" />
+            Export
+          </Button>
           <Link href="/contacts/segments">
             <Button variant="outline">
               <Filter className="mr-2 h-4 w-4" />
@@ -180,6 +251,36 @@ export default function ContactsPage() {
             </Select>
           </div>
 
+          {/* Bulk Action Bar */}
+          {selected.size > 0 && (
+            <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+              <span className="text-sm font-medium">{selected.size} selected</span>
+              <Button variant="outline" size="sm" onClick={() => setShowBulkTag(!showBulkTag)}>
+                <Tag className="h-3.5 w-3.5 mr-1" /> Add Tags
+              </Button>
+              <Button variant="outline" size="sm" className="text-destructive" onClick={handleBulkDelete}>
+                <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
+                <X className="h-3.5 w-3.5 mr-1" /> Clear
+              </Button>
+              {showBulkTag && (
+                <div className="flex items-center gap-2 ml-2">
+                  <Input
+                    value={bulkTagInput}
+                    onChange={(e) => setBulkTagInput(e.target.value)}
+                    placeholder="tag1, tag2"
+                    className="w-48 h-8"
+                    onKeyDown={(e) => { if (e.key === "Enter") handleBulkTag(); }}
+                  />
+                  <Button size="sm" onClick={handleBulkTag} disabled={!bulkTagInput.trim()}>
+                    Apply
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Contact Table */}
           <Card>
             <CardContent className="p-0">
@@ -192,6 +293,14 @@ export default function ContactsPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/50">
+                        <th className="py-3 px-4 w-10">
+                          <input
+                            type="checkbox"
+                            checked={data ? selected.size === data.contacts.length && data.contacts.length > 0 : false}
+                            onChange={toggleSelectAll}
+                            className="rounded border-gray-300"
+                          />
+                        </th>
                         <th className="text-left py-3 px-4 font-medium">Name</th>
                         <th className="text-left py-3 px-4 font-medium">Phone</th>
                         <th className="text-left py-3 px-4 font-medium">Email</th>
@@ -207,6 +316,14 @@ export default function ContactsPage() {
                           className="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
                           onClick={() => router.push(`/contacts/${contact.id}`)}
                         >
+                          <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={selected.has(contact.id)}
+                              onChange={() => toggleSelect(contact.id)}
+                              className="rounded border-gray-300"
+                            />
+                          </td>
                           <td className="py-3 px-4">
                             {contact.firstName || contact.lastName
                               ? `${contact.firstName || ""} ${contact.lastName || ""}`.trim()

@@ -38,9 +38,17 @@ export default function ImportPage() {
   // Column mapping
   const [mapping, setMapping] = useState<Record<string, string>>({
     phone: "",
+    prefix: "",
     firstName: "",
     lastName: "",
+    suffix: "",
     email: "",
+    dateOfBirth: "",
+    street: "",
+    city: "",
+    state: "",
+    zip: "",
+    precinct: "",
     tags: "",
   });
 
@@ -87,9 +95,17 @@ export default function ImportPage() {
       // Auto-map common column names
       const autoMap: Record<string, string> = {
         phone: "",
+        prefix: "",
         firstName: "",
         lastName: "",
+        suffix: "",
         email: "",
+        dateOfBirth: "",
+        street: "",
+        city: "",
+        state: "",
+        zip: "",
+        precinct: "",
         tags: "",
       };
 
@@ -97,12 +113,28 @@ export default function ImportPage() {
         const lower = h.toLowerCase().replace(/[_\s-]/g, "");
         if (lower.includes("phone") || lower === "mobile" || lower === "cell") {
           autoMap.phone = h;
+        } else if (lower === "prefix" || lower === "title" || lower === "salutation") {
+          autoMap.prefix = h;
         } else if (lower.includes("firstname") || lower === "first") {
           autoMap.firstName = h;
         } else if (lower.includes("lastname") || lower === "last") {
           autoMap.lastName = h;
+        } else if (lower === "suffix" || lower === "namesuffix") {
+          autoMap.suffix = h;
         } else if (lower.includes("email")) {
           autoMap.email = h;
+        } else if (lower.includes("dob") || lower.includes("dateofbirth") || lower.includes("birthday") || lower.includes("birthdate")) {
+          autoMap.dateOfBirth = h;
+        } else if (lower.includes("street") || lower.includes("address")) {
+          autoMap.street = h;
+        } else if (lower === "city") {
+          autoMap.city = h;
+        } else if (lower === "state" || lower === "st") {
+          autoMap.state = h;
+        } else if (lower === "zip" || lower === "zipcode" || lower.includes("postal")) {
+          autoMap.zip = h;
+        } else if (lower.includes("precinct")) {
+          autoMap.precinct = h;
         } else if (lower.includes("tag")) {
           autoMap.tags = h;
         }
@@ -245,6 +277,11 @@ export default function ImportPage() {
                         <td className="py-2 px-3 text-muted-foreground text-xs">US phone number in any format</td>
                       </tr>
                       <tr className="border-b">
+                        <td className="py-2 px-3 font-mono text-xs">Prefix</td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs">Optional</td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs">Mr., Mrs., Dr., etc. Merge: {"{{prefix}}"}</td>
+                      </tr>
+                      <tr className="border-b">
                         <td className="py-2 px-3 font-mono text-xs">First Name</td>
                         <td className="py-2 px-3 text-muted-foreground text-xs">Optional</td>
                         <td className="py-2 px-3 text-muted-foreground text-xs">Used for merge fields like {"{{firstName}}"}</td>
@@ -255,9 +292,29 @@ export default function ImportPage() {
                         <td className="py-2 px-3 text-muted-foreground text-xs">Used for merge fields like {"{{lastName}}"}</td>
                       </tr>
                       <tr className="border-b">
+                        <td className="py-2 px-3 font-mono text-xs">Suffix</td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs">Optional</td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs">Jr., Sr., III, etc. Merge: {"{{suffix}}"}</td>
+                      </tr>
+                      <tr className="border-b">
                         <td className="py-2 px-3 font-mono text-xs">Email</td>
                         <td className="py-2 px-3 text-muted-foreground text-xs">Optional</td>
                         <td className="py-2 px-3 text-muted-foreground text-xs">Contact email address</td>
+                      </tr>
+                      <tr className="border-b">
+                        <td className="py-2 px-3 font-mono text-xs">Date of Birth</td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs">Optional</td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs">Any common date format (MM/DD/YYYY, etc.)</td>
+                      </tr>
+                      <tr className="border-b">
+                        <td className="py-2 px-3 font-mono text-xs">Street / City / State / ZIP</td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs">Optional</td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs">Address fields (separate columns)</td>
+                      </tr>
+                      <tr className="border-b">
+                        <td className="py-2 px-3 font-mono text-xs">Precinct</td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs">Optional</td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs">Voting precinct or district</td>
                       </tr>
                       <tr>
                         <td className="py-2 px-3 font-mono text-xs">Tags</td>
@@ -322,12 +379,20 @@ export default function ImportPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {Object.entries({
                 phone: "Phone Number *",
+                prefix: "Prefix",
                 firstName: "First Name",
                 lastName: "Last Name",
+                suffix: "Suffix",
                 email: "Email",
+                dateOfBirth: "Date of Birth",
+                street: "Street Address",
+                city: "City",
+                state: "State",
+                zip: "ZIP Code",
+                precinct: "Precinct",
                 tags: "Tags",
               }).map(([field, label]) => (
                 <div key={field} className="space-y-2">
