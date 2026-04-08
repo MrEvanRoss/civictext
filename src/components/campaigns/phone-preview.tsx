@@ -88,14 +88,66 @@ function extractUrls(text: string): string[] {
 }
 
 /**
+ * Cached OG metadata to avoid re-fetching the same URL.
+ */
+const ogCache = new Map<string, OgData>();
+
+interface OgData {
+  title: string | null;
+  description: string | null;
+  image: string | null;
+  domain: string;
+}
+
+/**
  * iOS-style rich link preview card — rendered as a separate element below the
  * message bubble, exactly like iMessage shows link previews.
+ *
+ * Fetches real Open Graph metadata (title, image) from /api/og-preview.
  */
 function LinkPreviewCard({ url }: { url: string }) {
   const domain = extractDomain(url);
-  const title = generateMockTitle(url);
+  const fallbackTitle = generateMockTitle(url);
 
-  // Pick a branded accent color for the preview image area
+  const [ogData, setOgData] = useState<OgData | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!url) return;
+
+    const normalizedUrl = normalizeUrl(url);
+
+    // Check cache first
+    const cached = ogCache.get(normalizedUrl);
+    if (cached) {
+      setOgData(cached);
+      return;
+    }
+
+    setLoading(true);
+    const controller = new AbortController();
+
+    fetch(`/api/og-preview?url=${encodeURIComponent(url)}`, {
+      signal: controller.signal,
+    })
+      .then((res) => res.json())
+      .then((data: OgData) => {
+        ogCache.set(normalizedUrl, data);
+        setOgData(data);
+      })
+      .catch(() => {
+        // Ignore abort / network errors — show fallback
+      })
+      .finally(() => setLoading(false));
+
+    return () => controller.abort();
+  }, [url]);
+
+  const title = ogData?.title || fallbackTitle;
+  const displayDomain = ogData?.domain || domain;
+  const imageUrl = ogData?.image || null;
+
+  // Pick a branded accent color for the fallback gradient
   const colors = [
     "from-blue-600 to-blue-800",
     "from-indigo-600 to-indigo-800",
@@ -110,39 +162,66 @@ function LinkPreviewCard({ url }: { url: string }) {
   return (
     <div className="ml-auto max-w-[85%] w-fit rounded-2xl overflow-hidden shadow-sm">
       {/* Image / hero area */}
-      <div
-        className={`bg-gradient-to-br ${colorClass} flex items-center justify-center`}
-        style={{ width: "100%", height: 120 }}
-      >
-        <svg
-          width="40"
-          height="40"
-          viewBox="0 0 24 24"
-          fill="none"
-          className="text-white/30"
+      {imageUrl ? (
+        <div className="relative bg-gray-900" style={{ width: "100%", height: 120 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={imageUrl}
+            alt=""
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              // If image fails to load, hide it and show gradient fallback
+              (e.target as HTMLImageElement).style.display = "none";
+              const parent = (e.target as HTMLImageElement).parentElement;
+              if (parent) {
+                parent.classList.add("bg-gradient-to-br", ...colorClass.split(" "));
+                parent.classList.add("flex", "items-center", "justify-center");
+              }
+            }}
+          />
+        </div>
+      ) : (
+        <div
+          className={`bg-gradient-to-br ${colorClass} flex items-center justify-center`}
+          style={{ width: "100%", height: 120 }}
         >
-          <path
-            d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </div>
+          {loading ? (
+            <svg className="animate-spin h-6 w-6 text-white/30" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          ) : (
+            <svg
+              width="40"
+              height="40"
+              viewBox="0 0 24 24"
+              fill="none"
+              className="text-white/30"
+            >
+              <path
+                d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
+        </div>
+      )}
       {/* Title + domain */}
       <div className="bg-[#1c1c1e] px-3 py-2.5">
         <p className="text-[13px] font-semibold text-gray-100 leading-tight line-clamp-2">
           {title}
         </p>
-        <p className="text-[11px] text-gray-500 mt-0.5">{domain}</p>
+        <p className="text-[11px] text-gray-500 mt-0.5">{displayDomain}</p>
       </div>
     </div>
   );

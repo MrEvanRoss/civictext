@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/card";
 import { Steps } from "@/components/ui/steps";
 import { MediaUpload } from "@/components/ui/media-upload";
+import { PhonePreview } from "@/components/campaigns/phone-preview";
 import { toast } from "sonner";
 import {
   getCampaignAction,
@@ -391,60 +392,71 @@ export default function EditCampaignPage() {
 
       {/* Step 2: Compose / Script */}
       {step === 2 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{type === "P2P" ? "P2P Script" : "Compose Message"}</CardTitle>
-            <CardDescription>
-              Write your message. Use {"{{firstName}}"}, {"{{lastName}}"}, or {"{{orgName}}"} for personalization.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Message Body</Label>
-              <Textarea
-                value={messageBody}
-                onChange={(e) => setMessageBody(e.target.value)}
-                rows={6}
-              />
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span>{messageBody.length} chars</span>
-                <span>{segmentCount} segment{segmentCount !== 1 ? "s" : ""}</span>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>MMS Attachment (Optional)</Label>
-              <MediaUpload
-                value={mediaUrl}
-                onUpload={(url) => setMediaUrl(url)}
-                onRemove={() => setMediaUrl("")}
-              />
-            </div>
-
-            {type === "P2P" && (
-              <div className="space-y-2 border-t pt-4">
-                <Label>Suggested Reply Script (Optional)</Label>
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-6 items-start">
+          <Card>
+            <CardHeader>
+              <CardTitle>{type === "P2P" ? "P2P Script" : "Compose Message"}</CardTitle>
+              <CardDescription>
+                Write your message. Use {"{{firstName}}"}, {"{{lastName}}"}, or {"{{orgName}}"} for personalization.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Message Body</Label>
                 <Textarea
-                  value={p2pReplyScript}
-                  onChange={(e) => setP2pReplyScript(e.target.value)}
-                  placeholder="Thanks for your response, {{firstName}}!"
-                  rows={3}
+                  value={messageBody}
+                  onChange={(e) => setMessageBody(e.target.value)}
+                  rows={6}
+                />
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <span>{messageBody.length} chars</span>
+                  <span>{segmentCount} segment{segmentCount !== 1 ? "s" : ""}</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>MMS Attachment (Optional)</Label>
+                <MediaUpload
+                  value={mediaUrl}
+                  onUpload={(url) => setMediaUrl(url)}
+                  onRemove={() => setMediaUrl("")}
                 />
               </div>
-            )}
-          </CardContent>
-          <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" onClick={handleSave} disabled={saving} className="text-muted-foreground">
-                {saving ? "Saving..." : "Save Draft"}
-              </Button>
-              <Button onClick={() => setStep(3)} disabled={!messageBody.trim()}>
-                Next: {type === "P2P" ? "Assign Agents" : "Schedule"}
-              </Button>
-            </div>
-          </CardFooter>
-        </Card>
+
+              {type === "P2P" && (
+                <div className="space-y-2 border-t pt-4">
+                  <Label>Suggested Reply Script (Optional)</Label>
+                  <Textarea
+                    value={p2pReplyScript}
+                    onChange={(e) => setP2pReplyScript(e.target.value)}
+                    placeholder="Thanks for your response, {{firstName}}!"
+                    rows={3}
+                  />
+                </div>
+              )}
+            </CardContent>
+            <CardFooter className="justify-between">
+              <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" onClick={handleSave} disabled={saving} className="text-muted-foreground">
+                  {saving ? "Saving..." : "Save Draft"}
+                </Button>
+                <Button onClick={() => setStep(3)} disabled={!messageBody.trim()}>
+                  Next: {type === "P2P" ? "Assign Agents" : "Schedule"}
+                </Button>
+              </div>
+            </CardFooter>
+          </Card>
+
+          {/* Live Phone Preview */}
+          <div className="hidden lg:block sticky top-6">
+            <PhonePreview
+              message={messageBody}
+              mediaUrl={mediaUrl || undefined}
+              showSendTest
+            />
+          </div>
+        </div>
       )}
 
       {/* Step 3: Assign Agents (P2P only) */}
