@@ -32,6 +32,8 @@ import {
   closeConversationAction,
   reopenConversationAction,
 } from "@/server/actions/inbox";
+import { bulkAddTagsAction, updateContactAction } from "@/server/actions/contacts";
+import { countSegments, getSegmentLimit } from "@/lib/sms-utils";
 import { MediaUpload } from "@/components/ui/media-upload";
 import {
   Inbox,
@@ -57,6 +59,8 @@ import {
   X,
   ChevronDown,
   ArrowLeft,
+  Plus,
+  UserX,
 } from "lucide-react";
 
 interface InboxContact {
@@ -705,57 +709,55 @@ export default function InboxPage() {
                     key={msg.id}
                     className={`flex ${msg.direction === "OUTBOUND" ? "justify-end" : "justify-start"} ${grouped ? "" : "mt-3"}`}
                   >
-                    <div
-                      className={`max-w-[75%] px-3.5 py-2 text-sm ${
-                        msg.direction === "OUTBOUND"
-                          ? "bg-primary text-primary-foreground rounded-2xl rounded-br-md"
-                          : "bg-muted rounded-2xl rounded-bl-md"
-                      }`}
-                    >
-                      {msg.mediaUrl && (
-                        <Image
-                          src={msg.mediaUrl}
-                          alt={`${msg.direction === "OUTBOUND" ? "Sent" : "Received"} media attachment`}
-                          width={400}
-                          height={192}
-                          className="rounded-lg max-w-full max-h-48 mb-1.5 cursor-pointer"
-                          onClick={() => window.open(msg.mediaUrl, "_blank")}
-                          unoptimized
-                        />
-                      )}
-                      {msg.body && <p className="whitespace-pre-wrap break-words">{msg.body}</p>}
-                      <div className={`flex items-center gap-1 mt-1 ${
-                        msg.direction === "OUTBOUND" ? "justify-end" : ""
-                      }`}>
-                        {msg.campaign?.type === "P2P" && (
-                          <span className={`text-[10px] px-1 py-0.5 rounded ${
-                            msg.direction === "OUTBOUND"
-                              ? "bg-primary-foreground/10 text-primary-foreground/70"
-                              : "bg-muted-foreground/10 text-muted-foreground"
-                          }`}>
-                            P2P
-                          </span>
+                    <div className={`max-w-[75%] ${msg.direction === "OUTBOUND" ? "flex flex-col items-end" : "flex flex-col items-start"}`}>
+                      <div
+                        className={`px-3.5 py-2 text-sm ${
+                          msg.direction === "OUTBOUND"
+                            ? "bg-primary text-primary-foreground rounded-2xl rounded-br-md"
+                            : "bg-muted rounded-2xl rounded-bl-md"
+                        }`}
+                      >
+                        {msg.mediaUrl && (
+                          <Image
+                            src={msg.mediaUrl}
+                            alt={`${msg.direction === "OUTBOUND" ? "Sent" : "Received"} media attachment`}
+                            width={400}
+                            height={192}
+                            className="rounded-lg max-w-full max-h-48 mb-1.5 cursor-pointer"
+                            onClick={() => window.open(msg.mediaUrl, "_blank")}
+                            unoptimized
+                          />
                         )}
-                        {msg.campaign && msg.campaign.type !== "P2P" && (
-                          <span className={`text-[10px] truncate max-w-[80px] ${
-                            msg.direction === "OUTBOUND"
-                              ? "text-primary-foreground/50"
-                              : "text-muted-foreground/70"
-                          }`}>
-                            {msg.campaign.name}
+                        {msg.body && <p className="whitespace-pre-wrap break-words">{msg.body}</p>}
+                        <div className={`flex items-center gap-1 mt-1 ${
+                          msg.direction === "OUTBOUND" ? "justify-end" : ""
+                        }`}>
+                          {msg.campaign?.type === "P2P" && (
+                            <span className={`text-[10px] px-1 py-0.5 rounded ${
+                              msg.direction === "OUTBOUND"
+                                ? "bg-primary-foreground/10 text-primary-foreground/70"
+                                : "bg-muted-foreground/10 text-muted-foreground"
+                            }`}>
+                              P2P
+                            </span>
+                          )}
+                          <span
+                            className={`text-[10px] ${
+                              msg.direction === "OUTBOUND"
+                                ? "text-primary-foreground/60"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            {!grouped && new Date(msg.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                           </span>
-                        )}
-                        <span
-                          className={`text-[10px] ${
-                            msg.direction === "OUTBOUND"
-                              ? "text-primary-foreground/60"
-                              : "text-muted-foreground"
-                          }`}
-                        >
-                          {!grouped && new Date(msg.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-                        </span>
-                        {msg.direction === "OUTBOUND" && <DeliveryIcon status={msg.status} />}
+                          {msg.direction === "OUTBOUND" && <DeliveryIcon status={msg.status} />}
+                        </div>
                       </div>
+                      {msg.campaign && (
+                        <span className="text-[10px] text-muted-foreground/60 mt-0.5 px-1 truncate max-w-full">
+                          Campaign: {msg.campaign.name}
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
@@ -831,6 +833,15 @@ export default function InboxPage() {
                 />
               )}
 
+              {/* Composer toolbar */}
+              {replyText.length > 0 && (
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    {replyText.length}/{getSegmentLimit(replyText)} &middot; {countSegments(replyText)} segment{countSegments(replyText) !== 1 ? "s" : ""}
+                  </span>
+                </div>
+              )}
+
               <div className="flex gap-2 items-end">
                 {!replyMediaUrl && (
                   <MediaUpload
@@ -900,6 +911,7 @@ export default function InboxPage() {
             handleAddResponseTag={handleAddResponseTag}
             handleRemoveResponseTag={handleRemoveResponseTag}
             handleAddContactNote={handleAddContactNote}
+            onContactUpdated={() => selectedId && loadThread(selectedId)}
           />
         </div>
       )}
@@ -921,6 +933,7 @@ export default function InboxPage() {
               handleAddResponseTag={handleAddResponseTag}
               handleRemoveResponseTag={handleRemoveResponseTag}
               handleAddContactNote={handleAddContactNote}
+              onContactUpdated={() => selectedId && loadThread(selectedId)}
             />
           )}
         </SheetContent>
@@ -941,7 +954,50 @@ function ContactSidebarContent({
   handleAddResponseTag,
   handleRemoveResponseTag,
   handleAddContactNote,
+  onContactUpdated,
 }: any) {
+  const [contactTagInput, setContactTagInput] = useState("");
+  const [showContactTagInput, setShowContactTagInput] = useState(false);
+  const [addingTag, setAddingTag] = useState(false);
+  const [showOptOutConfirm, setShowOptOutConfirm] = useState(false);
+  const [optingOut, setOptingOut] = useState(false);
+
+  async function handleAddContactTag() {
+    if (!contact?.id || !contactTagInput.trim()) return;
+    const tag = contactTagInput.trim().toLowerCase();
+    if (contact.tags?.includes(tag)) {
+      setContactTagInput("");
+      return;
+    }
+    setAddingTag(true);
+    try {
+      await bulkAddTagsAction([contact.id], [tag]);
+      setContactTagInput("");
+      setShowContactTagInput(false);
+      toast.success(`Tag "${tag}" added`);
+      onContactUpdated?.();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add tag");
+    } finally {
+      setAddingTag(false);
+    }
+  }
+
+  async function handleOptOutContact() {
+    if (!contact?.id) return;
+    setOptingOut(true);
+    try {
+      await updateContactAction({ id: contact.id, optInStatus: "OPTED_OUT" as any });
+      setShowOptOutConfirm(false);
+      toast.success("Contact opted out");
+      onContactUpdated?.();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to opt out contact");
+    } finally {
+      setOptingOut(false);
+    }
+  }
+
   return (
     <div className="p-4 space-y-5">
       {/* Avatar & Name */}
@@ -966,6 +1022,74 @@ function ContactSidebarContent({
         <a href={`/contacts/${contact?.id}`} className="text-xs text-primary hover:underline mt-2">
           View Full Profile
         </a>
+      </div>
+
+      {/* Quick Actions */}
+      <div>
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Quick Actions</p>
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => setShowContactTagInput(!showContactTagInput)}
+          >
+            <Plus className="h-3 w-3 mr-1" />
+            Add Tag
+          </Button>
+          {contact?.optInStatus === "OPTED_IN" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs text-destructive hover:text-destructive"
+              onClick={() => setShowOptOutConfirm(true)}
+            >
+              <UserX className="h-3 w-3 mr-1" />
+              Opt Out
+            </Button>
+          )}
+        </div>
+        {showContactTagInput && (
+          <div className="flex gap-1 mt-2">
+            <Input
+              value={contactTagInput}
+              onChange={(e) => setContactTagInput(e.target.value)}
+              placeholder="Tag name..."
+              className="flex-1 text-xs h-7"
+              autoFocus
+              aria-label="Add contact tag"
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddContactTag(); } if (e.key === "Escape") setShowContactTagInput(false); }}
+            />
+            <Button variant="outline" size="sm" onClick={handleAddContactTag} disabled={!contactTagInput.trim() || addingTag} className="h-7">
+              <Plus className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+        {showOptOutConfirm && (
+          <div className="mt-2 p-2 bg-destructive/5 border border-destructive/20 rounded-lg">
+            <p className="text-xs text-destructive font-medium mb-1.5">Opt out this contact?</p>
+            <p className="text-[10px] text-muted-foreground mb-2">This will prevent all future messages from being sent to this contact.</p>
+            <div className="flex gap-1.5">
+              <Button
+                variant="destructive"
+                size="sm"
+                className="h-6 text-[10px] px-2"
+                onClick={handleOptOutContact}
+                disabled={optingOut}
+              >
+                {optingOut ? "Opting out..." : "Confirm Opt Out"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[10px] px-2"
+                onClick={() => setShowOptOutConfirm(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Contact Details */}

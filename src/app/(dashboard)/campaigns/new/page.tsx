@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import Image from "next/image";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { Steps } from "@/components/ui/steps";
 import { MediaUpload } from "@/components/ui/media-upload";
+import { PhonePreview } from "@/components/campaigns/phone-preview";
 import { createCampaignAction, sendTestMessageAction, getAllowedCampaignTypesAction } from "@/server/actions/campaigns";
 import { listSegmentsAction } from "@/server/actions/contacts";
 import { assignP2PContactsAction } from "@/server/actions/p2p";
@@ -30,38 +30,27 @@ import { DEFAULT_SMS_RATE_CENTS, DEFAULT_MMS_RATE_CENTS } from "@/lib/constants"
 const URL_REGEX = /https?:\/\/[^\s]+/g;
 
 /**
- * Client-side preview: replace URLs with sample short-link format.
+ * Insert text at the current cursor position in a textarea.
  */
-function previewWithShortLinks(text: string): string {
-  return text.replace(URL_REGEX, () => {
-    const domain = typeof window !== "undefined" ? window.location.host : "civictext.app";
-    return `${window.location.protocol}//${domain}/r/xxxxxx`;
-  });
-}
-
-/**
- * Render message text with links styled as they appear on phones.
- */
-function renderPreviewWithLinks(text: string): React.ReactNode {
-  if (!text) return null;
-  const shortened = previewWithShortLinks(text);
-  const parts = shortened.split(URL_REGEX);
-  const urls = shortened.match(URL_REGEX) || [];
-
-  if (urls.length === 0) return shortened;
-
-  const result: React.ReactNode[] = [];
-  parts.forEach((part, i) => {
-    if (part) result.push(part);
-    if (i < urls.length) {
-      result.push(
-        <span key={i} className="underline text-blue-200 break-all">
-          {urls[i]}
-        </span>
-      );
-    }
-  });
-  return result;
+function insertAtCursor(textarea: HTMLTextAreaElement, text: string) {
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const before = textarea.value.substring(0, start);
+  const after = textarea.value.substring(end);
+  // We need to use the native setter and dispatch an input event
+  // so React's controlled state picks up the change.
+  const nativeSetter = Object.getOwnPropertyDescriptor(
+    window.HTMLTextAreaElement.prototype,
+    "value"
+  )?.set;
+  if (nativeSetter) {
+    nativeSetter.call(textarea, before + text + after);
+  } else {
+    textarea.value = before + text + after;
+  }
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  textarea.selectionStart = textarea.selectionEnd = start + text.length;
+  textarea.focus();
 }
 
 const WIZARD_STEPS_DEFAULT = [
@@ -143,6 +132,11 @@ export default function NewCampaignPage() {
 
   const WIZARD_STEPS = type === "P2P" ? WIZARD_STEPS_P2P : WIZARD_STEPS_DEFAULT;
 
+  // Textarea ref for cursor-position merge field insertion
+  const messageTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [showMergeDropdown, setShowMergeDropdown] = useState(false);
+  const mergeDropdownRef = useRef<HTMLDivElement | null>(null);
+
   // Test message
   const [showTestModal, setShowTestModal] = useState(false);
   const [testPhone, setTestPhone] = useState("");
@@ -157,6 +151,32 @@ export default function NewCampaignPage() {
         clearTimeout(testResultTimeoutRef.current);
       }
     };
+  }, []);
+
+  // Close merge dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        mergeDropdownRef.current &&
+        !mergeDropdownRef.current.contains(e.target as Node)
+      ) {
+        setShowMergeDropdown(false);
+      }
+    }
+    if (showMergeDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showMergeDropdown]);
+
+  /** Insert a merge field at the cursor position in the textarea */
+  const handleInsertMergeField = useCallback((field: string) => {
+    if (messageTextareaRef.current) {
+      insertAtCursor(messageTextareaRef.current, field);
+    } else {
+      setMessageBody((prev) => prev + field);
+    }
+    setShowMergeDropdown(false);
   }, []);
 
   useEffect(() => {
@@ -657,189 +677,148 @@ export default function NewCampaignPage() {
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label>Message Body *</Label>
-              <Textarea
-                value={messageBody}
-                onChange={(e) => setMessageBody(e.target.value)}
-                placeholder={type === "GOTV" ? "Hi {{firstName}}, Election Day is tomorrow! Your polling place is {{pollingLocation}}..." : "Hi {{firstName}}, early voting starts tomorrow! Find your polling location at..."}
-                rows={6}
-              />
-              {/* Character & Segment Counter */}
-              <div className="rounded-lg border p-3 space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-4">
-                    <span className="text-muted-foreground">
-                      {charCount} character{charCount !== 1 ? "s" : ""}
-                    </span>
-                    <span className="text-muted-foreground">&middot;</span>
-                    <span className={`font-medium ${segmentCount > 3 ? "text-warning" : segmentCount > 1 ? "text-warning" : "text-success"}`}>
-                      {segmentCount} segment{segmentCount !== 1 ? "s" : ""}
-                    </span>
-                    <span className="text-muted-foreground">&middot;</span>
-                    <span className="text-muted-foreground">
-                      {remaining} char{remaining !== 1 ? "s" : ""} left in segment
-                    </span>
-                  </div>
-                  <span className="text-sm font-medium">
-                    {(costPerRecipientCents / 100).toFixed(2)}¢/recipient
-                  </span>
-                </div>
+            {/* Two-column layout: Composer + Phone Preview */}
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr,auto] gap-6 items-start">
+              {/* Left column: Composer */}
+              <div className="space-y-4 min-w-0">
+                <div className="space-y-2">
+                  <Label>Message Body *</Label>
+                  <Textarea
+                    ref={messageTextareaRef}
+                    value={messageBody}
+                    onChange={(e) => setMessageBody(e.target.value)}
+                    placeholder={type === "GOTV" ? "Hi {{firstName}}, Election Day is tomorrow! Your polling place is {{pollingLocation}}..." : "Hi {{firstName}}, early voting starts tomorrow! Find your polling location at..."}
+                    rows={6}
+                  />
 
-                {/* Segment progress bar */}
-                {charCount > 0 && (
-                  <div className="flex gap-1">
-                    {Array.from({ length: Math.min(segmentCount, 10) }).map((_, i) => (
-                      <div
-                        key={i}
-                        className={`h-1.5 flex-1 rounded-full ${
-                          i < segmentCount
-                            ? segmentCount > 3
-                              ? "bg-orange-400"
-                              : segmentCount > 1
-                                ? "bg-yellow-400"
-                                : "bg-green-400"
-                            : "bg-muted"
+                  {/* Composer Toolbar */}
+                  <div className="flex items-center justify-between gap-2 rounded-lg border p-2">
+                    <div className="flex items-center gap-3 text-sm">
+                      {/* Character / Segment counter */}
+                      <span className="text-muted-foreground tabular-nums">
+                        {charCount}/{isUnicode ? "70" : "160"}
+                      </span>
+                      <span className="text-muted-foreground/50">&middot;</span>
+                      <span
+                        className={`font-medium tabular-nums ${
+                          segmentCount > 3
+                            ? "text-orange-500"
+                            : segmentCount > 1
+                              ? "text-yellow-500"
+                              : "text-green-500"
                         }`}
-                      />
-                    ))}
-                    {segmentCount > 10 && (
-                      <span className="text-xs text-muted-foreground">+{segmentCount - 10}</span>
-                    )}
-                  </div>
-                )}
-
-                {isUnicode && (
-                  <p className="text-xs text-warning">
-                    Unicode detected (emoji or special characters). Segment limit reduced from 160 to 70 characters.
-                  </p>
-                )}
-                {segmentCount > 3 && (
-                  <p className="text-xs text-warning">
-                    Long messages cost more. Consider shortening to reduce per-recipient cost.
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <span className="text-xs text-muted-foreground">
-                Insert merge field:
-              </span>
-              {[
-                "{{firstName}}",
-                "{{lastName}}",
-                "{{fullName}}",
-                "{{prefix}}",
-                "{{suffix}}",
-                "{{address}}",
-                "{{precinct}}",
-                "{{orgName}}",
-                ...(type === "GOTV" ? [
-                  "{{pollingLocation}}",
-                  "{{electionDate}}",
-                  "{{pollHours}}",
-                  "{{pollCloseTime}}",
-                  "{{earlyVoteEnd}}",
-                ] : []),
-              ].map((field) => (
-                <Button
-                  key={field}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs h-7"
-                  onClick={() => setMessageBody((prev) => prev + field)}
-                >
-                  {field}
-                </Button>
-              ))}
-            </div>
-
-            <div className="space-y-3">
-              <Label>MMS Media (optional)</Label>
-              <MediaUpload
-                value={mediaUrl}
-                onUpload={(url) => setMediaUrl(url)}
-                onRemove={() => setMediaUrl("")}
-              />
-            </div>
-
-            {/* Message Preview */}
-            <div className="mt-4">
-              <div className="flex items-center justify-between mb-2">
-                <Label>Message Preview</Label>
-                {messageBody && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowTestModal(true)}
-                  >
-                    Send Test Message
-                  </Button>
-                )}
-              </div>
-              <div className="max-w-sm mx-auto">
-                {/* Phone frame */}
-                <div className="border-2 border-muted rounded-[2rem] p-1 bg-background shadow-lg">
-                  <div className="bg-muted rounded-[1.5rem] p-4">
-                    <p className="text-[10px] text-muted-foreground text-center mb-3">Text Message Preview</p>
-                    {messageBody ? (
-                      <div className="space-y-2">
-                        <div className="bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-3 py-2 text-sm ml-auto max-w-[90%] w-fit whitespace-pre-wrap break-words">
-                          {renderPreviewWithLinks(
-                            messageBody
-                              .replace(/\{\{prefix\}\}/g, "Ms.")
-                              .replace(/\{\{firstName\}\}/g, "Jane")
-                              .replace(/\{\{lastName\}\}/g, "Smith")
-                              .replace(/\{\{suffix\}\}/g, "")
-                              .replace(/\{\{fullName\}\}/g, "Ms. Jane Smith")
-                              .replace(/\{\{phone\}\}/g, "(212) 555-1234")
-                              .replace(/\{\{email\}\}/g, "jane@example.com")
-                              .replace(/\{\{street\}\}/g, "123 Main St")
-                              .replace(/\{\{city\}\}/g, "Springfield")
-                              .replace(/\{\{state\}\}/g, "IL")
-                              .replace(/\{\{zip\}\}/g, "62701")
-                              .replace(/\{\{address\}\}/g, "123 Main St, Springfield, IL 62701")
-                              .replace(/\{\{precinct\}\}/g, "District 5")
-                              .replace(/\{\{orgName\}\}/g, "CivicText")
-                              .replace(/\{\{pollingLocation\}\}/g, gotvDefaultLocation || "Your local polling place")
-                              .replace(/\{\{electionDate\}\}/g, gotvElectionDate || "Election Day")
-                              .replace(/\{\{pollHours\}\}/g, gotvPollHours || "7:00 AM - 8:00 PM")
-                              .replace(/\{\{pollCloseTime\}\}/g, gotvPollHours?.split("-").pop()?.trim() || "8:00 PM")
-                              .replace(/\{\{earlyVoteEnd\}\}/g, "the deadline")
-                          )}
-                        </div>
-                        {mediaUrl && (
-                          <div className="ml-auto max-w-[90%] w-fit">
-                            {mediaUrl.match(/\.(mp4|3gp|3gpp)$/i) ? (
-                              <div className="bg-muted-foreground/10 rounded-lg p-3 text-xs text-muted-foreground text-center">
-                                [Video attachment]
-                              </div>
-                            ) : (
-                              <Image
-                                src={mediaUrl}
-                                alt="MMS preview"
-                                width={320}
-                                height={128}
-                                className="max-h-32 rounded-lg border object-contain"
-                                unoptimized
-                              />
-                            )}
+                      >
+                        {segmentCount} segment{segmentCount !== 1 ? "s" : ""}
+                      </span>
+                      <span className="text-muted-foreground/50">&middot;</span>
+                      <span className="text-muted-foreground text-xs">
+                        {remaining} left
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {/* Merge fields dropdown */}
+                      <div className="relative" ref={mergeDropdownRef}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs gap-1"
+                          onClick={() => setShowMergeDropdown((v) => !v)}
+                        >
+                          <span className="font-mono text-xs">{"{+"}</span>
+                          Merge Fields
+                        </Button>
+                        {showMergeDropdown && (
+                          <div className="absolute right-0 top-full mt-1 z-20 w-52 rounded-lg border bg-popover shadow-lg p-1">
+                            {[
+                              { label: "First Name", value: "{{firstName}}" },
+                              { label: "Last Name", value: "{{lastName}}" },
+                              { label: "Full Name", value: "{{fullName}}" },
+                              { label: "Prefix", value: "{{prefix}}" },
+                              { label: "Suffix", value: "{{suffix}}" },
+                              { label: "Phone", value: "{{phone}}" },
+                              { label: "Address", value: "{{address}}" },
+                              { label: "Precinct", value: "{{precinct}}" },
+                              { label: "Org Name", value: "{{orgName}}" },
+                              ...(type === "GOTV"
+                                ? [
+                                    { label: "Polling Location", value: "{{pollingLocation}}" },
+                                    { label: "Election Date", value: "{{electionDate}}" },
+                                    { label: "Poll Hours", value: "{{pollHours}}" },
+                                    { label: "Poll Close Time", value: "{{pollCloseTime}}" },
+                                    { label: "Early Vote End", value: "{{earlyVoteEnd}}" },
+                                  ]
+                                : []),
+                            ].map((field) => (
+                              <button
+                                key={field.value}
+                                type="button"
+                                className="w-full text-left px-3 py-1.5 rounded-md text-sm hover:bg-accent transition-colors flex items-center justify-between"
+                                onClick={() => handleInsertMergeField(field.value)}
+                              >
+                                <span>{field.label}</span>
+                                <span className="text-xs text-muted-foreground font-mono">
+                                  {field.value}
+                                </span>
+                              </button>
+                            ))}
                           </div>
                         )}
                       </div>
-                    ) : (
-                      <div className="bg-muted-foreground/10 rounded-2xl px-3 py-6 text-sm text-muted-foreground text-center">
-                        Your message will appear here...
-                      </div>
-                    )}
+                      {/* Cost per recipient */}
+                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                        {(costPerRecipientCents / 100).toFixed(2)}&#162;/msg
+                      </span>
+                    </div>
                   </div>
+
+                  {/* Segment progress bar */}
+                  {charCount > 0 && (
+                    <div className="flex gap-1">
+                      {Array.from({ length: Math.min(segmentCount, 10) }).map((_, i) => (
+                        <div
+                          key={i}
+                          className={`h-1.5 flex-1 rounded-full ${
+                            i < segmentCount
+                              ? segmentCount > 3
+                                ? "bg-orange-400"
+                                : segmentCount > 1
+                                  ? "bg-yellow-400"
+                                  : "bg-green-400"
+                              : "bg-muted"
+                          }`}
+                        />
+                      ))}
+                      {segmentCount > 10 && (
+                        <span className="text-xs text-muted-foreground">+{segmentCount - 10}</span>
+                      )}
+                    </div>
+                  )}
+
+                  {isUnicode && (
+                    <p className="text-xs text-warning">
+                      Unicode detected (emoji or special characters). Segment limit reduced from 160 to 70 characters.
+                    </p>
+                  )}
+                  {segmentCount > 3 && (
+                    <p className="text-xs text-warning">
+                      Long messages cost more. Consider shortening to reduce per-recipient cost.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <Label>MMS Media (optional)</Label>
+                  <MediaUpload
+                    value={mediaUrl}
+                    onUpload={(url) => setMediaUrl(url)}
+                    onRemove={() => setMediaUrl("")}
+                  />
                 </div>
 
                 {/* Link tracking info */}
                 {hasLinks && (
-                  <div className="mt-3 rounded-lg border border-info/30 bg-info/10 p-3 text-xs">
+                  <div className="rounded-lg border border-info/30 bg-info/10 p-3 text-xs">
                     <p className="font-medium text-info mb-1">
                       {messageUrls.length} link{messageUrls.length !== 1 ? "s" : ""} detected — will be auto-shortened
                     </p>
@@ -857,6 +836,49 @@ export default function NewCampaignPage() {
                   </div>
                 )}
               </div>
+
+              {/* Right column: Phone Preview */}
+              <div className="hidden lg:block sticky top-6">
+                <div className="flex items-center justify-between mb-3">
+                  <Label>Live Preview</Label>
+                  {messageBody && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowTestModal(true)}
+                    >
+                      Send Test
+                    </Button>
+                  )}
+                </div>
+                <PhonePreview
+                  message={messageBody}
+                  mediaUrl={mediaUrl || undefined}
+                  orgName="CivicText"
+                  mergeOverrides={{
+                    "{{pollingLocation}}": gotvDefaultLocation || "Your local polling place",
+                    "{{electionDate}}": gotvElectionDate || "Election Day",
+                    "{{pollHours}}": gotvPollHours || "7:00 AM - 8:00 PM",
+                    "{{pollCloseTime}}": gotvPollHours?.split("-").pop()?.trim() || "8:00 PM",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Mobile-only: Send Test button (phone preview only shows on lg+) */}
+            <div className="lg:hidden">
+              {messageBody && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setShowTestModal(true)}
+                >
+                  Send Test Message
+                </Button>
+              )}
             </div>
 
             {/* Test Message Modal */}

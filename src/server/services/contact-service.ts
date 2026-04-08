@@ -147,6 +147,8 @@ export async function updateContact(orgId: string, input: UpdateContactInput) {
     if (input.optInStatus === "OPTED_IN") {
       data.optInTimestamp = new Date();
       data.optInSource = "manual_update";
+    } else if (input.optInStatus === "OPTED_OUT") {
+      data.optOutTimestamp = new Date();
     }
 
     await db.consentAuditLog.create({

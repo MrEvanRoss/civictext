@@ -26,6 +26,7 @@ export type CreateContactInput = z.infer<typeof createContactSchema>;
 
 export const updateContactSchema = createContactSchema.partial().extend({
   id: z.string().uuid(),
+  optInStatus: z.enum(["OPTED_IN", "OPTED_OUT", "PENDING"]).optional(),
 });
 
 export type UpdateContactInput = z.infer<typeof updateContactSchema>;
