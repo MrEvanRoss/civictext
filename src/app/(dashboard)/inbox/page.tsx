@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/select";
@@ -152,12 +152,34 @@ export default function InboxPage() {
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const loadConversations = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await listConversationsAction({ filter });
+      setConversations(data.conversations);
+    } catch (err) {
+      toast.error("Failed to load conversations");
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
 
   useEffect(() => {
     loadConversations();
     loadTeamMembers();
     loadQuickReplies();
-  }, [filter]);
+  }, [loadConversations]);
 
   async function loadTeamMembers() {
     try {
@@ -177,23 +199,14 @@ export default function InboxPage() {
     if (selectedId) loadThread(selectedId);
   }, [selectedId]);
 
-  async function loadConversations() {
-    setLoading(true);
-    try {
-      const data = await listConversationsAction({ filter });
-      setConversations(data.conversations);
-    } catch (err) {
-      toast.error("Failed to load conversations");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function loadThread(id: string) {
     try {
       const data = await getConversationMessagesAction(id);
       setThread(data);
-      setTimeout(() => scrollToBottom(), 100);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      scrollTimeoutRef.current = setTimeout(() => scrollToBottom(), 100);
     } catch (err) {
       toast.error("Failed to load thread");
     }

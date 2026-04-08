@@ -160,10 +160,12 @@ jobs:
         if: always()
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          ENCRYPTION_KEY: ${{ secrets.STAGING_ENCRYPTION_KEY }}
           PRISMA_SKIP_VALIDATION_WARNING: true
         run: |
           docker run --rm \
             -e DATABASE_URL=${{ secrets.STAGING_DATABASE_URL }} \
+            -e ENCRYPTION_KEY=${{ secrets.STAGING_ENCRYPTION_KEY }} \
             --entrypoint npx \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging \
             prisma migrate deploy
@@ -202,10 +204,12 @@ jobs:
       - name: Run database migrations
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          ENCRYPTION_KEY: ${{ secrets.PRODUCTION_ENCRYPTION_KEY }}
           PRISMA_SKIP_VALIDATION_WARNING: true
         run: |
           docker run --rm \
             -e DATABASE_URL=${{ secrets.PRODUCTION_DATABASE_URL }} \
+            -e ENCRYPTION_KEY=${{ secrets.PRODUCTION_ENCRYPTION_KEY }} \
             --entrypoint npx \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
             prisma migrate deploy

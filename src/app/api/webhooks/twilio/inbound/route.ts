@@ -3,6 +3,13 @@ import { validateTwilioSignature } from "@/lib/twilio";
 import { db } from "@/lib/db";
 import { OPT_OUT_KEYWORDS, OPT_IN_KEYWORDS } from "@/lib/constants";
 import { dispatchWebhook } from "@/server/services/webhook-service";
+import { Queue } from "bullmq";
+import IORedis from "ioredis";
+
+const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
+  maxRetriesPerRequest: null,
+});
+const messageQueue = new Queue("messages", { connection });
 
 /**
  * Twilio Inbound Message Webhook
@@ -231,17 +238,39 @@ export async function POST(request: Request) {
         });
       }
 
-      // Send welcome message if configured
-      if (interestList.welcomeMessage) {
-        return new Response(twiml(interestList.welcomeMessage), {
-          headers: { "Content-Type": "text/xml" },
+      // Send welcome message if configured — queue through BullMQ for billing/compliance
+      const welcomeBody = interestList.welcomeMessage
+        || `You've been added to ${interestList.name}! Reply STOP to opt out.`;
+
+      // Only send if the contact is opted in (they were just auto-opted-in above)
+      const refreshedContact = await db.contact.findFirst({
+        where: { id: contact.id, orgId },
+      });
+      if (refreshedContact && refreshedContact.optInStatus === "OPTED_IN") {
+        const welcomeMessage = await db.message.create({
+          data: {
+            orgId,
+            contactId: contact.id,
+            direction: "OUTBOUND",
+            body: welcomeBody,
+            status: "QUEUED",
+          },
         });
+
+        await messageQueue.add("send", {
+          orgId,
+          contactId: contact.id,
+          messageBody: welcomeBody,
+          phone: from,
+          firstName: contact.firstName,
+          lastName: contact.lastName,
+          messageId: welcomeMessage.id,
+        }, { priority: 1 });
       }
 
-      return new Response(
-        twiml(`You've been added to ${interestList.name}! Reply STOP to opt out.`),
-        { headers: { "Content-Type": "text/xml" } }
-      );
+      return new Response(twiml(""), {
+        headers: { "Content-Type": "text/xml" },
+      });
     }
 
     // === P2P REPLY DETECTION ===
@@ -284,8 +313,30 @@ export async function POST(request: Request) {
     });
 
     if (autoReply) {
-      // TODO: Queue the auto-reply via BullMQ (Phase 4)
-      return new Response(twiml(autoReply.replyBody), {
+      // Only queue the auto-reply if the contact is opted in
+      if (contact.optInStatus === "OPTED_IN") {
+        const autoReplyMessage = await db.message.create({
+          data: {
+            orgId,
+            contactId: contact.id,
+            direction: "OUTBOUND",
+            body: autoReply.replyBody,
+            status: "QUEUED",
+          },
+        });
+
+        await messageQueue.add("send", {
+          orgId,
+          contactId: contact.id,
+          messageBody: autoReply.replyBody,
+          phone: from,
+          firstName: contact.firstName,
+          lastName: contact.lastName,
+          messageId: autoReplyMessage.id,
+        }, { priority: 1 });
+      }
+
+      return new Response(twiml(""), {
         headers: { "Content-Type": "text/xml" },
       });
     }

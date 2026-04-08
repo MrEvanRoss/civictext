@@ -75,7 +75,7 @@ async function enforceConsent(
  * Check 2: Quiet hours enforcement (8AM-9PM in recipient timezone).
  * Approximates timezone from phone area code.
  */
-function isQuietHours(recipientPhone: string): ComplianceCheck {
+export function isQuietHours(recipientPhone: string): ComplianceCheck {
   const tz = getTimezoneFromPhone(recipientPhone);
   const now = new Date();
 

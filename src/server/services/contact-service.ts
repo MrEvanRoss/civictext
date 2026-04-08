@@ -271,7 +271,7 @@ export async function getSegmentContacts(
 /**
  * Convert segment rules to Prisma where clause.
  */
-function buildSegmentWhere(
+export function buildSegmentWhere(
   orgId: string,
   rules: CreateSegmentInput["rules"]
 ): Prisma.ContactWhereInput {

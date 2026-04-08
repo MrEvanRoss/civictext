@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -147,6 +147,16 @@ export default function NewCampaignPage() {
   const [testPhone, setTestPhone] = useState("");
   const [testSending, setTestSending] = useState(false);
   const [testResult, setTestResult] = useState<{ success?: string; error?: string } | null>(null);
+  const testResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (testResultTimeoutRef.current) {
+        clearTimeout(testResultTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     loadSegments();
@@ -333,7 +343,10 @@ export default function NewCampaignPage() {
         mediaUrl: mediaUrl || undefined,
       });
       setTestResult({ success: `Test message queued to ${result.phone}` });
-      setTimeout(() => {
+      if (testResultTimeoutRef.current) {
+        clearTimeout(testResultTimeoutRef.current);
+      }
+      testResultTimeoutRef.current = setTimeout(() => {
         setTestResult(null);
         setShowTestModal(false);
         setTestPhone("");

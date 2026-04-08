@@ -17,26 +17,21 @@ export default function DashboardLayout({
     const saved = localStorage.getItem("sidebar-collapsed");
     if (saved === "true") setSidebarCollapsed(true);
 
+    // Cross-tab sync: the storage event fires when another tab changes localStorage
     const handleStorage = () => {
       setSidebarCollapsed(localStorage.getItem("sidebar-collapsed") === "true");
     };
     window.addEventListener("storage", handleStorage);
 
-    // Also listen for same-tab changes via a custom event
-    const observer = new MutationObserver(() => {
+    // Same-tab sync: the sidebar component dispatches this custom event when toggled
+    const handleSidebarToggle = () => {
       setSidebarCollapsed(localStorage.getItem("sidebar-collapsed") === "true");
-    });
-
-    // Poll for changes (simple approach for same-tab localStorage sync)
-    const interval = setInterval(() => {
-      const current = localStorage.getItem("sidebar-collapsed") === "true";
-      setSidebarCollapsed((prev) => (prev !== current ? current : prev));
-    }, 200);
+    };
+    window.addEventListener("sidebar-toggle", handleSidebarToggle);
 
     return () => {
       window.removeEventListener("storage", handleStorage);
-      observer.disconnect();
-      clearInterval(interval);
+      window.removeEventListener("sidebar-toggle", handleSidebarToggle);
     };
   }, []);
 

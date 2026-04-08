@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,6 +65,16 @@ export default function ApiKeysPage() {
 
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState(false);
+  const copiedKeyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (copiedKeyTimeoutRef.current) {
+        clearTimeout(copiedKeyTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     loadKeys();
@@ -139,7 +149,10 @@ export default function ApiKeysPage() {
     if (!revealedKey) return;
     navigator.clipboard.writeText(revealedKey);
     setCopiedKey(true);
-    setTimeout(() => setCopiedKey(false), 2000);
+    if (copiedKeyTimeoutRef.current) {
+      clearTimeout(copiedKeyTimeoutRef.current);
+    }
+    copiedKeyTimeoutRef.current = setTimeout(() => setCopiedKey(false), 2000);
   }
 
   return (

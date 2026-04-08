@@ -93,6 +93,16 @@ export default function P2PSendPage() {
   const [contactDisplayedAt, setContactDisplayedAt] = useState<number>(Date.now());
   const [lastSentAssignmentId, setLastSentAssignmentId] = useState<string | null>(null);
   const [retryList, setRetryList] = useState<Array<{ assignmentId: string; contactName: string; error: string }>>([]);
+  const slideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (slideTimeoutRef.current) {
+        clearTimeout(slideTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Check quiet hours (8AM-9PM)
   useEffect(() => {
@@ -203,7 +213,10 @@ export default function P2PSendPage() {
       .catch(() => {});
 
     setSlideDirection("in");
-    setTimeout(() => setSlideDirection(null), 150);
+    if (slideTimeoutRef.current) {
+      clearTimeout(slideTimeoutRef.current);
+    }
+    slideTimeoutRef.current = setTimeout(() => setSlideDirection(null), 150);
   }, [prefetched, campaignId, prefetchNext]);
 
   // Add a failed assignment to the retry list

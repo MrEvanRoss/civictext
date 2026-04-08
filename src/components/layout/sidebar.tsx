@@ -181,6 +181,7 @@ export function Sidebar() {
   const toggle = () => {
     setCollapsed((prev) => {
       localStorage.setItem("sidebar-collapsed", String(!prev));
+      window.dispatchEvent(new Event("sidebar-toggle"));
       return !prev;
     });
   };

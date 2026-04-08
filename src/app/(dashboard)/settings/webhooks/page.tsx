@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -69,6 +69,16 @@ export default function WebhooksPage() {
   // Secret reveal (shown once after creation)
   const [revealedSecret, setRevealedSecret] = useState<string | null>(null);
   const [copiedSecret, setCopiedSecret] = useState(false);
+  const copiedSecretTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (copiedSecretTimeoutRef.current) {
+        clearTimeout(copiedSecretTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     loadWebhooks();
@@ -171,7 +181,10 @@ export default function WebhooksPage() {
     if (!revealedSecret) return;
     navigator.clipboard.writeText(revealedSecret);
     setCopiedSecret(true);
-    setTimeout(() => setCopiedSecret(false), 2000);
+    if (copiedSecretTimeoutRef.current) {
+      clearTimeout(copiedSecretTimeoutRef.current);
+    }
+    copiedSecretTimeoutRef.current = setTimeout(() => setCopiedSecret(false), 2000);
   }
 
   function formatEventLabel(event: string): string {

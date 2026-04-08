@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,6 +65,16 @@ export default function SecuritySettingsPage() {
   const [showDisableDialog, setShowDisableDialog] = useState(false);
   const [disablePassword, setDisablePassword] = useState("");
   const [disableLoading, setDisableLoading] = useState(false);
+  const copiedCodesTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (copiedCodesTimeoutRef.current) {
+        clearTimeout(copiedCodesTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Regenerate backup codes state
   const [showRegenDialog, setShowRegenDialog] = useState(false);
@@ -174,7 +184,10 @@ export default function SecuritySettingsPage() {
     navigator.clipboard.writeText(text);
     setCopiedCodes(true);
     toast.success("Backup codes copied to clipboard");
-    setTimeout(() => setCopiedCodes(false), 2000);
+    if (copiedCodesTimeoutRef.current) {
+      clearTimeout(copiedCodesTimeoutRef.current);
+    }
+    copiedCodesTimeoutRef.current = setTimeout(() => setCopiedCodes(false), 2000);
   }
 
   function downloadBackupCodes() {

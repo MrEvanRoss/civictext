@@ -4,6 +4,9 @@ import { getOrgClient } from "@/lib/twilio";
 import { renderMergeFields } from "@/server/services/campaign-service";
 import { checkAndDeductBalance, calculateMessageCost, syncBalanceToRedis } from "@/server/services/quota-service";
 import { shortenLinksInMessage } from "@/server/services/link-tracking-service";
+import { buildSegmentWhere } from "@/server/services/contact-service";
+import { isQuietHours } from "@/server/services/compliance-service";
+import { countSegments } from "@/lib/sms-utils";
 import IORedis from "ioredis";
 
 const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
@@ -70,19 +73,18 @@ export const messageWorker = new Worker<MessageJobData>(
       return { status: "skipped", reason: "opted_out" };
     }
 
-    // 2. Check quiet hours (simplified: check if between 8AM-9PM ET)
-    const now = new Date();
-    const hour = now.getHours(); // Server time, should be adjusted per contact timezone
-    if (hour < 8 || hour >= 21) {
-      // Re-queue for next send window
-      const delayMs = hour >= 21
-        ? (24 - hour + 8) * 60 * 60 * 1000
-        : (8 - hour) * 60 * 60 * 1000;
+    // 2. Check quiet hours (8AM-9PM in recipient timezone, approximated from area code)
+    const quietCheck = isQuietHours(phone);
+    if (!quietCheck.allowed) {
+      // Re-queue for next send window using the delay calculated by the compliance service
+      const delayMs = quietCheck.delayUntil
+        ? quietCheck.delayUntil.getTime() - Date.now()
+        : 8 * 60 * 60 * 1000; // Fallback: 8 hours
       await messageQueue.add("send", job.data, {
-        delay: delayMs,
+        delay: Math.max(delayMs, 0),
         priority: 5,
       });
-      await job.log(`Delayed: quiet hours. Will retry in ${delayMs / 1000 / 60} minutes`);
+      await job.log(`Delayed: ${quietCheck.reason}. Will retry in ${Math.round(delayMs / 1000 / 60)} minutes`);
       return { status: "delayed", reason: "quiet_hours" };
     }
 
@@ -110,7 +112,7 @@ export const messageWorker = new Worker<MessageJobData>(
 
     // 6. Calculate cost and check balance
     const hasMms = !!mediaUrl;
-    const segmentCount = Math.ceil(finalBody.length / 153) || 1;
+    const segmentCount = countSegments(finalBody);
 
     // Get org rates
     const plan = await db.messagingPlan.findUnique({ where: { orgId } });
@@ -382,14 +384,18 @@ async function expandCampaign(orgId: string, campaignId: string, job: Job) {
     contactIds = new Set(allContacts.filter((c: { id: string }) => !excludeSet.has(c.id)).map((c: { id: string }) => c.id));
     await job.log(`Interest list EXCLUDE targeting: ${contactIds.size} contacts (excluded ${excludeSet.size} from ${campaign.interestListIds.length} list(s))`);
 
-  } else if (campaign.segmentId) {
-    // Segment-only targeting (original behavior)
+  } else if (campaign.segmentId && campaign.segment) {
+    // Segment-only targeting — apply segment filter rules and require opt-in
+    const segmentWhere = buildSegmentWhere(orgId, campaign.segment.rules as any);
     const contacts = await db.contact.findMany({
-      where: { orgId, optInStatus: "OPTED_IN" },
+      where: {
+        ...segmentWhere,
+        optInStatus: "OPTED_IN",
+      },
       select: { id: true },
     });
     contactIds = new Set(contacts.map((c: { id: string }) => c.id));
-    await job.log(`Segment targeting: ${contactIds.size} opted-in contacts`);
+    await job.log(`Segment targeting (${campaign.segment.name}): ${contactIds.size} contacts match segment rules`);
 
   } else {
     throw new Error("No targeting configured — no segment or interest lists selected");

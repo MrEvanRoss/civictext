@@ -663,7 +663,7 @@ model MessagingPlan {
   mmsRateCents        Float    @default(8)    // cost per MMS message in cents (supports fractional, e.g. 5.5)
   phoneNumberFeeCents Int      @default(500)  // $5/month per active phone number
   totalSpentCents     Int      @default(0)    // lifetime spend in cents
-  stripeCustomerId    String?
+  stripeCustomerId    String?  @unique
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

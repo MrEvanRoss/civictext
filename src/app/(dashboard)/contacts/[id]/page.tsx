@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +77,16 @@ export default function ContactDetailPage() {
   const [allLists, setAllLists] = useState<any[]>([]);
   const [showAddList, setShowAddList] = useState(false);
   const [addListId, setAddListId] = useState("");
+  const sendSuccessTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (sendSuccessTimeoutRef.current) {
+        clearTimeout(sendSuccessTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     loadContact();
@@ -242,7 +252,10 @@ export default function ContactDetailPage() {
       setQuickMediaUrl("");
       setSendSuccess("Message queued for delivery.");
       await loadContact();
-      setTimeout(() => setSendSuccess(""), 3000);
+      if (sendSuccessTimeoutRef.current) {
+        clearTimeout(sendSuccessTimeoutRef.current);
+      }
+      sendSuccessTimeoutRef.current = setTimeout(() => setSendSuccess(""), 3000);
     } catch (err: any) {
       setError(err.message || "Failed to send message");
     } finally {
