@@ -26,6 +26,7 @@ export async function getSupervisorDashboardAction() {
     todayMessages,
     weekMessages,
     todayOptOuts,
+    activeP2PCampaigns,
   ] = await Promise.all([
     // Escalated conversations
     db.conversation.count({ where: { orgId, isEscalated: true } }),
@@ -75,6 +76,21 @@ export async function getSupervisorDashboardAction() {
     db.consentAuditLog.count({
       where: { orgId, action: "OPTED_OUT", createdAt: { gte: today } },
     }),
+    // Active P2P campaigns with per-agent stats
+    db.campaign.findMany({
+      where: { orgId, type: "P2P", status: { in: ["SENDING", "SCHEDULED"] } },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        sentCount: true,
+        totalRecipients: true,
+        startedAt: true,
+        p2pAssignments: {
+          select: { assignedToId: true, status: true, sentAt: true },
+        },
+      },
+    }),
   ]);
 
   // Calculate per-agent metrics
@@ -93,6 +109,48 @@ export async function getSupervisorDashboardAction() {
   // Sort by open conversations (busiest first) for leaderboard
   agentMetrics.sort((a, b) => b.openConversations - a.openConversations);
 
+  // Compute P2P campaign stats with per-agent send rates
+  const p2pCampaigns = activeP2PCampaigns.map((campaign) => {
+    const byAgent: Record<string, { sent: number; pending: number; skipped: number; lastSentAt: Date | null }> = {};
+
+    for (const a of campaign.p2pAssignments) {
+      if (!byAgent[a.assignedToId]) {
+        byAgent[a.assignedToId] = { sent: 0, pending: 0, skipped: 0, lastSentAt: null };
+      }
+      const entry = byAgent[a.assignedToId];
+      if (a.status === "SENT" || a.status === "REPLIED") {
+        entry.sent++;
+        if (a.sentAt && (!entry.lastSentAt || a.sentAt > entry.lastSentAt)) {
+          entry.lastSentAt = a.sentAt;
+        }
+      } else if (a.status === "PENDING") {
+        entry.pending++;
+      } else if (a.status === "SKIPPED" || a.status === "OPTED_OUT") {
+        entry.skipped++;
+      }
+    }
+
+    // Map agent IDs to names
+    const agentBreakdown = Object.entries(byAgent).map(([agentId, stats]) => {
+      const agentInfo = agentMetrics.find((a) => a.id === agentId);
+      return {
+        agentId,
+        agentName: agentInfo?.name || "Unknown",
+        ...stats,
+      };
+    });
+
+    return {
+      id: campaign.id,
+      name: campaign.name,
+      status: campaign.status,
+      sentCount: campaign.sentCount,
+      totalRecipients: campaign.totalRecipients,
+      startedAt: campaign.startedAt,
+      agents: agentBreakdown,
+    };
+  });
+
   return {
     escalatedCount,
     openCount,
@@ -103,5 +161,6 @@ export async function getSupervisorDashboardAction() {
     todayMessages,
     weekMessages,
     todayOptOuts,
+    p2pCampaigns,
   };
 }

@@ -208,9 +208,9 @@ export default function CampaignDetailPage() {
       <div className="grid gap-4 md:grid-cols-5">
         {[
           { label: "Sent", value: campaign.sentCount || 0, color: "text-foreground" },
-          { label: "Delivered", value: campaign.deliveredCount || 0, color: "text-green-600" },
-          { label: "Failed", value: campaign.failedCount || 0, color: "text-red-600" },
-          { label: "Responses", value: campaign.responseCount || 0, color: "text-blue-600" },
+          { label: "Delivered", value: campaign.deliveredCount || 0, color: "text-success" },
+          { label: "Failed", value: campaign.failedCount || 0, color: "text-destructive" },
+          { label: "Responses", value: campaign.responseCount || 0, color: "text-info" },
           { label: "Delivery Rate", value: `${deliveryRate}%`, color: "text-foreground" },
         ].map((stat) => (
           <Card key={stat.label}>

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,6 +20,8 @@ import { Steps } from "@/components/ui/steps";
 import { MediaUpload } from "@/components/ui/media-upload";
 import { createCampaignAction, sendTestMessageAction, getAllowedCampaignTypesAction } from "@/server/actions/campaigns";
 import { listSegmentsAction } from "@/server/actions/contacts";
+import { assignP2PContactsAction } from "@/server/actions/p2p";
+import { getTeamMembersAction } from "@/server/actions/inbox";
 import { countSegments, hasUnicodeChars, getRemainingChars } from "@/lib/sms-utils";
 import { DEFAULT_SMS_RATE_CENTS, DEFAULT_MMS_RATE_CENTS } from "@/lib/constants";
 
@@ -60,11 +62,19 @@ function renderPreviewWithLinks(text: string): React.ReactNode {
   return result;
 }
 
-const WIZARD_STEPS = [
+const WIZARD_STEPS_DEFAULT = [
   { title: "Name & Type" },
   { title: "Audience" },
   { title: "Compose" },
   { title: "Schedule" },
+  { title: "Review" },
+];
+
+const WIZARD_STEPS_P2P = [
+  { title: "Name & Type" },
+  { title: "Audience" },
+  { title: "Script" },
+  { title: "Assign Agents" },
   { title: "Review" },
 ];
 
@@ -77,7 +87,7 @@ const CAMPAIGN_TYPES = [
   {
     value: "P2P",
     label: "Peer-to-Peer",
-    description: "Initial broadcast, replies routed to human agents.",
+    description: "Agents send messages one-by-one. FCC/TCPA compliant human-initiated texting.",
   },
   {
     value: "GOTV",
@@ -118,6 +128,13 @@ export default function NewCampaignPage() {
   const [gotvPollHours, setGotvPollHours] = useState("7:00 AM - 8:00 PM");
   const [gotvDefaultLocation, setGotvDefaultLocation] = useState("");
 
+  // P2P state
+  const [p2pReplyScript, setP2pReplyScript] = useState("");
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
+
+  const WIZARD_STEPS = type === "P2P" ? WIZARD_STEPS_P2P : WIZARD_STEPS_DEFAULT;
+
   // Test message
   const [showTestModal, setShowTestModal] = useState(false);
   const [testPhone, setTestPhone] = useState("");
@@ -127,7 +144,17 @@ export default function NewCampaignPage() {
   useEffect(() => {
     loadSegments();
     loadAllowedTypes();
+    loadTeamMembers();
   }, []);
+
+  async function loadTeamMembers() {
+    try {
+      const members = await getTeamMembersAction();
+      setTeamMembers(members.filter((m: any) =>
+        ["OWNER", "ADMIN", "MANAGER", "SENDER"].includes(m.role)
+      ));
+    } catch {}
+  }
 
   async function loadSegments() {
     try {
@@ -169,6 +196,7 @@ export default function NewCampaignPage() {
       case 2:
         return !!messageBody;
       case 3:
+        if (type === "P2P") return selectedAgents.length > 0;
         return scheduleType === "now" || !!scheduledAt;
       default:
         return true;
@@ -187,7 +215,7 @@ export default function NewCampaignPage() {
         messageBody,
         mediaUrl: mediaUrl || undefined,
         scheduledAt:
-          scheduleType === "later" && scheduledAt
+          type !== "P2P" && scheduleType === "later" && scheduledAt
             ? new Date(scheduledAt).toISOString()
             : undefined,
         ...(type === "GOTV" && {
@@ -197,7 +225,17 @@ export default function NewCampaignPage() {
             defaultPollingLocation: gotvDefaultLocation || undefined,
           },
         }),
+        ...(type === "P2P" && {
+          p2pScript: messageBody,
+          p2pReplyScript: p2pReplyScript || undefined,
+        }),
       });
+
+      // For P2P campaigns, assign contacts to agents
+      if (type === "P2P" && selectedAgents.length > 0) {
+        await assignP2PContactsAction(campaign.id, selectedAgents);
+      }
+
       router.push(`/campaigns/${campaign.id}`);
     } catch (err: any) {
       setError(err.message || "Failed to create campaign");
@@ -323,7 +361,7 @@ export default function NewCampaignPage() {
               <>
                 <div className="space-y-2">
                   <Label>Segment *</Label>
-                  <Select
+                  <NativeSelect
                     value={segmentId}
                     onChange={(e) => setSegmentId(e.target.value)}
                   >
@@ -333,7 +371,7 @@ export default function NewCampaignPage() {
                         {seg.name} ({seg.contactCount} contacts)
                       </option>
                     ))}
-                  </Select>
+                  </NativeSelect>
                 </div>
 
                 {selectedSegment && (
@@ -347,7 +385,7 @@ export default function NewCampaignPage() {
                 )}
 
                 {segments.length === 0 && (
-                  <div className="rounded-md bg-yellow-50 border border-yellow-200 p-4 text-sm text-yellow-800">
+                  <div className="rounded-md bg-warning/10 border border-warning/30 p-4 text-sm text-warning">
                     No segments found. Create a segment in{" "}
                     <a href="/contacts/segments" className="underline">
                       Contacts &gt; Segments
@@ -421,7 +459,7 @@ export default function NewCampaignPage() {
                       {charCount} character{charCount !== 1 ? "s" : ""}
                     </span>
                     <span className="text-muted-foreground">&middot;</span>
-                    <span className={`font-medium ${segmentCount > 3 ? "text-orange-600" : segmentCount > 1 ? "text-yellow-600" : "text-green-600"}`}>
+                    <span className={`font-medium ${segmentCount > 3 ? "text-warning" : segmentCount > 1 ? "text-warning" : "text-success"}`}>
                       {segmentCount} segment{segmentCount !== 1 ? "s" : ""}
                     </span>
                     <span className="text-muted-foreground">&middot;</span>
@@ -458,12 +496,12 @@ export default function NewCampaignPage() {
                 )}
 
                 {isUnicode && (
-                  <p className="text-xs text-orange-600">
+                  <p className="text-xs text-warning">
                     Unicode detected (emoji or special characters). Segment limit reduced from 160 to 70 characters.
                   </p>
                 )}
                 {segmentCount > 3 && (
-                  <p className="text-xs text-orange-600">
+                  <p className="text-xs text-warning">
                     Long messages cost more. Consider shortening to reduce per-recipient cost.
                   </p>
                 )}
@@ -584,11 +622,11 @@ export default function NewCampaignPage() {
 
                 {/* Link tracking info */}
                 {hasLinks && (
-                  <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs">
-                    <p className="font-medium text-blue-700 mb-1">
+                  <div className="mt-3 rounded-lg border border-info/30 bg-info/10 p-3 text-xs">
+                    <p className="font-medium text-info mb-1">
                       {messageUrls.length} link{messageUrls.length !== 1 ? "s" : ""} detected — will be auto-shortened
                     </p>
-                    <ul className="space-y-1 text-blue-600">
+                    <ul className="space-y-1 text-info">
                       {messageUrls.map((url, i) => (
                         <li key={i} className="flex items-start gap-1.5">
                           <span className="text-blue-400 mt-px shrink-0">&#8226;</span>
@@ -631,7 +669,7 @@ export default function NewCampaignPage() {
                     {mediaUrl && <p className="text-xs text-muted-foreground mt-1">+ MMS attachment</p>}
                   </div>
                   {testResult?.success && (
-                    <div className="rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-700">
+                    <div className="rounded-md bg-success/10 border border-success/30 p-3 text-sm text-success">
                       {testResult.success}
                     </div>
                   )}
@@ -657,20 +695,139 @@ export default function NewCampaignPage() {
                 </div>
               </div>
             )}
+            {/* P2P Reply Script */}
+            {type === "P2P" && (
+              <div className="space-y-2 border-t pt-4">
+                <Label htmlFor="p2pReplyScript">Suggested Reply Script (Optional)</Label>
+                <p className="text-xs text-muted-foreground">
+                  When a contact replies, agents will see this suggested response. Leave blank if not needed.
+                </p>
+                <Textarea
+                  id="p2pReplyScript"
+                  value={p2pReplyScript}
+                  onChange={(e) => setP2pReplyScript(e.target.value)}
+                  placeholder="Thanks for your response, {{firstName}}! ..."
+                  rows={3}
+                />
+              </div>
+            )}
+
+            {type === "P2P" && (
+              <div className="rounded-lg bg-info/10 border border-info/20 p-3 text-sm text-info">
+                <p className="font-medium">P2P Mode</p>
+                <p className="text-xs mt-1">
+                  Agents can personalize each message before sending. Every send requires a human action (click or keystroke) for FCC/TCPA compliance.
+                </p>
+              </div>
+            )}
           </CardContent>
           <CardFooter className="justify-between">
             <Button variant="outline" onClick={() => setStep(1)}>
               Back
             </Button>
             <Button onClick={() => setStep(3)} disabled={!canProceed()}>
-              Next: Schedule
+              {type === "P2P" ? "Next: Assign Agents" : "Next: Schedule"}
             </Button>
           </CardFooter>
         </Card>
       )}
 
-      {/* Step 3: Schedule */}
-      {step === 3 && (
+      {/* Step 3: Assign Agents (P2P) or Schedule */}
+      {step === 3 && type === "P2P" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Assign Agents</CardTitle>
+            <CardDescription>
+              Select team members who will send messages. Contacts will be distributed evenly.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label>Select Agents</Label>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  if (selectedAgents.length === teamMembers.length) {
+                    setSelectedAgents([]);
+                  } else {
+                    setSelectedAgents(teamMembers.map((m: any) => m.id));
+                  }
+                }}
+              >
+                {selectedAgents.length === teamMembers.length ? "Deselect All" : "Select All"}
+              </Button>
+            </div>
+
+            {teamMembers.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p className="text-sm">No team members with sending permissions found.</p>
+                <p className="text-xs mt-1">Add team members with the Sender role or higher.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {teamMembers.map((member: any) => {
+                  const isSelected = selectedAgents.includes(member.id);
+                  return (
+                    <div
+                      key={member.id}
+                      className={`border rounded-lg p-3 cursor-pointer transition-colors ${
+                        isSelected
+                          ? "border-primary bg-primary/5"
+                          : "hover:border-primary/50"
+                      }`}
+                      onClick={() => {
+                        setSelectedAgents((prev) =>
+                          isSelected
+                            ? prev.filter((id) => id !== member.id)
+                            : [...prev, member.id]
+                        );
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          readOnly
+                          className="rounded"
+                        />
+                        <div>
+                          <p className="text-sm font-medium">{member.name}</p>
+                          <p className="text-xs text-muted-foreground">{member.role}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {selectedAgents.length > 0 && selectedSegment && (
+              <div className="rounded-lg bg-muted/50 p-3 text-sm">
+                <p>
+                  <strong>{selectedSegment.contactCount?.toLocaleString()}</strong> contacts &divide;{" "}
+                  <strong>{selectedAgents.length}</strong> agent{selectedAgents.length !== 1 ? "s" : ""} ={" "}
+                  <strong>~{Math.ceil((selectedSegment.contactCount || 0) / selectedAgents.length)}</strong> contacts each
+                </p>
+              </div>
+            )}
+
+            <div className="rounded-lg bg-info/10 border border-info/20 p-3 text-xs text-info">
+              Agents will be able to start sending once you launch the campaign. No messages will be sent until agents begin from their queues.
+            </div>
+          </CardContent>
+          <CardFooter className="justify-between">
+            <Button variant="outline" onClick={() => setStep(2)}>
+              Back
+            </Button>
+            <Button onClick={() => setStep(4)} disabled={!canProceed()}>
+              Next: Review
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
+      {step === 3 && type !== "P2P" && (
         <Card>
           <CardHeader>
             <CardTitle>Schedule</CardTitle>
@@ -806,12 +963,21 @@ export default function NewCampaignPage() {
                     : "No segment"}
               </dd>
 
-              <dt className="text-muted-foreground">Schedule</dt>
-              <dd>
-                {scheduleType === "now"
-                  ? "Send immediately"
-                  : new Date(scheduledAt).toLocaleString()}
-              </dd>
+              {type === "P2P" ? (
+                <>
+                  <dt className="text-muted-foreground">Agents</dt>
+                  <dd>{selectedAgents.length} agent{selectedAgents.length !== 1 ? "s" : ""} assigned</dd>
+                </>
+              ) : (
+                <>
+                  <dt className="text-muted-foreground">Schedule</dt>
+                  <dd>
+                    {scheduleType === "now"
+                      ? "Send immediately"
+                      : new Date(scheduledAt).toLocaleString()}
+                  </dd>
+                </>
+              )}
 
               <dt className="text-muted-foreground">Segments</dt>
               <dd>
@@ -841,9 +1007,11 @@ export default function NewCampaignPage() {
             <Button onClick={handleCreate} disabled={loading}>
               {loading
                 ? "Creating..."
-                : scheduleType === "now"
-                  ? "Create & Send Now"
-                  : "Create & Schedule"}
+                : type === "P2P"
+                  ? "Launch P2P Campaign"
+                  : scheduleType === "now"
+                    ? "Create & Send Now"
+                    : "Create & Schedule"}
             </Button>
           </CardFooter>
         </Card>

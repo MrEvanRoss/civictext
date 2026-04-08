@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getDashboardAnalyticsAction } from "@/server/actions/analytics";
 import {
   Send,
@@ -40,14 +41,44 @@ export default function AnalyticsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Loading...</p>
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-9 w-40" />
+          <Skeleton className="h-4 w-56 mt-2" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-4 rounded" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-20 mb-1" />
+                <Skeleton className="h-3 w-28" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-36" />
+            <Skeleton className="h-4 w-64 mt-1" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
         <p className="text-muted-foreground">Last 30 days overview.</p>
@@ -55,7 +86,7 @@ export default function AnalyticsPage() {
 
       {/* Key Metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Messages Sent</CardTitle>
             <Send className="h-4 w-4 text-muted-foreground" />
@@ -68,10 +99,10 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Delivery Rate</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <CheckCircle2 className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{data?.deliveryRate || 0}%</p>
@@ -81,7 +112,7 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Contacts</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
@@ -94,13 +125,13 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Opt-Outs</CardTitle>
-            <XCircle className="h-4 w-4 text-red-600" />
+            <XCircle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-red-600">
+            <p className="text-2xl font-bold text-destructive">
               {data?.optedOutContacts || 0}
             </p>
             <p className="text-xs text-muted-foreground">Last 30 days</p>
@@ -118,9 +149,15 @@ export default function AnalyticsPage() {
         </CardHeader>
         <CardContent>
           {data?.topCampaigns?.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              No campaigns completed yet.
-            </p>
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="h-16 w-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+                <BarChart3 className="h-8 w-8 text-muted-foreground/50" />
+              </div>
+              <h3 className="text-base font-medium mb-1">No Campaign Data Yet</h3>
+              <p className="text-sm text-muted-foreground text-center max-w-sm">
+                Once you send your first campaign, performance metrics will appear here.
+              </p>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

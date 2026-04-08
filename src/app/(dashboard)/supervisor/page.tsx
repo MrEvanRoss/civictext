@@ -10,6 +10,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 import { getSupervisorDashboardAction } from "@/server/actions/supervisor";
 import { autoAssignConversationsAction } from "@/server/actions/inbox";
 import {
@@ -22,7 +24,10 @@ import {
   Shuffle,
   UserX,
   Activity,
+  Send,
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { P2P_SUSPICIOUS_RATE_PER_HOUR } from "@/lib/constants";
 
 export default function SupervisorPage() {
   const [data, setData] = useState<any>(null);
@@ -48,17 +53,58 @@ export default function SupervisorPage() {
   async function handleAutoAssign() {
     try {
       const result = await autoAssignConversationsAction();
-      alert(`Auto-assigned ${result.assigned} conversations.`);
+      toast.success(`Auto-assigned ${result.assigned} conversations.`);
       await loadDashboard();
     } catch (err: any) {
-      alert(err.message || "Failed to auto-assign");
+      toast.error(err.message || "Failed to auto-assign");
     }
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Loading...</p>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <Skeleton className="h-9 w-60" />
+            <Skeleton className="h-4 w-80 mt-2" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-10 w-32" />
+            <Skeleton className="h-10 w-28" />
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-8 w-8 rounded" />
+                  <div>
+                    <Skeleton className="h-7 w-10 mb-1" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="grid gap-6 md:grid-cols-2">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-6 w-36" />
+                <Skeleton className="h-4 w-24 mt-1" />
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, j) => (
+                    <Skeleton key={j} className="h-14 w-full rounded-lg" />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
@@ -74,7 +120,7 @@ export default function SupervisorPage() {
   if (!data) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Supervisor Dashboard</h1>
@@ -101,7 +147,7 @@ export default function SupervisorPage() {
             <div className="flex items-center gap-3">
               <AlertTriangle className={`h-8 w-8 ${data.escalatedCount > 0 ? "text-orange-500" : "text-muted-foreground/30"}`} />
               <div>
-                <p className={`text-2xl font-bold ${data.escalatedCount > 0 ? "text-orange-600" : ""}`}>
+                <p className={`text-2xl font-bold ${data.escalatedCount > 0 ? "text-warning" : ""}`}>
                   {data.escalatedCount}
                 </p>
                 <p className="text-xs text-muted-foreground">Escalated</p>
@@ -125,7 +171,7 @@ export default function SupervisorPage() {
             <div className="flex items-center gap-3">
               <UserX className={`h-8 w-8 ${data.unassignedCount > 0 ? "text-red-500" : "text-muted-foreground/30"}`} />
               <div>
-                <p className={`text-2xl font-bold ${data.unassignedCount > 0 ? "text-red-600" : ""}`}>
+                <p className={`text-2xl font-bold ${data.unassignedCount > 0 ? "text-destructive" : ""}`}>
                   {data.unassignedCount}
                 </p>
                 <p className="text-xs text-muted-foreground">Unassigned</p>
@@ -149,7 +195,7 @@ export default function SupervisorPage() {
             <div className="flex items-center gap-3">
               <Activity className={`h-8 w-8 ${data.todayOptOuts > 5 ? "text-red-500" : "text-muted-foreground/30"}`} />
               <div>
-                <p className={`text-2xl font-bold ${data.todayOptOuts > 5 ? "text-red-600" : ""}`}>
+                <p className={`text-2xl font-bold ${data.todayOptOuts > 5 ? "text-destructive" : ""}`}>
                   {data.todayOptOuts}
                 </p>
                 <p className="text-xs text-muted-foreground">Opt-Outs Today</p>
@@ -168,7 +214,15 @@ export default function SupervisorPage() {
           </CardHeader>
           <CardContent>
             {data.agentMetrics.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No agents found.</p>
+              <div className="flex flex-col items-center justify-center py-8">
+                <div className="h-16 w-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+                  <Users className="h-8 w-8 text-muted-foreground/50" />
+                </div>
+                <h3 className="text-base font-medium mb-1">No Agents Yet</h3>
+                <p className="text-sm text-muted-foreground text-center max-w-sm">
+                  Invite team members to start managing conversations and workload.
+                </p>
+              </div>
             ) : (
               <div className="space-y-3">
                 {data.agentMetrics.map((agent: any) => (
@@ -208,16 +262,19 @@ export default function SupervisorPage() {
           </CardHeader>
           <CardContent>
             {data.escalatedConversations.length === 0 ? (
-              <div className="flex flex-col items-center py-8">
-                <UserCheck className="h-8 w-8 text-green-500/50 mb-2" />
-                <p className="text-sm text-muted-foreground">No escalations. All clear.</p>
+              <div className="flex flex-col items-center justify-center py-8">
+                <div className="h-16 w-16 rounded-full bg-success/10 flex items-center justify-center mb-4">
+                  <UserCheck className="h-8 w-8 text-success/50" />
+                </div>
+                <h3 className="text-base font-medium mb-1">All Clear</h3>
+                <p className="text-sm text-muted-foreground">No escalations requiring your attention.</p>
               </div>
             ) : (
               <div className="space-y-3 max-h-96 overflow-y-auto">
                 {data.escalatedConversations.map((conv: any) => (
                   <div
                     key={conv.id}
-                    className="p-3 rounded-lg border border-orange-200 bg-orange-50/50 cursor-pointer hover:bg-orange-50"
+                    className="p-3 rounded-lg border border-warning/30 bg-warning/5 cursor-pointer hover:bg-warning/10"
                     onClick={() => window.location.href = "/inbox"}
                   >
                     <div className="flex items-center justify-between">
@@ -233,7 +290,7 @@ export default function SupervisorPage() {
                       )}
                     </div>
                     {conv.escalatedReason && (
-                      <p className="text-xs text-orange-700 mt-1">{conv.escalatedReason}</p>
+                      <p className="text-xs text-warning mt-1">{conv.escalatedReason}</p>
                     )}
                     <p className="text-xs text-muted-foreground mt-1">
                       {conv.escalatedAt
@@ -247,6 +304,76 @@ export default function SupervisorPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* P2P Campaigns */}
+      {data.p2pCampaigns?.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Send className="h-5 w-5" />
+              Active P2P Campaigns
+            </CardTitle>
+            <CardDescription>Per-agent send progress and rates</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {data.p2pCampaigns.map((campaign: any) => {
+              const pct = campaign.totalRecipients > 0
+                ? (campaign.sentCount / campaign.totalRecipients) * 100
+                : 0;
+              return (
+                <div key={campaign.id}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="font-medium">{campaign.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {campaign.sentCount} / {campaign.totalRecipients} sent
+                      </p>
+                    </div>
+                    <Badge variant={campaign.status === "SENDING" ? "default" : "secondary"}>
+                      {campaign.status}
+                    </Badge>
+                  </div>
+                  <Progress value={pct} className="h-2 mb-3" />
+
+                  {/* Per-agent breakdown */}
+                  <div className="space-y-2">
+                    {campaign.agents.map((agent: any) => {
+                      const total = agent.sent + agent.pending + agent.skipped;
+                      const agentPct = total > 0 ? (agent.sent / total) * 100 : 0;
+                      return (
+                        <div key={agent.agentId} className="flex items-center gap-3 text-sm p-2 rounded bg-muted/50">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium truncate">{agent.agentName}</span>
+                              {/* Flag agents who haven't sent recently */}
+                              {agent.pending > 0 && agent.lastSentAt && (
+                                (() => {
+                                  const minsSinceLastSend = (Date.now() - new Date(agent.lastSentAt).getTime()) / 60000;
+                                  return minsSinceLastSend > 15 ? (
+                                    <Badge variant="outline" className="text-[10px] text-warning border-warning/30">
+                                      idle {Math.round(minsSinceLastSend)}m
+                                    </Badge>
+                                  ) : null;
+                                })()
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {agent.sent} sent &middot; {agent.pending} pending &middot; {agent.skipped} skipped
+                            </p>
+                          </div>
+                          <div className="text-right text-xs text-muted-foreground shrink-0">
+                            {Math.round(agentPct)}%
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

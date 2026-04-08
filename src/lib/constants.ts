@@ -5,6 +5,7 @@ export const ROLE_HIERARCHY = ["VIEWER", "SENDER", "MANAGER", "ADMIN", "OWNER"] 
 export const PERMISSIONS = {
   CAMPAIGN_CREATE: "campaign:create",
   CAMPAIGN_SEND: "campaign:send",
+  P2P_SEND: "p2p:send",
   CONTACTS_IMPORT: "contacts:import",
   CONTACTS_DELETE: "contacts:delete",
   ANALYTICS_VIEW: "analytics:view",
@@ -25,6 +26,7 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
   ADMIN: [
     PERMISSIONS.CAMPAIGN_CREATE,
     PERMISSIONS.CAMPAIGN_SEND,
+    PERMISSIONS.P2P_SEND,
     PERMISSIONS.CONTACTS_IMPORT,
     PERMISSIONS.CONTACTS_DELETE,
     PERMISSIONS.ANALYTICS_VIEW,
@@ -38,6 +40,7 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
   MANAGER: [
     PERMISSIONS.CAMPAIGN_CREATE,
     PERMISSIONS.CAMPAIGN_SEND,
+    PERMISSIONS.P2P_SEND,
     PERMISSIONS.CONTACTS_IMPORT,
     PERMISSIONS.ANALYTICS_VIEW,
     PERMISSIONS.DATA_EXPORT,
@@ -46,6 +49,7 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
   ],
   SENDER: [
     PERMISSIONS.CAMPAIGN_SEND,
+    PERMISSIONS.P2P_SEND,
     PERMISSIONS.INBOX_VIEW,
     PERMISSIONS.INBOX_REPLY,
   ],
@@ -85,3 +89,10 @@ export const DEFAULT_MMS_RATE_CENTS = 8;
 
 // Minimum transaction amount (in cents)
 export const MIN_TRANSACTION_CENTS = 500; // $5.00
+
+// P2P configuration
+export const P2P_DEFAULT_BATCH_SIZE = 1;         // contacts shown to agent at a time
+export const P2P_PREFETCH_COUNT = 3;              // prefetch next N for instant transitions
+export const P2P_MIN_SEND_INTERVAL_MS = 1000;     // minimum ms between sends per agent
+export const P2P_MAX_CONTACTS_PER_AGENT = 1000;   // max contacts assignable to one agent
+export const P2P_SUSPICIOUS_RATE_PER_HOUR = 120;  // flag agents sending faster than this

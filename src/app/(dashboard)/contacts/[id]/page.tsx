@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -413,7 +413,7 @@ export default function ContactDetailPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="optInStatus">Consent Status</Label>
-              <Select
+              <NativeSelect
                 id="optInStatus"
                 value={form.optInStatus}
                 onChange={(e) => setForm((p) => ({ ...p, optInStatus: e.target.value }))}
@@ -421,7 +421,7 @@ export default function ContactDetailPage() {
                 <option value="OPTED_IN">Opted In</option>
                 <option value="PENDING">Pending</option>
                 <option value="OPTED_OUT">Opted Out</option>
-              </Select>
+              </NativeSelect>
             </div>
           </CardContent>
           <CardFooter className="justify-between">
@@ -527,7 +527,7 @@ export default function ContactDetailPage() {
                   </p>
                   <div className="flex items-center gap-2">
                     {sendSuccess && (
-                      <p className="text-sm text-green-600">{sendSuccess}</p>
+                      <p className="text-sm text-success">{sendSuccess}</p>
                     )}
                     <Button
                       onClick={handleQuickSend}
@@ -624,7 +624,7 @@ export default function ContactDetailPage() {
           <CardContent>
             {showAddList && (
               <div className="flex gap-2 mb-4">
-                <Select
+                <NativeSelect
                   value={addListId}
                   onChange={(e) => setAddListId(e.target.value)}
                   className="flex-1"
@@ -635,7 +635,7 @@ export default function ContactDetailPage() {
                     .map((l: any) => (
                       <option key={l.id} value={l.id}>{l.name} ({l.keyword})</option>
                     ))}
-                </Select>
+                </NativeSelect>
                 <Button size="sm" onClick={handleAddToList} disabled={!addListId}>Add</Button>
                 <Button variant="ghost" size="sm" onClick={() => { setShowAddList(false); setAddListId(""); }}>
                   <X className="h-3.5 w-3.5" />

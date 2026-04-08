@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { listOrgsAction, createOrgAction } from "@/server/actions/admin";
 import { Building2, Search, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
@@ -175,7 +175,7 @@ export default function AdminOrgsPage() {
             className="pl-9"
           />
         </div>
-        <Select
+        <NativeSelect
           value={status}
           onChange={(e) => {
             setStatus(e.target.value);
@@ -188,7 +188,7 @@ export default function AdminOrgsPage() {
           <option value="ACTIVE">Active</option>
           <option value="SUSPENDED">Suspended</option>
           <option value="DEACTIVATED">Deactivated</option>
-        </Select>
+        </NativeSelect>
       </div>
 
       <div className="border rounded-lg overflow-hidden">

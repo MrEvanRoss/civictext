@@ -4,8 +4,9 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Card,
   CardContent,
@@ -21,6 +22,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { toast } from "sonner";
 
 const TYPE_LABELS: Record<string, string> = {
   BROADCAST: "Broadcast",
@@ -36,6 +38,16 @@ const STATUS_VARIANTS: Record<string, "default" | "success" | "warning" | "destr
   PAUSED: "outline",
   COMPLETED: "success",
   CANCELLED: "destructive",
+};
+
+const STATUS_DOT_COLORS: Record<string, string> = {
+  COMPLETED: "bg-success",
+  SENDING: "bg-primary animate-pulse",
+  SCHEDULED: "bg-warning",
+  DRAFT: "bg-muted-foreground/40",
+  FAILED: "bg-destructive",
+  CANCELLED: "bg-destructive",
+  PAUSED: "bg-muted-foreground/40",
 };
 
 export default function CampaignsPage() {
@@ -69,16 +81,17 @@ export default function CampaignsPage() {
   async function handleDuplicate(campaignId: string) {
     try {
       const dup = await duplicateCampaignAction(campaignId);
+      toast.success("Campaign duplicated successfully");
       router.push(`/campaigns/${dup.id}`);
     } catch (err: any) {
-      alert(err.message || "Failed to duplicate campaign");
+      toast.error(err.message || "Failed to duplicate campaign");
     }
   }
 
   const isEmpty = !loading && data?.total === 0 && !statusFilter && !typeFilter;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Campaigns</h1>
@@ -96,15 +109,20 @@ export default function CampaignsPage() {
 
       {isEmpty && (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <MessageSquare className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <h2 className="text-xl font-semibold mb-2">No Campaigns Yet</h2>
-            <p className="text-muted-foreground text-center max-w-md mb-6">
+          <CardContent className="flex flex-col items-center justify-center py-20">
+            <div className="flex items-center justify-center h-24 w-24 rounded-2xl bg-muted/50 mb-6">
+              <MessageSquare className="h-16 w-16 text-muted-foreground/50" />
+            </div>
+            <h2 className="text-2xl font-semibold mb-2">No Campaigns Yet</h2>
+            <p className="text-muted-foreground text-center max-w-md mb-8">
               Create your first campaign to start reaching contacts. Choose from
               Broadcast, P2P, Drip Sequence, or Auto-Reply.
             </p>
             <Link href="/campaigns/new">
-              <Button>Create Campaign</Button>
+              <Button size="lg">
+                <Plus className="mr-2 h-5 w-5" />
+                Create Your First Campaign
+              </Button>
             </Link>
           </CardContent>
         </Card>
@@ -113,7 +131,7 @@ export default function CampaignsPage() {
       {!isEmpty && (
         <>
           <div className="flex gap-4">
-            <Select
+            <NativeSelect
               value={statusFilter}
               onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
               className="w-40"
@@ -125,8 +143,8 @@ export default function CampaignsPage() {
               <option value="PAUSED">Paused</option>
               <option value="COMPLETED">Completed</option>
               <option value="CANCELLED">Cancelled</option>
-            </Select>
-            <Select
+            </NativeSelect>
+            <NativeSelect
               value={typeFilter}
               onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
               className="w-40"
@@ -136,14 +154,41 @@ export default function CampaignsPage() {
               <option value="P2P">Peer-to-Peer</option>
               <option value="DRIP">Drip Sequence</option>
               <option value="AUTO_REPLY">Auto-Reply</option>
-            </Select>
+            </NativeSelect>
           </div>
 
           <Card>
             <CardContent className="p-0">
               {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <p className="text-muted-foreground">Loading...</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left py-3 px-4 font-medium">Name</th>
+                        <th className="text-left py-3 px-4 font-medium">Type</th>
+                        <th className="text-left py-3 px-4 font-medium">Status</th>
+                        <th className="text-left py-3 px-4 font-medium">Audience</th>
+                        <th className="text-left py-3 px-4 font-medium">Sent</th>
+                        <th className="text-left py-3 px-4 font-medium">Delivered</th>
+                        <th className="text-left py-3 px-4 font-medium">Created</th>
+                        <th className="text-right py-3 px-4 font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <tr key={i} className="border-b last:border-0">
+                          <td className="py-3 px-4"><Skeleton className="h-4 w-32" /></td>
+                          <td className="py-3 px-4"><Skeleton className="h-5 w-20 rounded-full" /></td>
+                          <td className="py-3 px-4"><Skeleton className="h-5 w-20 rounded-full" /></td>
+                          <td className="py-3 px-4"><Skeleton className="h-4 w-28" /></td>
+                          <td className="py-3 px-4"><Skeleton className="h-4 w-10" /></td>
+                          <td className="py-3 px-4"><Skeleton className="h-4 w-10" /></td>
+                          <td className="py-3 px-4"><Skeleton className="h-4 w-24" /></td>
+                          <td className="py-3 px-4 text-right"><Skeleton className="h-8 w-24 ml-auto" /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -164,7 +209,7 @@ export default function CampaignsPage() {
                       {data?.campaigns.map((campaign: any) => (
                         <tr
                           key={campaign.id}
-                          className="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
+                          className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
                           onClick={() => router.push(`/campaigns/${campaign.id}`)}
                         >
                           <td className="py-3 px-4 font-medium">
@@ -177,6 +222,7 @@ export default function CampaignsPage() {
                           </td>
                           <td className="py-3 px-4">
                             <Badge variant={STATUS_VARIANTS[campaign.status] || "outline"}>
+                              <span className={`inline-block h-2 w-2 rounded-full mr-1.5 ${STATUS_DOT_COLORS[campaign.status] || "bg-muted-foreground/40"}`} />
                               {campaign.status}
                             </Badge>
                           </td>

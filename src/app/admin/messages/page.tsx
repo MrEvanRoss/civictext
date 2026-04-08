@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -137,7 +137,7 @@ export default function AdminMessagesPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            <Select
+            <NativeSelect
               value={orgId}
               onChange={(e) => { setOrgId(e.target.value); setPage(1); }}
             >
@@ -145,18 +145,18 @@ export default function AdminMessagesPage() {
               {orgs.map((org: any) => (
                 <option key={org.id} value={org.id}>{org.name}</option>
               ))}
-            </Select>
+            </NativeSelect>
 
-            <Select
+            <NativeSelect
               value={direction}
               onChange={(e) => { setDirection(e.target.value); setPage(1); }}
             >
               <option value="">All Directions</option>
               <option value="OUTBOUND">Outbound</option>
               <option value="INBOUND">Inbound</option>
-            </Select>
+            </NativeSelect>
 
-            <Select
+            <NativeSelect
               value={status}
               onChange={(e) => { setStatus(e.target.value); setPage(1); }}
             >
@@ -167,7 +167,7 @@ export default function AdminMessagesPage() {
               <option value="DELIVERED">Delivered</option>
               <option value="FAILED">Failed</option>
               <option value="UNDELIVERED">Undelivered</option>
-            </Select>
+            </NativeSelect>
 
             <Input
               type="date"

@@ -96,6 +96,14 @@ enum PhoneNumberStatus {
   SUSPENDED
 }
 
+enum P2PAssignmentStatus {
+  PENDING
+  SENT
+  SKIPPED
+  REPLIED
+  OPTED_OUT
+}
+
 // ============================================================
 // CORE: Organization & Users
 // ============================================================
@@ -139,6 +147,7 @@ model Organization {
   trackedLinks             TrackedLink[]
   webhookEndpoints         WebhookEndpoint[]
   apiKeys                  ApiKey[]
+  p2pAssignments           P2PAssignment[]
 
   @@index([status])
 }
@@ -169,6 +178,7 @@ model User {
   contactNotes     ContactNote[]
   createdTemplates MessageTemplate[] @relation("TemplateCreator")
   createdApiKeys   ApiKey[]
+  p2pAssignments   P2PAssignment[]
 
   @@index([orgId])
   @@index([email])
@@ -247,6 +257,7 @@ model Contact {
   conversations    Conversation[]
   contactNotes     ContactNote[]
   interestListMemberships InterestListMember[]
+  p2pAssignments   P2PAssignment[]
 
   @@unique([orgId, phone])
   @@index([orgId, optInStatus])
@@ -325,6 +336,11 @@ model Campaign {
   createdById     String
   settings        Json?          // Campaign-specific settings
 
+  // P2P-specific fields
+  p2pScript           String?   // default script agents see (merge-field template)
+  p2pReplyScript      String?   // suggested follow-up for replies
+  p2pContactsPerAgent Int?      // contacts assigned per agent batch
+
   // Counters (denormalized for performance)
   totalRecipients Int @default(0)
   sentCount       Int @default(0)
@@ -337,13 +353,14 @@ model Campaign {
   updatedAt DateTime @updatedAt
 
   // Relations
-  org       Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  segment   Segment?      @relation(fields: [segmentId], references: [id])
-  createdBy User          @relation("CampaignCreator", fields: [createdById], references: [id])
-  messages  Message[]
-  dripSteps DripStep[]
-  usageLedger UsageLedger[]
-  trackedLinks TrackedLink[]
+  org             Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  segment         Segment?        @relation(fields: [segmentId], references: [id])
+  createdBy       User            @relation("CampaignCreator", fields: [createdById], references: [id])
+  messages        Message[]
+  dripSteps       DripStep[]
+  usageLedger     UsageLedger[]
+  trackedLinks    TrackedLink[]
+  p2pAssignments  P2PAssignment[]
 
   @@index([orgId, status])
   @@index([orgId, createdAt])
@@ -633,8 +650,8 @@ model MessagingPlan {
   id                  String   @id @default(uuid())
   orgId               String   @unique
   balanceCents        Int      @default(0)    // prepaid balance in cents
-  smsRateCents        Int      @default(4)    // cost per SMS segment: 4¢
-  mmsRateCents        Int      @default(8)    // cost per MMS message: 8¢
+  smsRateCents        Float    @default(4)    // cost per SMS segment in cents (supports fractional, e.g. 2.37)
+  mmsRateCents        Float    @default(8)    // cost per MMS message in cents (supports fractional, e.g. 5.5)
   phoneNumberFeeCents Int      @default(500)  // $5/month per active phone number
   totalSpentCents     Int      @default(0)    // lifetime spend in cents
   stripeCustomerId    String?
@@ -783,4 +800,33 @@ model ApiKey {
 
   @@index([orgId])
   @@index([keyHash])
+}
+
+// ============================================================
+// P2P ASSIGNMENTS
+// ============================================================
+
+model P2PAssignment {
+  id            String              @id @default(cuid())
+  orgId         String
+  campaignId    String
+  contactId     String
+  assignedToId  String
+  status        P2PAssignmentStatus @default(PENDING)
+  sentAt        DateTime?
+  skippedAt     DateTime?
+  skippedReason String?
+  customBody    String?             // agent's modified version of the script, if any
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  // Relations
+  org        Organization @relation(fields: [orgId], references: [id])
+  campaign   Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact    Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  assignedTo User         @relation(fields: [assignedToId], references: [id])
+
+  @@unique([campaignId, contactId])
+  @@index([campaignId, assignedToId, status])
+  @@index([orgId])
 }

@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Card,
   CardContent,
@@ -20,6 +22,7 @@ import {
   bulkDeleteContactsAction,
   exportContactsAction,
 } from "@/server/actions/contacts";
+import { toast } from "sonner";
 import { Users, Plus, Upload, Search, Filter, ChevronLeft, ChevronRight, Download, Tag, Trash2, X } from "lucide-react";
 
 interface Contact {
@@ -89,7 +92,7 @@ export default function ContactsPage() {
       await deleteContactAction(id);
       loadContacts();
     } catch (err: any) {
-      alert(err.message || "Failed to delete contact");
+      toast.error(err.message || "Failed to delete contact");
     }
   }
 
@@ -118,7 +121,7 @@ export default function ContactsPage() {
       setSelected(new Set());
       loadContacts();
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message || "Failed to delete contacts");
     }
   }
 
@@ -132,7 +135,7 @@ export default function ContactsPage() {
       setSelected(new Set());
       loadContacts();
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message || "Failed to add tags");
     }
   }
 
@@ -150,7 +153,7 @@ export default function ContactsPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message || "Failed to export contacts");
     }
   }
 
@@ -170,7 +173,7 @@ export default function ContactsPage() {
   const isEmpty = !loading && data?.total === 0 && !search && !statusFilter;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Contacts</h1>
@@ -205,17 +208,23 @@ export default function ContactsPage() {
       {/* Empty state */}
       {isEmpty && (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Users className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <h2 className="text-xl font-semibold mb-2">No Contacts Yet</h2>
-            <p className="text-muted-foreground text-center max-w-md mb-6">
-              Import contacts from a CSV file or add them manually to get started.
+          <CardContent className="flex flex-col items-center justify-center py-20">
+            <div className="flex items-center justify-center h-24 w-24 rounded-2xl bg-muted/50 mb-6">
+              <Users className="h-16 w-16 text-muted-foreground/50" />
+            </div>
+            <h2 className="text-2xl font-semibold mb-2">No Contacts Yet</h2>
+            <p className="text-muted-foreground text-center max-w-md mb-8">
+              Get started by importing contacts from a CSV file or adding them manually. Once added, you can organize them with tags and segments.
             </p>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <Link href="/contacts/import">
-                <Button variant="outline">Import CSV</Button>
+                <Button variant="outline" size="lg">
+                  <Upload className="mr-2 h-4 w-4" />
+                  Import CSV
+                </Button>
               </Link>
-              <Button onClick={() => router.push("/contacts/new")}>
+              <Button size="lg" onClick={() => router.push("/contacts/new")}>
+                <Plus className="mr-2 h-4 w-4" />
                 Add Contact
               </Button>
             </div>
@@ -236,7 +245,7 @@ export default function ContactsPage() {
                 className="pl-10"
               />
             </div>
-            <Select
+            <NativeSelect
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value);
@@ -248,12 +257,12 @@ export default function ContactsPage() {
               <option value="OPTED_IN">Opted In</option>
               <option value="OPTED_OUT">Opted Out</option>
               <option value="PENDING">Pending</option>
-            </Select>
+            </NativeSelect>
           </div>
 
           {/* Bulk Action Bar */}
           {selected.size > 0 && (
-            <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+            <div className="sticky top-0 z-10 bg-background flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-lg">
               <span className="text-sm font-medium">{selected.size} selected</span>
               <Button variant="outline" size="sm" onClick={() => setShowBulkTag(!showBulkTag)}>
                 <Tag className="h-3.5 w-3.5 mr-1" /> Add Tags
@@ -285,8 +294,18 @@ export default function ContactsPage() {
           <Card>
             <CardContent className="p-0">
               {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <p className="text-muted-foreground">Loading...</p>
+                <div className="p-4 space-y-3">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-4 py-2">
+                      <Skeleton className="h-4 w-4 rounded-sm" />
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-5 w-16 rounded-full" />
+                      <Skeleton className="h-5 w-20 rounded-full" />
+                      <Skeleton className="h-4 w-12 ml-auto" />
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -294,11 +313,9 @@ export default function ContactsPage() {
                     <thead>
                       <tr className="border-b bg-muted/50">
                         <th className="py-3 px-4 w-10">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={data ? selected.size === data.contacts.length && data.contacts.length > 0 : false}
-                            onChange={toggleSelectAll}
-                            className="rounded border-gray-300"
+                            onCheckedChange={toggleSelectAll}
                           />
                         </th>
                         <th className="text-left py-3 px-4 font-medium">Name</th>
@@ -313,15 +330,13 @@ export default function ContactsPage() {
                       {data?.contacts.map((contact) => (
                         <tr
                           key={contact.id}
-                          className="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
+                          className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
                           onClick={() => router.push(`/contacts/${contact.id}`)}
                         >
                           <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="checkbox"
+                            <Checkbox
                               checked={selected.has(contact.id)}
-                              onChange={() => toggleSelect(contact.id)}
-                              className="rounded border-gray-300"
+                              onCheckedChange={() => toggleSelect(contact.id)}
                             />
                           </td>
                           <td className="py-3 px-4">
@@ -336,16 +351,16 @@ export default function ContactsPage() {
                             {contact.email || "-"}
                           </td>
                           <td className="py-3 px-4">
-                            <div className="flex gap-1 flex-wrap">
-                              {contact.tags.slice(0, 3).map((tag) => (
-                                <Badge key={tag} variant="secondary" className="text-xs">
+                            <div className="flex gap-1 flex-wrap items-center">
+                              {contact.tags.slice(0, 2).map((tag) => (
+                                <Badge key={tag} variant="secondary" className="text-[10px]">
                                   {tag}
                                 </Badge>
                               ))}
-                              {contact.tags.length > 3 && (
-                                <Badge variant="outline" className="text-xs">
-                                  +{contact.tags.length - 3}
-                                </Badge>
+                              {contact.tags.length > 2 && (
+                                <span className="text-[10px] text-muted-foreground ml-0.5">
+                                  +{contact.tags.length - 2} more
+                                </span>
                               )}
                             </div>
                           </td>

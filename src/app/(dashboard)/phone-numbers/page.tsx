@@ -11,6 +11,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 import {
   getRegistrationStatusAction,
   releasePhoneNumberAction,
@@ -79,16 +81,49 @@ export default function PhoneNumbersPage() {
 
     try {
       await releasePhoneNumberAction(phoneNumberId);
+      toast.success("Phone number released successfully");
       await loadStatus();
     } catch (err: any) {
-      setError(err.message || "Failed to release phone number");
+      toast.error(err.message || "Failed to release phone number");
     }
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Loading...</p>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <Skeleton className="h-9 w-48" />
+            <Skeleton className="h-4 w-72 mt-2" />
+          </div>
+          <Skeleton className="h-10 w-36" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-4 w-4 rounded" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-3 w-40" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-36" />
+            <Skeleton className="h-4 w-28 mt-1" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -96,7 +131,7 @@ export default function PhoneNumbersPage() {
   const hasNoSetup = !status?.hasSubaccount;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Phone Numbers</h1>
@@ -122,11 +157,13 @@ export default function PhoneNumbersPage() {
       {hasNoSetup && (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
-            <Phone className="h-12 w-12 text-muted-foreground/50 mb-4" />
+            <div className="h-16 w-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+              <Phone className="h-8 w-8 text-muted-foreground/50" />
+            </div>
             <h2 className="text-xl font-semibold mb-2">
               No Phone Numbers Yet
             </h2>
-            <p className="text-muted-foreground text-center max-w-md mb-4">
+            <p className="text-muted-foreground text-center max-w-md mb-2">
               To send text messages, you need to register your brand with carriers
               and provision phone numbers. This process takes 5-15 business days.
             </p>
@@ -134,7 +171,10 @@ export default function PhoneNumbersPage() {
               Phone numbers cost <span className="font-medium">$5.00/month</span> each, charged from your prepaid balance.
             </p>
             <Link href="/phone-numbers/register">
-              <Button>Start Registration</Button>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Start Registration
+              </Button>
             </Link>
           </CardContent>
         </Card>
@@ -150,7 +190,7 @@ export default function PhoneNumbersPage() {
                   Messaging Account
                 </CardTitle>
                 {status?.hasSubaccount ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <CheckCircle2 className="h-4 w-4 text-success" />
                 ) : (
                   <XCircle className="h-4 w-4 text-muted-foreground" />
                 )}
@@ -172,11 +212,11 @@ export default function PhoneNumbersPage() {
                 {status?.brandRegistrations.some(
                   (b) => b.status === "APPROVED"
                 ) ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <CheckCircle2 className="h-4 w-4 text-success" />
                 ) : status?.brandRegistrations.some(
                     (b) => b.status === "PENDING"
                   ) ? (
-                  <Clock className="h-4 w-4 text-yellow-600" />
+                  <Clock className="h-4 w-4 text-warning" />
                 ) : (
                   <AlertCircle className="h-4 w-4 text-muted-foreground" />
                 )}
@@ -198,11 +238,11 @@ export default function PhoneNumbersPage() {
                 {status?.campaignRegistrations.some(
                   (c) => c.status === "APPROVED"
                 ) ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <CheckCircle2 className="h-4 w-4 text-success" />
                 ) : status?.campaignRegistrations.some(
                     (c) => c.status === "PENDING"
                   ) ? (
-                  <Clock className="h-4 w-4 text-yellow-600" />
+                  <Clock className="h-4 w-4 text-warning" />
                 ) : (
                   <AlertCircle className="h-4 w-4 text-muted-foreground" />
                 )}
@@ -219,13 +259,13 @@ export default function PhoneNumbersPage() {
 
           {/* Fully registered banner */}
           {status?.isFullyRegistered && (
-            <div className="rounded-md bg-green-50 border border-green-200 p-4 flex items-center gap-3">
-              <Shield className="h-5 w-5 text-green-600" />
+            <div className="rounded-md bg-success/10 border border-success/30 p-4 flex items-center gap-3">
+              <Shield className="h-5 w-5 text-success" />
               <div>
-                <p className="text-sm font-medium text-green-800">
+                <p className="text-sm font-medium text-success">
                   Fully Registered
                 </p>
-                <p className="text-xs text-green-700">
+                <p className="text-xs text-success">
                   Your brand and campaign are approved. You can send messages at
                   full throughput.
                 </p>
@@ -244,9 +284,12 @@ export default function PhoneNumbersPage() {
             </CardHeader>
             <CardContent>
               {status?.phoneNumbers.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">
-                  No phone numbers provisioned yet.
-                </p>
+                <div className="flex flex-col items-center justify-center py-8">
+                  <Phone className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    No phone numbers provisioned yet.
+                  </p>
+                </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">

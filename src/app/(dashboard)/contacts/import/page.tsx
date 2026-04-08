@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Steps } from "@/components/ui/steps";
 import {
@@ -247,7 +247,7 @@ export default function ImportPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
-                <Info className="h-5 w-5 text-blue-600" />
+                <Info className="h-5 w-5 text-info" />
                 <CardTitle className="text-base">How to Prepare Your CSV</CardTitle>
               </div>
             </CardHeader>
@@ -397,7 +397,7 @@ export default function ImportPage() {
               }).map(([field, label]) => (
                 <div key={field} className="space-y-2">
                   <Label>{label}</Label>
-                  <Select
+                  <NativeSelect
                     value={(mapping as any)[field]}
                     onChange={(e) =>
                       setMapping((p) => ({ ...p, [field]: e.target.value }))
@@ -409,7 +409,7 @@ export default function ImportPage() {
                         {h}
                       </option>
                     ))}
-                  </Select>
+                  </NativeSelect>
                 </div>
               ))}
             </div>
@@ -471,7 +471,7 @@ export default function ImportPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-md bg-yellow-50 border border-yellow-200 p-4 text-sm text-yellow-800">
+            <div className="rounded-md bg-warning/10 border border-warning/30 p-4 text-sm text-warning">
               <p className="font-medium mb-2">Legal Requirement</p>
               <p>
                 The Telephone Consumer Protection Act (TCPA) requires prior
@@ -540,20 +540,20 @@ export default function ImportPage() {
                 <p className="text-2xl font-bold">{results.total}</p>
                 <p className="text-xs text-muted-foreground">Total Rows</p>
               </div>
-              <div className="text-center p-4 rounded-lg bg-green-50">
-                <p className="text-2xl font-bold text-green-600">
+              <div className="text-center p-4 rounded-lg bg-success/10">
+                <p className="text-2xl font-bold text-success">
                   {results.success}
                 </p>
                 <p className="text-xs text-muted-foreground">Imported</p>
               </div>
-              <div className="text-center p-4 rounded-lg bg-yellow-50">
-                <p className="text-2xl font-bold text-yellow-600">
+              <div className="text-center p-4 rounded-lg bg-warning/10">
+                <p className="text-2xl font-bold text-warning">
                   {results.duplicates}
                 </p>
                 <p className="text-xs text-muted-foreground">Duplicates</p>
               </div>
-              <div className="text-center p-4 rounded-lg bg-red-50">
-                <p className="text-2xl font-bold text-red-600">
+              <div className="text-center p-4 rounded-lg bg-destructive/10">
+                <p className="text-2xl font-bold text-destructive">
                   {results.errors}
                 </p>
                 <p className="text-xs text-muted-foreground">Errors</p>
@@ -561,7 +561,7 @@ export default function ImportPage() {
             </div>
 
             {results.success > 0 && (
-              <div className="flex items-center gap-2 text-green-600">
+              <div className="flex items-center gap-2 text-success">
                 <CheckCircle2 className="h-5 w-5" />
                 <p className="text-sm font-medium">
                   Successfully imported {results.success} contacts.
@@ -570,7 +570,7 @@ export default function ImportPage() {
             )}
 
             {results.errors > 0 && (
-              <div className="flex items-center gap-2 text-red-600">
+              <div className="flex items-center gap-2 text-destructive">
                 <AlertCircle className="h-5 w-5" />
                 <p className="text-sm">
                   {results.errors} rows had errors (invalid phone numbers, etc).

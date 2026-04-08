@@ -30,6 +30,10 @@ export const createCampaignSchema = z.object({
       })
     )
     .optional(),
+  // P2P-specific
+  p2pScript: z.string().optional(),
+  p2pReplyScript: z.string().optional(),
+  p2pContactsPerAgent: z.number().int().min(1).optional(),
   // GOTV-specific settings (stored in Campaign.settings JSON)
   gotvSettings: z
     .object({

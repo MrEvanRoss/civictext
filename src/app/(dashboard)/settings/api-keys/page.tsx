@@ -163,7 +163,7 @@ export default function ApiKeysPage() {
         </div>
       )}
       {success && (
-        <div className="rounded-md bg-green-50 border border-green-200 p-4 text-sm text-green-800">
+        <div className="rounded-md bg-success/10 border border-success/30 p-4 text-sm text-success">
           {success}
         </div>
       )}

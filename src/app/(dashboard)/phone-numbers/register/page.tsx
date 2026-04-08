@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
@@ -264,7 +264,7 @@ export default function RegisterPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="brandType">Organization Type *</Label>
-                <Select
+                <NativeSelect
                   id="brandType"
                   value={brandForm.brandType}
                   onChange={(e) =>
@@ -277,7 +277,7 @@ export default function RegisterPage() {
                       {t.label}
                     </option>
                   ))}
-                </Select>
+                </NativeSelect>
               </div>
             </div>
 
@@ -389,7 +389,7 @@ export default function RegisterPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="useCase">Use Case *</Label>
-              <Select
+              <NativeSelect
                 id="useCase"
                 value={campaignForm.useCase}
                 onChange={(e) => applyTemplate(e.target.value)}
@@ -400,7 +400,7 @@ export default function RegisterPage() {
                     {uc.label}
                   </option>
                 ))}
-              </Select>
+              </NativeSelect>
             </div>
 
             <div className="space-y-2">
@@ -536,7 +536,7 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <div className="rounded-md bg-blue-50 border border-blue-200 p-4 text-sm text-blue-800">
+            <div className="rounded-md bg-info/10 border border-info/30 p-4 text-sm text-info">
               <p className="font-medium">Pricing</p>
               <p className="mt-1">
                 Each phone number costs <span className="font-bold">${(phoneFeeCents / 100).toFixed(2)}/month</span>.
@@ -546,12 +546,12 @@ export default function RegisterPage() {
                 <span>
                   {phoneForm.quantity} number{phoneForm.quantity !== 1 ? "s" : ""} &times; ${(phoneFeeCents / 100).toFixed(2)} = <span className="font-bold">${((phoneForm.quantity * phoneFeeCents) / 100).toFixed(2)}</span>
                 </span>
-                <span className={balanceCents >= phoneForm.quantity * phoneFeeCents ? "text-green-700" : "text-red-700 font-medium"}>
+                <span className={balanceCents >= phoneForm.quantity * phoneFeeCents ? "text-success" : "text-destructive font-medium"}>
                   Balance: ${(balanceCents / 100).toFixed(2)}
                 </span>
               </div>
               {balanceCents < phoneForm.quantity * phoneFeeCents && (
-                <p className="mt-2 text-red-700 font-medium">
+                <p className="mt-2 text-destructive font-medium">
                   Insufficient balance. Add at least ${(((phoneForm.quantity * phoneFeeCents) - balanceCents) / 100).toFixed(2)} to proceed.
                 </p>
               )}
@@ -644,7 +644,7 @@ export default function RegisterPage() {
               </dl>
             </div>
 
-            <div className="rounded-md bg-yellow-50 border border-yellow-200 p-4 text-sm text-yellow-800">
+            <div className="rounded-md bg-warning/10 border border-warning/30 p-4 text-sm text-warning">
               <p className="font-medium">Important:</p>
               <ul className="list-disc list-inside mt-1 space-y-1">
                 <li>Brand review takes 5-15 business days</li>

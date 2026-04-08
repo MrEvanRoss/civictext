@@ -219,6 +219,12 @@ export const campaignWorker = new Worker<CampaignJobData>(
     }
 
     if (action === "expand") {
+      // P2P campaigns must NOT use automated expansion — compliance requirement
+      const campaign = await db.campaign.findUnique({ where: { id: campaignId }, select: { type: true } });
+      if (campaign?.type === "P2P") {
+        await job.log("P2P campaigns do not use automated expansion. Skipping.");
+        return { status: "skipped", reason: "P2P campaigns use agent-initiated sends" };
+      }
       return expandCampaign(orgId, campaignId, job);
     }
 
@@ -257,6 +263,12 @@ async function checkScheduledCampaigns(job: Job) {
   for (const campaign of dueCampaigns) {
     if (campaign.org.status !== "ACTIVE") {
       await job.log(`Skipping campaign ${campaign.id}: org not active`);
+      continue;
+    }
+
+    // P2P campaigns do not use automated expansion
+    if (campaign.type === "P2P") {
+      await job.log(`Skipping P2P campaign ${campaign.id}: P2P uses agent-initiated sends`);
       continue;
     }
 

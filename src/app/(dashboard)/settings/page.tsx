@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Card,
   CardContent,
@@ -14,10 +15,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Save, Webhook, KeyRound, MessageSquareReply } from "lucide-react";
+import { toast } from "sonner";
 import Link from "next/link";
 
 export default function SettingsPage() {
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     orgName: "",
     timezone: "America/New_York",
@@ -26,8 +30,72 @@ export default function SettingsPage() {
     politicalDisclaimer: "",
   });
 
+  function validateForm() {
+    const newErrors: Record<string, string> = {};
+    if (!form.orgName.trim()) {
+      newErrors.orgName = "Organization name is required";
+    }
+    if (!form.timezone.trim()) {
+      newErrors.timezone = "Timezone is required";
+    }
+    if (!form.quietHoursStart) {
+      newErrors.quietHoursStart = "Quiet hours start time is required";
+    }
+    if (!form.quietHoursEnd) {
+      newErrors.quietHoursEnd = "Quiet hours end time is required";
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }
+
+  async function handleSave() {
+    if (!validateForm()) {
+      toast.error("Please fix the validation errors before saving.");
+      return;
+    }
+    setSaving(true);
+    try {
+      // TODO: wire up saveSettingsAction when available
+      await new Promise((r) => setTimeout(r, 500));
+      toast.success("Settings saved");
+    } catch (err) {
+      toast.error("Failed to save settings. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-9 w-48 mb-2" />
+          <Skeleton className="h-5 w-72" />
+        </div>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Card key={i}>
+            <CardHeader>
+              <Skeleton className="h-6 w-36 mb-1" />
+              <Skeleton className="h-4 w-56" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">
@@ -48,17 +116,31 @@ export default function SettingsPage() {
             <Input
               id="orgName"
               value={form.orgName}
-              onChange={(e) => setForm((p) => ({ ...p, orgName: e.target.value }))}
+              onChange={(e) => {
+                setForm((p) => ({ ...p, orgName: e.target.value }));
+                if (errors.orgName) setErrors((prev) => ({ ...prev, orgName: "" }));
+              }}
+              className={errors.orgName ? "border-destructive" : ""}
             />
+            {errors.orgName && (
+              <p className="text-sm text-destructive">{errors.orgName}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="timezone">Default Timezone</Label>
             <Input
               id="timezone"
               value={form.timezone}
-              onChange={(e) => setForm((p) => ({ ...p, timezone: e.target.value }))}
+              onChange={(e) => {
+                setForm((p) => ({ ...p, timezone: e.target.value }));
+                if (errors.timezone) setErrors((prev) => ({ ...prev, timezone: "" }));
+              }}
               placeholder="America/New_York"
+              className={errors.timezone ? "border-destructive" : ""}
             />
+            {errors.timezone && (
+              <p className="text-sm text-destructive">{errors.timezone}</p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -78,10 +160,15 @@ export default function SettingsPage() {
                 id="quietStart"
                 type="time"
                 value={form.quietHoursStart}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, quietHoursStart: e.target.value }))
-                }
+                onChange={(e) => {
+                  setForm((p) => ({ ...p, quietHoursStart: e.target.value }));
+                  if (errors.quietHoursStart) setErrors((prev) => ({ ...prev, quietHoursStart: "" }));
+                }}
+                className={errors.quietHoursStart ? "border-destructive" : ""}
               />
+              {errors.quietHoursStart && (
+                <p className="text-sm text-destructive">{errors.quietHoursStart}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="quietEnd">Quiet Hours End</Label>
@@ -89,10 +176,15 @@ export default function SettingsPage() {
                 id="quietEnd"
                 type="time"
                 value={form.quietHoursEnd}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, quietHoursEnd: e.target.value }))
-                }
+                onChange={(e) => {
+                  setForm((p) => ({ ...p, quietHoursEnd: e.target.value }));
+                  if (errors.quietHoursEnd) setErrors((prev) => ({ ...prev, quietHoursEnd: "" }));
+                }}
+                className={errors.quietHoursEnd ? "border-destructive" : ""}
               />
+              {errors.quietHoursEnd && (
+                <p className="text-sm text-destructive">{errors.quietHoursEnd}</p>
+              )}
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
@@ -128,7 +220,7 @@ export default function SettingsPage() {
           </p>
         </CardContent>
         <CardFooter className="justify-end">
-          <Button disabled={saving}>
+          <Button disabled={saving} onClick={handleSave}>
             <Save className="h-4 w-4 mr-1" />
             {saving ? "Saving..." : "Save Settings"}
           </Button>

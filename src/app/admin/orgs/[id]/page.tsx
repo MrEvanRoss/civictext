@@ -23,7 +23,7 @@ import {
   startImpersonationAction,
 } from "@/server/actions/admin";
 import { adminAddUserToOrgAction } from "@/server/actions/team";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import {
   ArrowLeft,
@@ -500,16 +500,17 @@ export default function AdminOrgDetailPage() {
                   <div className="flex items-center gap-1">
                     <Input
                       type="number"
-                      min="1"
+                      min="0.01"
                       max="100"
+                      step="0.01"
                       value={rateForm.smsRateCents}
-                      onChange={(e) => setRateForm((p) => ({ ...p, smsRateCents: parseInt(e.target.value) || 0 }))}
-                      className="w-16 h-7 text-xs text-right"
+                      onChange={(e) => setRateForm((p) => ({ ...p, smsRateCents: parseFloat(e.target.value) || 0 }))}
+                      className="w-20 h-7 text-xs text-right"
                     />
                     <span className="text-xs text-muted-foreground">&#162;/segment</span>
                   </div>
                 ) : (
-                  <span className="font-medium">{org.messagingPlan?.smsRateCents || 4}&#162;/segment</span>
+                  <span className="font-medium">{Number(org.messagingPlan?.smsRateCents || 4) % 1 === 0 ? (org.messagingPlan?.smsRateCents || 4) : Number(org.messagingPlan?.smsRateCents || 4).toFixed(2)}&#162;/segment</span>
                 )}
               </div>
               <div className="flex justify-between items-center">
@@ -518,16 +519,17 @@ export default function AdminOrgDetailPage() {
                   <div className="flex items-center gap-1">
                     <Input
                       type="number"
-                      min="1"
+                      min="0.01"
                       max="100"
+                      step="0.01"
                       value={rateForm.mmsRateCents}
-                      onChange={(e) => setRateForm((p) => ({ ...p, mmsRateCents: parseInt(e.target.value) || 0 }))}
-                      className="w-16 h-7 text-xs text-right"
+                      onChange={(e) => setRateForm((p) => ({ ...p, mmsRateCents: parseFloat(e.target.value) || 0 }))}
+                      className="w-20 h-7 text-xs text-right"
                     />
                     <span className="text-xs text-muted-foreground">&#162;/message</span>
                   </div>
                 ) : (
-                  <span className="font-medium">{org.messagingPlan?.mmsRateCents || 8}&#162;/message</span>
+                  <span className="font-medium">{Number(org.messagingPlan?.mmsRateCents || 8) % 1 === 0 ? (org.messagingPlan?.mmsRateCents || 8) : Number(org.messagingPlan?.mmsRateCents || 8).toFixed(2)}&#162;/message</span>
                 )}
               </div>
               <div className="flex justify-between items-center">
@@ -686,13 +688,13 @@ export default function AdminOrgDetailPage() {
                   </div>
                   <div>
                     <Label className="text-xs">Role</Label>
-                    <Select value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}>
+                    <NativeSelect value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}>
                       <option value="OWNER">Owner</option>
                       <option value="ADMIN">Admin</option>
                       <option value="MANAGER">Manager</option>
                       <option value="SENDER">Sender</option>
                       <option value="VIEWER">Viewer</option>
-                    </Select>
+                    </NativeSelect>
                   </div>
                 </div>
                 <Button size="sm" onClick={handleAddUser} disabled={addingUser}>

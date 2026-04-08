@@ -73,6 +73,9 @@ export async function getConversationMessagesAction(conversationId: string) {
     where: { contactId: conversation.contactId, orgId },
     orderBy: { createdAt: "asc" },
     take: 100,
+    include: {
+      campaign: { select: { id: true, name: true, type: true } },
+    },
   });
 
   const notes = await db.conversationNote.findMany({

@@ -14,6 +14,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 import {
   listInterestListsAction,
   getInterestListAction,
@@ -98,9 +100,10 @@ export default function InterestListsPage() {
       setDescription("");
       setWelcomeMessage("");
       setShowCreate(false);
+      toast.success("Interest list created successfully");
       await loadLists();
     } catch (err: any) {
-      setError(err.message || "Failed to create interest list");
+      toast.error(err.message || "Failed to create interest list");
     } finally {
       setCreating(false);
     }
@@ -109,12 +112,13 @@ export default function InterestListsPage() {
   async function handleToggleActive(listId: string, isActive: boolean) {
     try {
       await updateInterestListAction(listId, { isActive: !isActive });
+      toast.success(`List ${isActive ? "deactivated" : "activated"}`);
       await loadLists();
       if (selectedList?.id === listId) {
         await loadDetail(listId);
       }
     } catch (err: any) {
-      setError(err.message);
+      toast.error(err.message || "Failed to update list");
     }
   }
 
@@ -123,9 +127,10 @@ export default function InterestListsPage() {
     try {
       await deleteInterestListAction(listId);
       if (selectedList?.id === listId) setSelectedList(null);
+      toast.success("Interest list deleted");
       await loadLists();
     } catch (err: any) {
-      setError(err.message);
+      toast.error(err.message || "Failed to delete interest list");
     }
   }
 
@@ -133,10 +138,11 @@ export default function InterestListsPage() {
     if (!selectedList) return;
     try {
       await removeMemberAction(selectedList.id, contactId);
+      toast.success("Member removed");
       await loadDetail(selectedList.id);
       await loadLists();
     } catch (err: any) {
-      setError(err.message);
+      toast.error(err.message || "Failed to remove member");
     }
   }
 
@@ -147,10 +153,11 @@ export default function InterestListsPage() {
     try {
       await addMemberAction(selectedList.id, addContactId.trim());
       setAddContactId("");
+      toast.success("Member added successfully");
       await loadDetail(selectedList.id);
       await loadLists();
     } catch (err: any) {
-      setError(err.message || "Failed to add member");
+      toast.error(err.message || "Failed to add member");
     } finally {
       setAdding(false);
     }
@@ -225,8 +232,8 @@ export default function InterestListsPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <Users className="h-5 w-5 text-blue-600" />
+                <div className="h-10 w-10 rounded-lg bg-info/20 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-info" />
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Members</p>
@@ -238,8 +245,8 @@ export default function InterestListsPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
-                  <MessageSquare className="h-5 w-5 text-green-600" />
+                <div className="h-10 w-10 rounded-lg bg-success/20 flex items-center justify-center">
+                  <MessageSquare className="h-5 w-5 text-success" />
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Welcome Message</p>
@@ -255,7 +262,7 @@ export default function InterestListsPage() {
         {/* How It Works */}
         <Card>
           <CardContent className="pt-6">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+            <div className="bg-info/10 border border-info/30 rounded-lg p-4 text-sm text-info">
               <p className="font-medium mb-1">How people join this list</p>
               <p>
                 Anyone who texts <span className="font-mono font-bold">{selectedList.keyword}</span> to
@@ -301,9 +308,15 @@ export default function InterestListsPage() {
           </CardHeader>
           <CardContent>
             {selectedList.members?.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                No members yet. Share your keyword to start building this list.
-              </p>
+              <div className="flex flex-col items-center justify-center py-8">
+                <div className="h-16 w-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+                  <Users className="h-8 w-8 text-muted-foreground/50" />
+                </div>
+                <h3 className="text-base font-medium mb-1">No Members Yet</h3>
+                <p className="text-sm text-muted-foreground text-center max-w-sm">
+                  Share your keyword to start building this list. People can text <span className="font-mono font-bold">{selectedList.keyword}</span> to join.
+                </p>
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -371,7 +384,7 @@ export default function InterestListsPage() {
 
   // List view
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Interest Lists</h1>
@@ -471,13 +484,31 @@ export default function InterestListsPage() {
 
       {/* Lists Grid */}
       {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <p className="text-muted-foreground">Loading...</p>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-5 w-32" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+                <Skeleton className="h-3 w-48 mt-2" />
+              </CardHeader>
+              <CardContent className="pb-4">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-20" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       ) : lists.length === 0 && !showCreate ? (
         <Card>
           <CardContent className="flex flex-col items-center py-16">
-            <Hash className="h-12 w-12 text-muted-foreground/30 mb-4" />
+            <div className="h-16 w-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+              <Hash className="h-8 w-8 text-muted-foreground/50" />
+            </div>
             <h3 className="text-lg font-medium mb-1">No Interest Lists Yet</h3>
             <p className="text-sm text-muted-foreground text-center max-w-sm mb-4">
               Create an interest list and assign a keyword. People can text that keyword

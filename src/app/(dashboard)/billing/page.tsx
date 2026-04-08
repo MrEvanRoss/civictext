@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getBillingOverviewAction } from "@/server/actions/billing";
 import { CreditCard, AlertTriangle } from "lucide-react";
 
@@ -34,8 +35,40 @@ export default function BillingPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Loading...</p>
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-9 w-48 mb-2" />
+          <Skeleton className="h-5 w-72" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2">
+                <Skeleton className="h-4 w-24" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-9 w-28 mb-1" />
+                <Skeleton className="h-4 w-32" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-40 mb-1" />
+            <Skeleton className="h-4 w-56" />
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i}>
+                  <Skeleton className="h-4 w-24 mb-2" />
+                  <Skeleton className="h-6 w-20" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -45,7 +78,7 @@ export default function BillingPage() {
   const balanceLow = (plan?.balanceCents || 0) < 500; // Less than $5
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Billing</h1>
         <p className="text-muted-foreground">
@@ -55,7 +88,7 @@ export default function BillingPage() {
 
       {/* Low Balance Warning */}
       {balanceLow && (
-        <div className="rounded-md p-4 flex items-center gap-3 bg-orange-50 border border-orange-200 text-orange-800">
+        <div className="rounded-md p-4 flex items-center gap-3 bg-warning/10 border border-warning/30 text-warning">
           <AlertTriangle className="h-5 w-5 shrink-0" />
           <div>
             <p className="font-medium">
@@ -70,7 +103,7 @@ export default function BillingPage() {
 
       {/* Balance & Rates */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
           <CardHeader className="pb-2">
             <CardDescription>Prepaid Balance</CardDescription>
           </CardHeader>
@@ -84,13 +117,13 @@ export default function BillingPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
           <CardHeader className="pb-2">
             <CardDescription>SMS Rate</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">
-              {plan?.smsRateCents || 4}&#162;
+              {Number(plan?.smsRateCents || 4) % 1 === 0 ? (plan?.smsRateCents || 4) : Number(plan?.smsRateCents || 4).toFixed(2)}&#162;
             </p>
             <p className="text-sm text-muted-foreground mt-1">
               per SMS segment
@@ -98,13 +131,13 @@ export default function BillingPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
           <CardHeader className="pb-2">
             <CardDescription>MMS Rate</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">
-              {plan?.mmsRateCents || 8}&#162;
+              {Number(plan?.mmsRateCents || 8) % 1 === 0 ? (plan?.mmsRateCents || 8) : Number(plan?.mmsRateCents || 8).toFixed(2)}&#162;
             </p>
             <p className="text-sm text-muted-foreground mt-1">
               per MMS message
@@ -112,7 +145,7 @@ export default function BillingPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
           <CardHeader className="pb-2">
             <CardDescription>Phone Numbers</CardDescription>
           </CardHeader>

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -200,21 +200,21 @@ export default function SegmentsPage() {
 
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Match</span>
-              <Select
+              <NativeSelect
                 value={logicOperator}
                 onChange={(e) => setLogicOperator(e.target.value as "AND" | "OR")}
                 className="w-20"
               >
                 <option value="AND">ALL</option>
                 <option value="OR">ANY</option>
-              </Select>
+              </NativeSelect>
               <span className="text-sm text-muted-foreground">of the following conditions:</span>
             </div>
 
             <div className="space-y-3">
               {conditions.map((cond, index) => (
                 <div key={index} className="flex items-center gap-2">
-                  <Select
+                  <NativeSelect
                     value={cond.field}
                     onChange={(e) => {
                       updateCondition(index, {
@@ -230,9 +230,9 @@ export default function SegmentsPage() {
                         {f.label}
                       </option>
                     ))}
-                  </Select>
+                  </NativeSelect>
 
-                  <Select
+                  <NativeSelect
                     value={cond.operator}
                     onChange={(e) =>
                       updateCondition(index, { operator: e.target.value })
@@ -244,12 +244,12 @@ export default function SegmentsPage() {
                         {op.label}
                       </option>
                     ))}
-                  </Select>
+                  </NativeSelect>
 
                   {!["is_set", "is_not_set"].includes(cond.operator) && (
                     <>
                       {cond.field === "optInStatus" ? (
-                        <Select
+                        <NativeSelect
                           value={cond.value}
                           onChange={(e) =>
                             updateCondition(index, { value: e.target.value })
@@ -260,7 +260,7 @@ export default function SegmentsPage() {
                           <option value="OPTED_IN">Opted In</option>
                           <option value="OPTED_OUT">Opted Out</option>
                           <option value="PENDING">Pending</option>
-                        </Select>
+                        </NativeSelect>
                       ) : cond.field === "createdAt" || cond.field === "lastMessageAt" ? (
                         <Input
                           type="date"

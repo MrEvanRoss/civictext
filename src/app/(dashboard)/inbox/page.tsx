@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { toast } from "sonner";
 import {
   listConversationsAction,
   getConversationMessagesAction,
@@ -36,15 +44,90 @@ import {
   Calendar,
   Tag,
   FileText,
-  ChevronRight,
   PanelRightClose,
   PanelRightOpen,
   AlertTriangle,
   CheckCircle2,
-  UserPlus,
   XCircle,
   RotateCcw,
+  Search,
+  ArrowDown,
+  Check,
+  CheckCheck,
+  X,
+  ChevronDown,
+  ArrowLeft,
 } from "lucide-react";
+
+function relativeTime(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diff = now - then;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "now";
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  return new Date(dateStr).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function getInitials(contact: any): string {
+  if (contact?.firstName) {
+    return `${contact.firstName[0]}${contact.lastName?.[0] || ""}`.toUpperCase();
+  }
+  return contact?.phone?.slice(-2) || "?";
+}
+
+function getContactName(contact: any): string {
+  if (contact?.firstName) {
+    return `${contact.firstName} ${contact.lastName || ""}`.trim();
+  }
+  return contact?.phone || "Unknown";
+}
+
+function DeliveryIcon({ status }: { status: string }) {
+  switch (status) {
+    case "delivered":
+      return <CheckCheck className="h-3 w-3 text-primary-foreground/60" />;
+    case "sent":
+      return <Check className="h-3 w-3 text-primary-foreground/60" />;
+    case "failed":
+    case "undelivered":
+      return <X className="h-3 w-3 text-destructive" />;
+    default:
+      return null;
+  }
+}
+
+function InboxSkeleton() {
+  return (
+    <div className="flex h-full">
+      <div className="w-80 border-r flex flex-col shrink-0">
+        <div className="p-4 border-b space-y-2">
+          <Skeleton className="h-6 w-16" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+        <div className="flex-1 p-2 space-y-1">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="p-3 flex gap-3">
+              <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-3 w-full" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="flex-1 flex items-center justify-center">
+        <p className="text-muted-foreground">Select a conversation</p>
+      </div>
+    </div>
+  );
+}
 
 export default function InboxPage() {
   const [conversations, setConversations] = useState<any[]>([]);
@@ -52,18 +135,23 @@ export default function InboxPage() {
   const [thread, setThread] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unassigned" | "mine">("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [replyText, setReplyText] = useState("");
   const [replyMediaUrl, setReplyMediaUrl] = useState("");
   const [noteText, setNoteText] = useState("");
   const [contactNoteText, setContactNoteText] = useState("");
   const [sending, setSending] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [escalateReason, setEscalateReason] = useState("");
   const [showEscalate, setShowEscalate] = useState(false);
   const [responseTagInput, setResponseTagInput] = useState("");
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [quickReplies, setQuickReplies] = useState<any[]>([]);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadConversations();
@@ -75,18 +163,14 @@ export default function InboxPage() {
     try {
       const data = await getTeamMembersAction();
       setTeamMembers(data);
-    } catch (err) {
-      // Non-critical
-    }
+    } catch {}
   }
 
   async function loadQuickReplies() {
     try {
       const data = await listQuickRepliesAction();
       setQuickReplies(data);
-    } catch {
-      // Non-critical
-    }
+    } catch {}
   }
 
   useEffect(() => {
@@ -99,7 +183,7 @@ export default function InboxPage() {
       const data = await listConversationsAction({ filter });
       setConversations(data.conversations);
     } catch (err) {
-      console.error("Failed to load conversations:", err);
+      toast.error("Failed to load conversations");
     } finally {
       setLoading(false);
     }
@@ -109,9 +193,21 @@ export default function InboxPage() {
     try {
       const data = await getConversationMessagesAction(id);
       setThread(data);
+      setTimeout(() => scrollToBottom(), 100);
     } catch (err) {
-      console.error("Failed to load thread:", err);
+      toast.error("Failed to load thread");
     }
+  }
+
+  function scrollToBottom() {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  function handleScroll() {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+    setShowScrollBtn(!atBottom);
   }
 
   async function handleSendReply() {
@@ -124,7 +220,7 @@ export default function InboxPage() {
       await loadThread(selectedId);
       await loadConversations();
     } catch (err: any) {
-      alert(err.message || "Failed to send reply");
+      toast.error(err.message || "Failed to send reply");
     } finally {
       setSending(false);
     }
@@ -145,8 +241,9 @@ export default function InboxPage() {
     try {
       const { csv, filename } = await exportConversationAction(selectedId);
       downloadCsv(csv, filename);
+      toast.success("Conversation exported");
     } catch (err: any) {
-      alert(err.message || "Failed to export conversation");
+      toast.error(err.message || "Failed to export");
     }
   }
 
@@ -156,8 +253,9 @@ export default function InboxPage() {
       await closeConversationAction(selectedId);
       await loadThread(selectedId);
       await loadConversations();
+      toast.success("Conversation closed");
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     }
   }
 
@@ -167,8 +265,9 @@ export default function InboxPage() {
       await reopenConversationAction(selectedId);
       await loadThread(selectedId);
       await loadConversations();
+      toast.success("Conversation reopened");
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     }
   }
 
@@ -176,8 +275,9 @@ export default function InboxPage() {
     try {
       const { csv, filename } = await exportAllConversationsAction();
       downloadCsv(csv, filename);
+      toast.success("All conversations exported");
     } catch (err: any) {
-      alert(err.message || "Failed to export conversations");
+      toast.error(err.message || "Failed to export");
     }
   }
 
@@ -187,8 +287,9 @@ export default function InboxPage() {
       await addNoteAction(selectedId, noteText.trim());
       setNoteText("");
       await loadThread(selectedId);
+      toast.success("Note added");
     } catch (err: any) {
-      alert(err.message || "Failed to add note");
+      toast.error(err.message || "Failed to add note");
     }
   }
 
@@ -198,8 +299,9 @@ export default function InboxPage() {
       await addContactNoteAction(thread.conversation.contact.id, contactNoteText.trim());
       setContactNoteText("");
       await loadThread(selectedId!);
+      toast.success("Contact note added");
     } catch (err: any) {
-      alert(err.message || "Failed to add note");
+      toast.error(err.message || "Failed to add note");
     }
   }
 
@@ -211,8 +313,9 @@ export default function InboxPage() {
       setShowEscalate(false);
       await loadThread(selectedId);
       await loadConversations();
+      toast.success("Conversation escalated");
     } catch (err: any) {
-      alert(err.message || "Failed to escalate");
+      toast.error(err.message || "Failed to escalate");
     }
   }
 
@@ -222,8 +325,9 @@ export default function InboxPage() {
       await resolveEscalationAction(selectedId);
       await loadThread(selectedId);
       await loadConversations();
+      toast.success("Escalation resolved");
     } catch (err: any) {
-      alert(err.message || "Failed to resolve");
+      toast.error(err.message || "Failed to resolve");
     }
   }
 
@@ -240,7 +344,7 @@ export default function InboxPage() {
       setResponseTagInput("");
       await loadThread(selectedId);
     } catch (err: any) {
-      alert(err.message || "Failed to tag");
+      toast.error(err.message || "Failed to tag");
     }
   }
 
@@ -251,7 +355,7 @@ export default function InboxPage() {
       await tagConversationAction(selectedId, currentTags.filter((t: string) => t !== tag));
       await loadThread(selectedId);
     } catch (err: any) {
-      alert(err.message || "Failed to remove tag");
+      toast.error(err.message || "Failed to remove tag");
     }
   }
 
@@ -262,88 +366,132 @@ export default function InboxPage() {
       await loadThread(selectedId);
       await loadConversations();
     } catch (err: any) {
-      alert(err.message || "Failed to assign");
+      toast.error(err.message || "Failed to assign");
     }
   }
 
   const contact = thread?.conversation?.contact;
 
+  // Filter conversations by search query
+  const filteredConversations = conversations.filter((conv) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    const name = getContactName(conv.contact).toLowerCase();
+    const phone = conv.contact?.phone?.toLowerCase() || "";
+    return name.includes(q) || phone.includes(q);
+  });
+
+  // Mobile: show thread if selected
+  const mobileShowThread = !!selectedId;
+
   return (
-    <div className="flex h-[calc(100vh-4rem)] -mt-6 -mx-6">
+    <div className="flex h-[calc(100vh-7.5rem)] md:h-[calc(100vh-3.5rem)] -mt-4 md:-mt-6 -mx-4 md:-mx-6">
       {/* Thread List (Left Panel) */}
-      <div className="w-80 border-r flex flex-col shrink-0">
-        <div className="p-4 border-b space-y-2">
+      <div
+        className={`${
+          mobileShowThread ? "hidden md:flex" : "flex"
+        } w-full md:w-80 border-r flex-col shrink-0`}
+      >
+        <div className="p-3 border-b space-y-2">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold">Inbox</h2>
+            <h2 className="font-semibold text-lg">Inbox</h2>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={handleExportAll}
-              title="Export all conversations"
+              aria-label="Export all conversations"
+              className="text-muted-foreground"
             >
-              <Download className="h-3 w-3 mr-1" />
-              Export
+              <Download className="h-4 w-4" />
             </Button>
           </div>
-          <Select
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search conversations..."
+              className="pl-8 h-8 text-sm"
+            />
+          </div>
+          <NativeSelect
             value={filter}
             onChange={(e) => setFilter(e.target.value as any)}
-            className="text-sm"
+            className="text-sm h-8"
           >
             <option value="all">All Conversations</option>
             <option value="mine">Assigned to Me</option>
             <option value="unassigned">Unassigned</option>
             <option value="escalated">Escalated</option>
-          </Select>
+          </NativeSelect>
         </div>
 
         <div className="flex-1 overflow-y-auto">
           {loading ? (
-            <div className="p-4 text-sm text-muted-foreground text-center">
-              Loading...
+            <div className="p-2 space-y-1">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="p-3 flex gap-3 animate-fade-in">
+                  <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-3 w-full" />
+                  </div>
+                </div>
+              ))}
             </div>
-          ) : conversations.length === 0 ? (
+          ) : filteredConversations.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 px-4">
-              <Inbox className="h-8 w-8 text-muted-foreground/50 mb-2" />
-              <p className="text-sm text-muted-foreground text-center">
-                No conversations yet. Inbound messages will appear here.
+              <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
+                <Inbox className="h-8 w-8 text-muted-foreground/30" />
+              </div>
+              <p className="text-sm font-medium">No conversations</p>
+              <p className="text-xs text-muted-foreground mt-1 text-center">
+                {searchQuery ? "Try a different search term" : "Inbound messages will appear here"}
               </p>
             </div>
           ) : (
-            conversations.map((conv) => (
+            filteredConversations.map((conv) => (
               <div
                 key={conv.id}
-                className={`p-3 border-b cursor-pointer hover:bg-muted/50 ${
-                  selectedId === conv.id ? "bg-muted" : ""
+                className={`flex items-start gap-3 p-3 cursor-pointer transition-all duration-150 border-l-2 ${
+                  selectedId === conv.id
+                    ? "bg-muted border-l-primary"
+                    : "border-l-transparent hover:bg-muted/50"
                 }`}
                 onClick={() => setSelectedId(conv.id)}
               >
-                <div className="flex items-center justify-between">
-                  <p className="font-medium text-sm">
-                    {conv.contact?.firstName
-                      ? `${conv.contact.firstName} ${conv.contact.lastName || ""}`.trim()
-                      : conv.contact?.phone}
-                  </p>
-                  {conv.state === "OPEN" && conv.lastMessageAt > 0 && (
-                    <Badge variant="default" className="text-xs">
-                      {conv.state === "OPEN" && conv.lastMessageAt}
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground truncate mt-1">
-                  {"View conversation"}
-                </p>
-                <div className="flex items-center justify-between mt-1">
-                  <p className="text-xs text-muted-foreground">
-                    {conv.lastMessageAt
-                      ? new Date(conv.lastMessageAt).toLocaleString()
-                      : ""}
-                  </p>
-                  {conv.assignedTo && (
-                    <span className="text-xs text-muted-foreground">
-                      {conv.assignedTo.name}
+                <Avatar className="h-10 w-10 shrink-0">
+                  <AvatarFallback className="text-xs bg-primary/10 text-primary font-medium">
+                    {getInitials(conv.contact)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium text-sm truncate">
+                      {getContactName(conv.contact)}
+                    </p>
+                    <span className="text-[10px] text-muted-foreground shrink-0">
+                      {conv.lastMessageAt ? relativeTime(conv.lastMessageAt) : ""}
                     </span>
-                  )}
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">
+                    {conv.lastMessageBody
+                      ? conv.lastMessageBody.slice(0, 60)
+                      : "No messages"}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    {conv.state === "CLOSED" && (
+                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Closed</span>
+                    )}
+                    {conv.isEscalated && (
+                      <span className="text-[10px] text-warning bg-warning/10 px-1.5 py-0.5 rounded">Escalated</span>
+                    )}
+                    {conv.assignedTo && (
+                      <span className="text-[10px] text-muted-foreground truncate">
+                        {conv.assignedTo.name}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))
@@ -352,173 +500,233 @@ export default function InboxPage() {
       </div>
 
       {/* Message Thread (Center Panel) */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div
+        className={`${
+          mobileShowThread ? "flex" : "hidden md:flex"
+        } flex-1 flex-col min-w-0`}
+      >
         {!selectedId ? (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-muted-foreground">
-              Select a conversation to view messages.
-            </p>
+          <div className="flex-1 flex flex-col items-center justify-center">
+            <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
+              <Inbox className="h-8 w-8 text-muted-foreground/30" />
+            </div>
+            <p className="text-sm font-medium">Select a conversation</p>
+            <p className="text-xs text-muted-foreground mt-1">Choose from the list to view messages</p>
           </div>
         ) : !thread ? (
           <div className="flex-1 flex items-center justify-center">
-            <p className="text-muted-foreground">Loading...</p>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="h-4 w-4 border-2 border-muted-foreground/40 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm">Loading...</span>
+            </div>
           </div>
         ) : (
           <>
             {/* Header */}
-            <div className="p-4 border-b flex items-center justify-between">
+            <div className="p-3 border-b flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                  <User className="h-5 w-5 text-muted-foreground" />
-                </div>
+                {/* Mobile back button */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="md:hidden h-9 w-9"
+                  onClick={() => setSelectedId(null)}
+                  aria-label="Back to conversations"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <Avatar className="h-9 w-9">
+                  <AvatarFallback className="text-xs bg-primary/10 text-primary font-medium">
+                    {getInitials(contact)}
+                  </AvatarFallback>
+                </Avatar>
                 <div>
-                  <p className="font-medium">
-                    {contact?.firstName
-                      ? `${contact.firstName} ${contact.lastName || ""}`.trim()
-                      : contact?.phone}
-                  </p>
-                  <p className="text-xs text-muted-foreground font-mono">
-                    {contact?.phone}
-                  </p>
+                  <p className="font-medium text-sm">{getContactName(contact)}</p>
+                  <p className="text-[11px] text-muted-foreground font-mono">{contact?.phone}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 {!thread?.conversation?.isEscalated ? (
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     onClick={() => setShowEscalate(!showEscalate)}
-                    title="Escalate for supervisor review"
+                    aria-label="Escalate conversation"
+                    className="text-muted-foreground"
                   >
-                    <AlertTriangle className="h-3 w-3 mr-1" />
-                    Escalate
+                    <AlertTriangle className="h-4 w-4" />
                   </Button>
                 ) : (
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     onClick={handleResolveEscalation}
-                    title="Resolve escalation"
-                    className="border-green-300 text-green-700 hover:bg-green-50"
+                    className="text-success"
+                    aria-label="Resolve escalation"
                   >
-                    <CheckCircle2 className="h-3 w-3 mr-1" />
-                    Resolve
+                    <CheckCircle2 className="h-4 w-4" />
                   </Button>
                 )}
                 {thread?.conversation?.state === "CLOSED" ? (
-                  <Button variant="outline" size="sm" onClick={handleReopenConversation} title="Reopen conversation">
-                    <RotateCcw className="h-3 w-3 mr-1" /> Reopen
+                  <Button variant="ghost" size="sm" onClick={handleReopenConversation} className="text-muted-foreground" aria-label="Reopen conversation">
+                    <RotateCcw className="h-4 w-4" />
                   </Button>
                 ) : (
-                  <Button variant="outline" size="sm" onClick={handleCloseConversation} title="Close conversation">
-                    <XCircle className="h-3 w-3 mr-1" /> Close
+                  <Button variant="ghost" size="sm" onClick={handleCloseConversation} className="text-muted-foreground" aria-label="Close conversation">
+                    <XCircle className="h-4 w-4" />
                   </Button>
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExportConversation}
-                  title="Export this conversation"
-                >
-                  <Download className="h-3 w-3 mr-1" />
-                  Export
+                <Button variant="ghost" size="sm" onClick={handleExportConversation} className="text-muted-foreground" aria-label="Export conversation">
+                  <Download className="h-4 w-4" />
                 </Button>
+                {/* Contact info toggle - desktop */}
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowSidebar(!showSidebar)}
-                  title={showSidebar ? "Hide contact info" : "Show contact info"}
+                  className="hidden md:inline-flex text-muted-foreground"
+                  aria-label={showSidebar ? "Hide contact info" : "Show contact info"}
                 >
-                  {showSidebar ? (
-                    <PanelRightClose className="h-4 w-4" />
-                  ) : (
-                    <PanelRightOpen className="h-4 w-4" />
-                  )}
+                  {showSidebar ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+                </Button>
+                {/* Contact info toggle - mobile */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowMobileSidebar(true)}
+                  className="md:hidden text-muted-foreground"
+                  aria-label="Show contact info"
+                >
+                  <User className="h-4 w-4" />
                 </Button>
               </div>
             </div>
 
             {/* Escalation Banner */}
             {thread?.conversation?.isEscalated && (
-              <div className="px-4 py-2 bg-orange-50 border-b border-orange-200 flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-orange-600" />
-                <span className="text-sm text-orange-800 font-medium">Escalated</span>
+              <div className="px-4 py-2 bg-warning/10 border-b border-warning/20 flex items-center gap-2">
+                <AlertTriangle className="h-3.5 w-3.5 text-warning" />
+                <span className="text-xs text-warning font-medium">Escalated</span>
                 {thread.conversation.escalatedReason && (
-                  <span className="text-sm text-orange-700">
-                    &mdash; {thread.conversation.escalatedReason}
-                  </span>
+                  <span className="text-xs text-warning/80">&mdash; {thread.conversation.escalatedReason}</span>
                 )}
               </div>
             )}
 
             {/* Escalation Input */}
             {showEscalate && (
-              <div className="px-4 py-2 border-b bg-orange-50/50 flex items-center gap-2">
+              <div className="px-4 py-2 border-b bg-warning/5 flex items-center gap-2">
                 <Input
                   value={escalateReason}
                   onChange={(e) => setEscalateReason(e.target.value)}
                   placeholder="Reason for escalation..."
-                  className="flex-1 text-sm"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleEscalate();
-                    }
-                  }}
+                  className="flex-1 text-sm h-8"
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleEscalate(); } }}
                 />
-                <Button size="sm" onClick={handleEscalate} disabled={!escalateReason.trim()}>
-                  Escalate
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setShowEscalate(false)}>
-                  Cancel
-                </Button>
+                <Button size="sm" onClick={handleEscalate} disabled={!escalateReason.trim()}>Escalate</Button>
+                <Button size="sm" variant="ghost" onClick={() => setShowEscalate(false)}>Cancel</Button>
               </div>
             )}
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {thread.messages.map((msg: any) => (
-                <div
-                  key={msg.id}
-                  className={`flex ${msg.direction === "OUTBOUND" ? "justify-end" : "justify-start"}`}
-                >
+            <div
+              ref={messagesContainerRef}
+              onScroll={handleScroll}
+              className="flex-1 overflow-y-auto p-4 space-y-1 relative"
+            >
+              {thread.messages.map((msg: any, i: number) => {
+                const prev = thread.messages[i - 1];
+                const sameDirection = prev?.direction === msg.direction;
+                const timeDiff = prev ? new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime() : Infinity;
+                const grouped = sameDirection && timeDiff < 120000;
+
+                return (
                   <div
-                    className={`max-w-[70%] rounded-lg px-3 py-2 text-sm ${
-                      msg.direction === "OUTBOUND"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted"
-                    }`}
+                    key={msg.id}
+                    className={`flex ${msg.direction === "OUTBOUND" ? "justify-end" : "justify-start"} ${grouped ? "" : "mt-3"}`}
                   >
-                    <p>{msg.body}</p>
-                    <p
-                      className={`text-xs mt-1 ${
+                    <div
+                      className={`max-w-[75%] px-3.5 py-2 text-sm ${
                         msg.direction === "OUTBOUND"
-                          ? "text-primary-foreground/70"
-                          : "text-muted-foreground"
+                          ? "bg-primary text-primary-foreground rounded-2xl rounded-br-md"
+                          : "bg-muted rounded-2xl rounded-bl-md"
                       }`}
                     >
-                      {new Date(msg.createdAt).toLocaleString()}
-                    </p>
+                      {msg.mediaUrl && (
+                        <img
+                          src={msg.mediaUrl}
+                          alt="Media"
+                          className="rounded-lg max-w-full max-h-48 mb-1.5 cursor-pointer"
+                          onClick={() => window.open(msg.mediaUrl, "_blank")}
+                        />
+                      )}
+                      {msg.body && <p className="whitespace-pre-wrap break-words">{msg.body}</p>}
+                      <div className={`flex items-center gap-1 mt-1 ${
+                        msg.direction === "OUTBOUND" ? "justify-end" : ""
+                      }`}>
+                        {msg.campaign?.type === "P2P" && (
+                          <span className={`text-[10px] px-1 py-0.5 rounded ${
+                            msg.direction === "OUTBOUND"
+                              ? "bg-primary-foreground/10 text-primary-foreground/70"
+                              : "bg-muted-foreground/10 text-muted-foreground"
+                          }`}>
+                            P2P
+                          </span>
+                        )}
+                        {msg.campaign && msg.campaign.type !== "P2P" && (
+                          <span className={`text-[10px] truncate max-w-[80px] ${
+                            msg.direction === "OUTBOUND"
+                              ? "text-primary-foreground/50"
+                              : "text-muted-foreground/70"
+                          }`}>
+                            {msg.campaign.name}
+                          </span>
+                        )}
+                        <span
+                          className={`text-[10px] ${
+                            msg.direction === "OUTBOUND"
+                              ? "text-primary-foreground/60"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {!grouped && new Date(msg.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                        </span>
+                        {msg.direction === "OUTBOUND" && <DeliveryIcon status={msg.status} />}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {/* Internal Notes */}
               {thread.notes.map((note: any) => (
-                <div key={note.id} className="flex justify-center">
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs max-w-[80%]">
-                    <div className="flex items-center gap-1 text-yellow-700 mb-1">
+                <div key={note.id} className="flex justify-center mt-3">
+                  <div className="bg-warning/10 border border-warning/20 rounded-xl px-3 py-2 text-xs max-w-[80%]">
+                    <div className="flex items-center gap-1 text-warning mb-0.5">
                       <StickyNote className="h-3 w-3" />
                       <span className="font-medium">{note.author?.name}</span>
                     </div>
-                    <p className="text-yellow-800">{note.body}</p>
+                    <p className="text-warning/80">{note.body}</p>
                   </div>
                 </div>
               ))}
+
+              <div ref={messagesEndRef} />
+
+              {/* Scroll to bottom */}
+              {showScrollBtn && (
+                <button
+                  onClick={scrollToBottom}
+                  className="sticky bottom-2 left-1/2 -translate-x-1/2 h-8 w-8 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:scale-105 transition-transform"
+                  aria-label="Scroll to bottom"
+                >
+                  <ArrowDown className="h-4 w-4" />
+                </button>
+              )}
             </div>
 
             {/* Reply / Note Input */}
-            <div className="p-4 border-t space-y-2">
+            <div className="p-3 border-t space-y-2 bg-background">
               {/* Quick Reply Templates */}
               {quickReplies.length > 0 && (
                 <div className="relative">
@@ -526,20 +734,18 @@ export default function InboxPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowQuickReplies(!showQuickReplies)}
-                    className="text-xs text-muted-foreground"
+                    className="text-xs text-muted-foreground h-7"
                   >
-                    Quick Replies ({quickReplies.length})
+                    <ChevronDown className="h-3 w-3 mr-1" />
+                    Quick Replies
                   </Button>
                   {showQuickReplies && (
                     <div className="absolute bottom-full left-0 mb-1 w-72 max-h-48 overflow-y-auto bg-popover border rounded-lg shadow-lg z-10">
                       {quickReplies.map((qr) => (
                         <button
                           key={qr.id}
-                          className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b last:border-0"
-                          onClick={() => {
-                            setReplyText(qr.body);
-                            setShowQuickReplies(false);
-                          }}
+                          className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b last:border-0 transition-colors"
+                          onClick={() => { setReplyText(qr.body); setShowQuickReplies(false); }}
                         >
                           <span className="font-medium">{qr.name}</span>
                           <p className="text-xs text-muted-foreground line-clamp-1">{qr.body}</p>
@@ -549,6 +755,7 @@ export default function InboxPage() {
                   )}
                 </div>
               )}
+
               {/* MMS Attachment Preview */}
               {replyMediaUrl && (
                 <MediaUpload
@@ -558,8 +765,8 @@ export default function InboxPage() {
                   compact
                 />
               )}
-              <div className="flex gap-2">
-                {/* Attachment button */}
+
+              <div className="flex gap-2 items-end">
                 {!replyMediaUrl && (
                   <MediaUpload
                     value=""
@@ -573,8 +780,8 @@ export default function InboxPage() {
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
                   placeholder="Type a reply..."
-                  rows={2}
-                  className="flex-1"
+                  rows={1}
+                  className="flex-1 min-h-[36px] max-h-32 resize-none"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -585,30 +792,23 @@ export default function InboxPage() {
                 <Button
                   onClick={handleSendReply}
                   disabled={(!replyText.trim() && !replyMediaUrl) || sending}
-                  className="self-end"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  aria-label="Send message"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
+
               <div className="flex gap-2">
                 <Input
                   value={noteText}
                   onChange={(e) => setNoteText(e.target.value)}
                   placeholder="Add internal note (team only)..."
-                  className="flex-1 text-xs"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAddNote();
-                    }
-                  }}
+                  className="flex-1 text-xs h-7"
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddNote(); } }}
                 />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddNote}
-                  disabled={!noteText.trim()}
-                >
+                <Button variant="outline" size="sm" onClick={handleAddNote} disabled={!noteText.trim()} className="h-7 text-xs">
                   <StickyNote className="h-3 w-3 mr-1" />
                   Note
                 </Button>
@@ -618,266 +818,232 @@ export default function InboxPage() {
         )}
       </div>
 
-      {/* Contact Info Sidebar (Right Panel) */}
+      {/* Contact Info Sidebar (Right Panel - Desktop) */}
       {selectedId && thread && showSidebar && (
-        <div className="w-80 border-l flex flex-col shrink-0 overflow-y-auto bg-card">
-          <div className="p-4 border-b">
-            <h3 className="font-semibold text-sm">Contact Info</h3>
+        <div className="hidden md:flex w-72 border-l flex-col shrink-0 overflow-y-auto bg-card">
+          <ContactSidebarContent
+            contact={contact}
+            thread={thread}
+            teamMembers={teamMembers}
+            responseTagInput={responseTagInput}
+            setResponseTagInput={setResponseTagInput}
+            contactNoteText={contactNoteText}
+            setContactNoteText={setContactNoteText}
+            handleAssign={handleAssign}
+            handleAddResponseTag={handleAddResponseTag}
+            handleRemoveResponseTag={handleRemoveResponseTag}
+            handleAddContactNote={handleAddContactNote}
+          />
+        </div>
+      )}
+
+      {/* Contact Info Sidebar (Mobile Sheet) */}
+      <Sheet open={showMobileSidebar} onOpenChange={setShowMobileSidebar}>
+        <SheetContent side="right" className="p-0 w-80">
+          <SheetTitle className="sr-only">Contact Info</SheetTitle>
+          {selectedId && thread && (
+            <ContactSidebarContent
+              contact={contact}
+              thread={thread}
+              teamMembers={teamMembers}
+              responseTagInput={responseTagInput}
+              setResponseTagInput={setResponseTagInput}
+              contactNoteText={contactNoteText}
+              setContactNoteText={setContactNoteText}
+              handleAssign={handleAssign}
+              handleAddResponseTag={handleAddResponseTag}
+              handleRemoveResponseTag={handleRemoveResponseTag}
+              handleAddContactNote={handleAddContactNote}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
+
+function ContactSidebarContent({
+  contact,
+  thread,
+  teamMembers,
+  responseTagInput,
+  setResponseTagInput,
+  contactNoteText,
+  setContactNoteText,
+  handleAssign,
+  handleAddResponseTag,
+  handleRemoveResponseTag,
+  handleAddContactNote,
+}: any) {
+  return (
+    <div className="p-4 space-y-5">
+      {/* Avatar & Name */}
+      <div className="flex flex-col items-center text-center pt-2">
+        <Avatar className="h-16 w-16 mb-2">
+          <AvatarFallback className="text-lg bg-primary/10 text-primary font-medium">
+            {getInitials(contact)}
+          </AvatarFallback>
+        </Avatar>
+        <p className="font-semibold">{getContactName(contact)}</p>
+        <p className="text-xs text-muted-foreground font-mono mt-0.5">{contact?.phone}</p>
+        <Badge
+          variant={
+            contact?.optInStatus === "OPTED_IN" ? "success"
+            : contact?.optInStatus === "OPTED_OUT" ? "destructive"
+            : "warning"
+          }
+          className="text-xs mt-2"
+        >
+          {contact?.optInStatus?.replace("_", " ")}
+        </Badge>
+        <a href={`/contacts/${contact?.id}`} className="text-xs text-primary hover:underline mt-2">
+          View Full Profile
+        </a>
+      </div>
+
+      {/* Contact Details */}
+      <div className="space-y-2.5">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Details</p>
+        {contact?.email && (
+          <div className="flex items-center gap-2 text-sm">
+            <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span className="truncate text-xs">{contact.email}</span>
           </div>
+        )}
+        {contact?.dateOfBirth && (
+          <div className="flex items-center gap-2 text-xs">
+            <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span>{new Date(contact.dateOfBirth).toLocaleDateString()}</span>
+          </div>
+        )}
+        {(contact?.city || contact?.state) && (
+          <div className="flex items-center gap-2 text-xs">
+            <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span>{[contact.city, contact.state].filter(Boolean).join(", ")}</span>
+          </div>
+        )}
+        {contact?.precinct && (
+          <div className="flex items-center gap-2 text-xs">
+            <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span>Precinct: {contact.precinct}</span>
+          </div>
+        )}
+      </div>
 
-          <div className="p-4 space-y-5">
-            {/* Name & Avatar */}
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <User className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="font-medium">
-                  {contact?.firstName || contact?.lastName
-                    ? `${contact.firstName || ""} ${contact.lastName || ""}`.trim()
-                    : "Unknown"}
-                </p>
-                <Badge
-                  variant={
-                    contact?.optInStatus === "OPTED_IN"
-                      ? "success"
-                      : contact?.optInStatus === "OPTED_OUT"
-                        ? "destructive"
-                        : "warning"
-                  }
-                  className="text-xs mt-1"
-                >
-                  {contact?.optInStatus?.replace("_", " ")}
-                </Badge>
-              </div>
-            </div>
-
-            {/* Contact Details */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm">
-                <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="font-mono">{contact?.phone}</span>
-              </div>
-
-              {contact?.email && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="truncate">{contact.email}</span>
-                </div>
-              )}
-
-              {contact?.dateOfBirth && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span>{new Date(contact.dateOfBirth).toLocaleDateString()}</span>
-                </div>
-              )}
-
-              {(contact?.street || contact?.city || contact?.state || contact?.zip) && (
-                <div className="flex items-start gap-2 text-sm">
-                  <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                  <div>
-                    {contact.street && <p>{contact.street}</p>}
-                    <p>
-                      {[contact.city, contact.state].filter(Boolean).join(", ")}
-                      {contact.zip ? ` ${contact.zip}` : ""}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {contact?.precinct && (
-                <div className="flex items-center gap-2 text-sm">
-                  <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span>Precinct: {contact.precinct}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Tags */}
-            {contact?.tags?.length > 0 && (
-              <div>
-                <div className="flex items-center gap-1 mb-2">
-                  <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tags</p>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {contact.tags.map((tag: string) => (
-                    <Badge key={tag} variant="secondary" className="text-xs">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Assignment */}
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Assigned To</p>
-              <Select
-                value={thread?.conversation?.assignedToId || ""}
-                onChange={(e) => handleAssign(e.target.value || null)}
-                className="text-sm"
-              >
-                <option value="">Unassigned</option>
-                {teamMembers.map((member: any) => (
-                  <option key={member.id} value={member.id}>
-                    {member.name} ({member.role})
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            {/* Response Tags */}
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Response Tags</p>
-              <div className="flex flex-wrap gap-1 mb-2">
-                {thread?.conversation?.responseTags?.map((tag: string) => (
-                  <Badge
-                    key={tag}
-                    variant="secondary"
-                    className="text-xs cursor-pointer hover:bg-destructive/20"
-                    onClick={() => handleRemoveResponseTag(tag)}
-                    title="Click to remove"
-                  >
-                    {tag} &times;
-                  </Badge>
-                ))}
-              </div>
-              <div className="flex gap-1">
-                <Input
-                  value={responseTagInput}
-                  onChange={(e) => setResponseTagInput(e.target.value)}
-                  placeholder="Add tag..."
-                  className="flex-1 text-xs"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAddResponseTag();
-                    }
-                  }}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddResponseTag}
-                  disabled={!responseTagInput.trim()}
-                >
-                  <Tag className="h-3 w-3" />
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-1 mt-2">
-                {["supportive", "undecided", "opposed", "volunteer", "donor", "needs-info"].map(
-                  (preset) => (
-                    <button
-                      key={preset}
-                      className="text-xs text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded border border-dashed hover:border-solid transition-colors"
-                      onClick={() => {
-                        setResponseTagInput(preset);
-                        handleAddResponseTag();
-                      }}
-                    >
-                      {preset}
-                    </button>
-                  )
-                )}
-              </div>
-            </div>
-
-            {/* Consent History */}
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Consent</p>
-              <dl className="space-y-1 text-xs">
-                {contact?.optInSource && (
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Source</dt>
-                    <dd>{contact.optInSource}</dd>
-                  </div>
-                )}
-                {contact?.optInTimestamp && (
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Opted In</dt>
-                    <dd>{new Date(contact.optInTimestamp).toLocaleDateString()}</dd>
-                  </div>
-                )}
-                {contact?.optOutTimestamp && (
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Opted Out</dt>
-                    <dd>{new Date(contact.optOutTimestamp).toLocaleDateString()}</dd>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Added</dt>
-                  <dd>{new Date(contact?.createdAt).toLocaleDateString()}</dd>
-                </div>
-              </dl>
-            </div>
-
-            {/* Contact Notes */}
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Notes About Contact</p>
-
-              <div className="flex gap-2 mb-3">
-                <Input
-                  value={contactNoteText}
-                  onChange={(e) => setContactNoteText(e.target.value)}
-                  placeholder="Add a note..."
-                  className="flex-1 text-xs"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAddContactNote();
-                    }
-                  }}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddContactNote}
-                  disabled={!contactNoteText.trim()}
-                >
-                  Add
-                </Button>
-              </div>
-
-              {contact?.contactNotes?.length > 0 ? (
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {contact.contactNotes.map((note: any) => (
-                    <div key={note.id} className="bg-muted/50 rounded p-2 text-xs">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium">{note.author?.name}</span>
-                        <span className="text-muted-foreground">
-                          {new Date(note.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <p>{note.body}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">No notes yet.</p>
-              )}
-            </div>
-
-            {/* Message Stats */}
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Activity</p>
-              <dl className="space-y-1 text-xs">
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Messages in thread</dt>
-                  <dd className="font-medium">{thread.messages.length}</dd>
-                </div>
-                {contact?.lastMessageAt && (
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Last message</dt>
-                    <dd>{new Date(contact.lastMessageAt).toLocaleDateString()}</dd>
-                  </div>
-                )}
-              </dl>
-            </div>
+      {/* Tags */}
+      {contact?.tags?.length > 0 && (
+        <div>
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Tags</p>
+          <div className="flex flex-wrap gap-1">
+            {contact.tags.map((tag: string) => (
+              <Badge key={tag} variant="secondary" className="text-[10px]">{tag}</Badge>
+            ))}
           </div>
         </div>
       )}
+
+      {/* Assignment */}
+      <div>
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Assigned To</p>
+        <NativeSelect
+          value={thread?.conversation?.assignedToId || ""}
+          onChange={(e) => handleAssign(e.target.value || null)}
+          className="text-xs h-8"
+        >
+          <option value="">Unassigned</option>
+          {teamMembers.map((member: any) => (
+            <option key={member.id} value={member.id}>{member.name}</option>
+          ))}
+        </NativeSelect>
+      </div>
+
+      {/* Response Tags */}
+      <div>
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Response Tags</p>
+        <div className="flex flex-wrap gap-1 mb-2">
+          {thread?.conversation?.responseTags?.map((tag: string) => (
+            <Badge
+              key={tag}
+              variant="secondary"
+              className="text-[10px] cursor-pointer hover:bg-destructive/20"
+              onClick={() => handleRemoveResponseTag(tag)}
+            >
+              {tag} &times;
+            </Badge>
+          ))}
+        </div>
+        <div className="flex gap-1">
+          <Input
+            value={responseTagInput}
+            onChange={(e) => setResponseTagInput(e.target.value)}
+            placeholder="Add tag..."
+            className="flex-1 text-xs h-7"
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddResponseTag(); } }}
+          />
+          <Button variant="outline" size="sm" onClick={handleAddResponseTag} disabled={!responseTagInput.trim()} className="h-7">
+            <Tag className="h-3 w-3" />
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {["supportive", "undecided", "opposed", "volunteer", "donor"].map((preset) => (
+            <button
+              key={preset}
+              className="text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded border border-dashed hover:border-solid transition-colors"
+              onClick={() => { setResponseTagInput(preset); handleAddResponseTag(); }}
+            >
+              {preset}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Consent */}
+      <div>
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Consent</p>
+        <dl className="space-y-1 text-xs">
+          {contact?.optInSource && (
+            <div className="flex justify-between"><dt className="text-muted-foreground">Source</dt><dd>{contact.optInSource}</dd></div>
+          )}
+          {contact?.optInTimestamp && (
+            <div className="flex justify-between"><dt className="text-muted-foreground">Opted In</dt><dd>{new Date(contact.optInTimestamp).toLocaleDateString()}</dd></div>
+          )}
+          {contact?.optOutTimestamp && (
+            <div className="flex justify-between"><dt className="text-muted-foreground">Opted Out</dt><dd>{new Date(contact.optOutTimestamp).toLocaleDateString()}</dd></div>
+          )}
+        </dl>
+      </div>
+
+      {/* Contact Notes */}
+      <div>
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Notes</p>
+        <div className="flex gap-1 mb-2">
+          <Input
+            value={contactNoteText}
+            onChange={(e) => setContactNoteText(e.target.value)}
+            placeholder="Add a note..."
+            className="flex-1 text-xs h-7"
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddContactNote(); } }}
+          />
+          <Button variant="outline" size="sm" onClick={handleAddContactNote} disabled={!contactNoteText.trim()} className="h-7 text-xs">
+            Add
+          </Button>
+        </div>
+        {contact?.contactNotes?.length > 0 ? (
+          <div className="space-y-1.5 max-h-40 overflow-y-auto">
+            {contact.contactNotes.map((note: any) => (
+              <div key={note.id} className="bg-muted/50 rounded-lg p-2 text-xs">
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="font-medium">{note.author?.name}</span>
+                  <span className="text-[10px] text-muted-foreground">{new Date(note.createdAt).toLocaleDateString()}</span>
+                </div>
+                <p className="text-muted-foreground">{note.body}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">No notes yet.</p>
+        )}
+      </div>
     </div>
   );
 }

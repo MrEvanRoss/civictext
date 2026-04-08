@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import {
@@ -12,7 +12,14 @@ import {
   updateTeamMemberRoleAction,
   removeTeamMemberAction,
 } from "@/server/actions/team";
-import { Users, Plus, X, Trash2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Card,
+  CardContent,
+} from "@/components/ui/card";
+import { toast } from "sonner";
+import { Users, Plus, X, Trash2, UserPlus } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
   OWNER: "Owner",
@@ -58,11 +65,11 @@ export default function TeamPage() {
 
   async function handleAdd() {
     if (!form.name || !form.email || !form.password) {
-      alert("Please fill in all fields");
+      toast.error("Please fill in all fields");
       return;
     }
     if (form.password.length < 12) {
-      alert("Password must be at least 12 characters");
+      toast.error("Password must be at least 12 characters");
       return;
     }
     setAdding(true);
@@ -70,9 +77,10 @@ export default function TeamPage() {
       await addTeamMemberAction(form);
       setShowAdd(false);
       setForm({ name: "", email: "", password: "", role: "SENDER" });
+      toast.success("Team member added successfully");
       await loadMembers();
     } catch (err: any) {
-      alert(err.message || "Failed to add team member");
+      toast.error(err.message || "Failed to add team member");
     } finally {
       setAdding(false);
     }
@@ -81,9 +89,10 @@ export default function TeamPage() {
   async function handleChangeRole(userId: string, newRole: string) {
     try {
       await updateTeamMemberRoleAction(userId, newRole);
+      toast.success("Role updated successfully");
       await loadMembers();
     } catch (err: any) {
-      alert(err.message || "Failed to update role");
+      toast.error(err.message || "Failed to update role");
     }
   }
 
@@ -93,22 +102,55 @@ export default function TeamPage() {
     }
     try {
       await removeTeamMemberAction(userId);
+      toast.success(`${name} has been removed from the team`);
       await loadMembers();
     } catch (err: any) {
-      alert(err.message || "Failed to remove team member");
+      toast.error(err.message || "Failed to remove team member");
     }
+  }
+
+  function getInitials(name: string | null | undefined): string {
+    if (!name) return "?";
+    return name
+      .split(" ")
+      .map((part) => part.charAt(0).toUpperCase())
+      .slice(0, 2)
+      .join("");
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-muted-foreground">Loading team...</p>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <Skeleton className="h-10 w-32 rounded-md" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="rounded-lg border bg-card p-5 space-y-4">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="space-y-2 flex-1">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-3 w-40" />
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-2">
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Team Members</h1>
@@ -160,7 +202,7 @@ export default function TeamPage() {
             </div>
             <div>
               <Label>Role</Label>
-              <Select
+              <NativeSelect
                 value={form.role}
                 onChange={(e) => setForm({ ...form, role: e.target.value })}
               >
@@ -168,7 +210,7 @@ export default function TeamPage() {
                 <option value="MANAGER">Manager - {ROLE_DESCRIPTIONS.MANAGER}</option>
                 <option value="SENDER">Sender - {ROLE_DESCRIPTIONS.SENDER}</option>
                 <option value="VIEWER">Viewer - {ROLE_DESCRIPTIONS.VIEWER}</option>
-              </Select>
+              </NativeSelect>
             </div>
           </div>
           <Button onClick={handleAdd} disabled={adding}>
@@ -177,37 +219,57 @@ export default function TeamPage() {
         </div>
       )}
 
-      {/* Members Table */}
-      <div className="border rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="text-left p-3 font-medium">Name</th>
-              <th className="text-left p-3 font-medium">Email</th>
-              <th className="text-left p-3 font-medium">Role</th>
-              <th className="text-left p-3 font-medium">Last Login</th>
-              <th className="text-right p-3 font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {members.map((member) => (
-              <tr key={member.id} className="border-t hover:bg-muted/30">
-                <td className="p-3">
-                  <div className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <span className="text-xs font-medium text-primary">
-                        {(member.name || "?").charAt(0).toUpperCase()}
-                      </span>
+      {/* Members Grid */}
+      {members.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center py-20">
+            <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-muted/50 mb-6">
+              <Users className="h-8 w-8 text-muted-foreground/50" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">No Team Members Yet</h3>
+            <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
+              Add team members to collaborate on campaigns. Assign roles to control what
+              each person can access and do within your organization.
+            </p>
+            <Button onClick={() => setShowAdd(true)}>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Add Your First Team Member
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {members.map((member) => (
+            <Card key={member.id} className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+              <CardContent className="p-5">
+                <div className="flex items-start gap-3">
+                  <Avatar className="h-10 w-10">
+                    <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
+                      {getInitials(member.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium truncate">{member.name || "\u2014"}</p>
+                      {member.role !== "OWNER" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemove(member.id, member.name)}
+                          className="text-destructive hover:text-destructive -mr-2 h-8 w-8 p-0"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
-                    <span className="font-medium">{member.name || "\u2014"}</span>
+                    <p className="text-sm text-muted-foreground truncate">{member.email}</p>
                   </div>
-                </td>
-                <td className="p-3 text-muted-foreground">{member.email}</td>
-                <td className="p-3">
+                </div>
+                <div className="flex items-center justify-between mt-4 pt-3 border-t">
                   {member.role === "OWNER" ? (
                     <Badge variant="default">Owner</Badge>
                   ) : (
-                    <Select
+                    <NativeSelect
                       value={member.role}
                       onChange={(e) => handleChangeRole(member.id, e.target.value)}
                       className="w-32 h-8 text-xs"
@@ -216,31 +278,19 @@ export default function TeamPage() {
                       <option value="MANAGER">Manager</option>
                       <option value="SENDER">Sender</option>
                       <option value="VIEWER">Viewer</option>
-                    </Select>
+                    </NativeSelect>
                   )}
-                </td>
-                <td className="p-3 text-muted-foreground">
-                  {member.lastLoginAt
-                    ? new Date(member.lastLoginAt).toLocaleDateString()
-                    : "Never"}
-                </td>
-                <td className="p-3 text-right">
-                  {member.role !== "OWNER" && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleRemove(member.id, member.name)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  <span className="text-xs text-muted-foreground">
+                    {member.lastLoginAt
+                      ? `Last login ${new Date(member.lastLoginAt).toLocaleDateString()}`
+                      : "Never logged in"}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -229,6 +229,35 @@ export async function POST(request: Request) {
       );
     }
 
+    // === P2P REPLY DETECTION ===
+    // If this contact has any SENT P2P assignments, mark them as REPLIED
+    const p2pAssignments = await db.p2PAssignment.findMany({
+      where: {
+        orgId,
+        contactId: contact.id,
+        status: "SENT",
+      },
+      select: { id: true, campaignId: true },
+    }) as Array<{ id: string; campaignId: string }>;
+
+    if (p2pAssignments.length > 0) {
+      await db.p2PAssignment.updateMany({
+        where: {
+          id: { in: p2pAssignments.map((a: { id: string }) => a.id) },
+        },
+        data: { status: "REPLIED" },
+      });
+
+      // Increment response count on each affected campaign
+      const campaignIds = Array.from(new Set(p2pAssignments.map((a: { campaignId: string }) => a.campaignId)));
+      for (const cId of campaignIds) {
+        await db.campaign.update({
+          where: { id: cId },
+          data: { responseCount: { increment: 1 } },
+        });
+      }
+    }
+
     // Check auto-reply rules
     const autoReply = await db.autoReplyRule.findFirst({
       where: {
@@ -290,6 +319,16 @@ async function processOptOut(orgId: string, phone: string) {
         source: "keyword",
         metadata: { keyword: "STOP", phone },
       },
+    });
+
+    // Mark any pending P2P assignments as OPTED_OUT
+    await db.p2PAssignment.updateMany({
+      where: {
+        orgId,
+        contactId: contact.id,
+        status: "PENDING",
+      },
+      data: { status: "OPTED_OUT", skippedAt: now },
     });
   }
 }

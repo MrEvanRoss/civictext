@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -21,6 +21,8 @@ import {
   deleteTemplateAction,
 } from "@/server/actions/templates";
 import { countSegments } from "@/lib/sms-utils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 import { Plus, Search, FileText, Trash2, Copy, MessageSquare } from "lucide-react";
 
 const CATEGORIES = [
@@ -79,9 +81,10 @@ export default function TemplatesPage() {
       setName("");
       setBody("");
       setShowCreate(false);
+      toast.success("Template created successfully");
       await loadTemplates();
     } catch (err: any) {
-      setError(err.message || "Failed to create template");
+      toast.error(err.message || "Failed to create template");
     } finally {
       setCreating(false);
     }
@@ -91,18 +94,20 @@ export default function TemplatesPage() {
     if (!confirm("Delete this template?")) return;
     try {
       await deleteTemplateAction(id);
+      toast.success("Template deleted");
       await loadTemplates();
     } catch (err: any) {
-      setError(err.message);
+      toast.error(err.message || "Failed to delete template");
     }
   }
 
   function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text);
+    toast.success("Copied to clipboard");
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Message Templates</h1>
@@ -133,13 +138,13 @@ export default function TemplatesPage() {
             className="pl-9"
           />
         </div>
-        <Select value={category} onChange={(e) => setCategory(e.target.value)}>
+        <NativeSelect value={category} onChange={(e) => setCategory(e.target.value)}>
           {CATEGORIES.map((cat) => (
             <option key={cat.value} value={cat.value}>
               {cat.label}
             </option>
           ))}
-        </Select>
+        </NativeSelect>
       </div>
 
       {/* Create Form */}
@@ -160,7 +165,7 @@ export default function TemplatesPage() {
               </div>
               <div className="space-y-2">
                 <Label>Category</Label>
-                <Select
+                <NativeSelect
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
                 >
@@ -169,7 +174,7 @@ export default function TemplatesPage() {
                       {cat.label}
                     </option>
                   ))}
-                </Select>
+                </NativeSelect>
               </div>
             </div>
             <div className="space-y-2">
@@ -213,15 +218,37 @@ export default function TemplatesPage() {
 
       {/* Templates Grid */}
       {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <p className="text-muted-foreground">Loading...</p>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="rounded-lg border bg-card p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-5 w-16 rounded-full" />
+              </div>
+              <Skeleton className="h-3 w-40" />
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-2/3" />
+              </div>
+              <div className="flex items-center justify-between pt-2">
+                <Skeleton className="h-3 w-24" />
+                <div className="flex gap-1">
+                  <Skeleton className="h-7 w-7 rounded" />
+                  <Skeleton className="h-7 w-7 rounded" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : templates.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center py-16">
-            <FileText className="h-12 w-12 text-muted-foreground/30 mb-4" />
-            <h3 className="text-lg font-medium mb-1">No Templates Yet</h3>
-            <p className="text-sm text-muted-foreground text-center max-w-sm mb-4">
+          <CardContent className="flex flex-col items-center py-20">
+            <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-muted/50 mb-6">
+              <FileText className="h-8 w-8 text-muted-foreground/50" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">No Templates Yet</h3>
+            <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
               Create reusable message scripts for your campaigns. Templates save time and
               keep your messaging consistent across your team.
             </p>
@@ -234,7 +261,7 @@ export default function TemplatesPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {templates.map((template) => (
-            <Card key={template.id}>
+            <Card key={template.id} className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">{template.name}</CardTitle>

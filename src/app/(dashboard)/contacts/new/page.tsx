@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/select";
 import {
   Card,
   CardContent,
@@ -133,7 +133,7 @@ export default function NewContactPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="optInStatus">Consent Status</Label>
-              <Select
+              <NativeSelect
                 id="optInStatus"
                 value={form.optInStatus}
                 onChange={(e) =>
@@ -142,7 +142,7 @@ export default function NewContactPage() {
               >
                 <option value="OPTED_IN">Opted In</option>
                 <option value="PENDING">Pending</option>
-              </Select>
+              </NativeSelect>
             </div>
           </CardContent>
           <CardFooter className="justify-end">

@@ -98,6 +98,9 @@ export async function createCampaign(
         segmentId: input.segmentId,
         scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : undefined,
         createdById: userId,
+        p2pScript: input.p2pScript,
+        p2pReplyScript: input.p2pReplyScript,
+        p2pContactsPerAgent: input.p2pContactsPerAgent,
         settings: input.gotvSettings ? { gotv: input.gotvSettings } : undefined,
       },
     });
@@ -248,6 +251,9 @@ export async function duplicateCampaign(
         mediaUrl: original.mediaUrl,
         segmentId: original.segmentId,
         createdById: userId,
+        p2pScript: original.p2pScript,
+        p2pReplyScript: original.p2pReplyScript,
+        p2pContactsPerAgent: original.p2pContactsPerAgent,
       },
     });
 
