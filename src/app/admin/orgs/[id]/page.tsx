@@ -12,6 +12,7 @@ import {
   reactivateOrgAction,
   addCreditsAction,
   updateOrgRatesAction,
+  updateAllowedCampaignTypesAction,
   getOrgCampaignsAction,
   getOrgContactsAction,
   getOrgInterestListsAction,
@@ -85,6 +86,22 @@ export default function AdminOrgDetailPage() {
   const [consentPage, setConsentPage] = useState(1);
   const [tabLoading, setTabLoading] = useState(false);
 
+  // Editable pricing
+  const [editingRates, setEditingRates] = useState(false);
+  const [rateForm, setRateForm] = useState({ smsRateCents: 4, mmsRateCents: 8, phoneNumberFeeCents: 500 });
+  const [savingRates, setSavingRates] = useState(false);
+
+  // Allowed campaign types
+  const [savingTypes, setSavingTypes] = useState(false);
+
+  const ALL_CAMPAIGN_TYPES = [
+    { value: "BROADCAST", label: "Broadcast", desc: "One message to entire segment" },
+    { value: "P2P", label: "Peer-to-Peer (P2P)", desc: "Initial send, replies to human agents" },
+    { value: "GOTV", label: "GOTV", desc: "Get Out The Vote sequences" },
+    { value: "DRIP", label: "Drip Sequence", desc: "Multi-step with delays" },
+    { value: "AUTO_REPLY", label: "Auto-Reply", desc: "Keyword-triggered responses" },
+  ];
+
   useEffect(() => {
     loadOrg();
   }, [orgId]);
@@ -98,10 +115,50 @@ export default function AdminOrgDetailPage() {
     try {
       const data = await getOrgDetailAction(orgId);
       setOrg(data);
+      setRateForm({
+        smsRateCents: data.messagingPlan?.smsRateCents ?? 4,
+        mmsRateCents: data.messagingPlan?.mmsRateCents ?? 8,
+        phoneNumberFeeCents: data.messagingPlan?.phoneNumberFeeCents ?? 500,
+      });
     } catch (err) {
       console.error("Failed to load org:", err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleSaveRates() {
+    setSavingRates(true);
+    try {
+      await updateOrgRatesAction(orgId, rateForm);
+      setEditingRates(false);
+      await loadOrg();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setSavingRates(false);
+    }
+  }
+
+  async function handleToggleCampaignType(type: string) {
+    const current = org?.allowedCampaignTypes || ALL_CAMPAIGN_TYPES.map((t) => t.value);
+    const updated = current.includes(type)
+      ? current.filter((t: string) => t !== type)
+      : [...current, type];
+
+    if (updated.length === 0) {
+      alert("At least one campaign type must be allowed.");
+      return;
+    }
+
+    setSavingTypes(true);
+    try {
+      await updateAllowedCampaignTypesAction(orgId, updated);
+      await loadOrg();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setSavingTypes(false);
     }
   }
 
@@ -415,23 +472,82 @@ export default function AdminOrgDetailPage() {
         <div className="grid grid-cols-2 gap-6">
           {/* Balance & Pricing */}
           <div className="border rounded-lg p-4 space-y-4">
-            <h2 className="font-semibold">Balance & Pricing</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold">Balance & Pricing</h2>
+              {!editingRates ? (
+                <Button variant="outline" size="sm" onClick={() => setEditingRates(true)} className="text-xs">
+                  Edit Rates
+                </Button>
+              ) : (
+                <div className="flex gap-1">
+                  <Button size="sm" onClick={handleSaveRates} disabled={savingRates} className="text-xs">
+                    {savingRates ? "Saving..." : "Save"}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setEditingRates(false); setRateForm({ smsRateCents: org.messagingPlan?.smsRateCents ?? 4, mmsRateCents: org.messagingPlan?.mmsRateCents ?? 8, phoneNumberFeeCents: org.messagingPlan?.phoneNumberFeeCents ?? 500 }); }} className="text-xs">
+                    Cancel
+                  </Button>
+                </div>
+              )}
+            </div>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Current Balance</span>
                 <span className="font-medium font-mono">${balanceDollars}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">SMS Rate</span>
-                <span className="font-medium">{org.messagingPlan?.smsRateCents || 4}&#162;/segment</span>
+                {editingRates ? (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={rateForm.smsRateCents}
+                      onChange={(e) => setRateForm((p) => ({ ...p, smsRateCents: parseInt(e.target.value) || 0 }))}
+                      className="w-16 h-7 text-xs text-right"
+                    />
+                    <span className="text-xs text-muted-foreground">&#162;/segment</span>
+                  </div>
+                ) : (
+                  <span className="font-medium">{org.messagingPlan?.smsRateCents || 4}&#162;/segment</span>
+                )}
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">MMS Rate</span>
-                <span className="font-medium">{org.messagingPlan?.mmsRateCents || 8}&#162;/message</span>
+                {editingRates ? (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={rateForm.mmsRateCents}
+                      onChange={(e) => setRateForm((p) => ({ ...p, mmsRateCents: parseInt(e.target.value) || 0 }))}
+                      className="w-16 h-7 text-xs text-right"
+                    />
+                    <span className="text-xs text-muted-foreground">&#162;/message</span>
+                  </div>
+                ) : (
+                  <span className="font-medium">{org.messagingPlan?.mmsRateCents || 8}&#162;/message</span>
+                )}
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Phone Number Fee</span>
-                <span className="font-medium">${((org.messagingPlan?.phoneNumberFeeCents || 500) / 100).toFixed(2)}/mo</span>
+                {editingRates ? (
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground">$</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={(rateForm.phoneNumberFeeCents / 100).toFixed(2)}
+                      onChange={(e) => setRateForm((p) => ({ ...p, phoneNumberFeeCents: Math.round(parseFloat(e.target.value || "0") * 100) }))}
+                      className="w-20 h-7 text-xs text-right"
+                    />
+                    <span className="text-xs text-muted-foreground">/mo</span>
+                  </div>
+                ) : (
+                  <span className="font-medium">${((org.messagingPlan?.phoneNumberFeeCents || 500) / 100).toFixed(2)}/mo</span>
+                )}
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Active Numbers</span>
@@ -509,6 +625,40 @@ export default function AdminOrgDetailPage() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Allowed Campaign Types */}
+          <div className="border rounded-lg p-4 col-span-2">
+            <h2 className="font-semibold mb-3">Allowed Campaign Types</h2>
+            <p className="text-xs text-muted-foreground mb-3">
+              Control which campaign types this client can create. Uncheck types that are not permitted for compliance reasons (e.g., entities that must use P2P only).
+            </p>
+            <div className="grid grid-cols-5 gap-3">
+              {ALL_CAMPAIGN_TYPES.map((ct) => {
+                const allowed = org?.allowedCampaignTypes || ALL_CAMPAIGN_TYPES.map((t) => t.value);
+                const isAllowed = allowed.includes(ct.value);
+                return (
+                  <label
+                    key={ct.value}
+                    className={`flex items-start gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      isAllowed ? "border-primary bg-primary/5" : "border-muted opacity-60"
+                    } ${savingTypes ? "pointer-events-none opacity-50" : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isAllowed}
+                      onChange={() => handleToggleCampaignType(ct.value)}
+                      disabled={savingTypes}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <p className="text-sm font-medium leading-tight">{ct.label}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{ct.desc}</p>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
           </div>
 
           {/* Users Table */}

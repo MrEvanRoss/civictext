@@ -146,17 +146,41 @@ export async function addCreditsAction(orgId: string, amountCents: number) {
 }
 
 /**
- * Update an org's per-message rates.
+ * Update an org's per-message rates and phone number fee.
  */
 export async function updateOrgRatesAction(
   orgId: string,
-  updates: { smsRateCents?: number; mmsRateCents?: number }
+  updates: { smsRateCents?: number; mmsRateCents?: number; phoneNumberFeeCents?: number }
 ) {
   await requireSuperAdmin();
 
   await db.messagingPlan.update({
     where: { orgId },
     data: updates,
+  });
+
+  return { success: true };
+}
+
+/**
+ * Update which campaign types an org is allowed to use.
+ */
+export async function updateAllowedCampaignTypesAction(
+  orgId: string,
+  allowedTypes: string[]
+) {
+  await requireSuperAdmin();
+
+  const validTypes = ["BROADCAST", "P2P", "GOTV", "DRIP", "AUTO_REPLY"];
+  const filtered = allowedTypes.filter((t) => validTypes.includes(t));
+
+  if (filtered.length === 0) {
+    throw new Error("At least one campaign type must be allowed");
+  }
+
+  await db.organization.update({
+    where: { id: orgId },
+    data: { allowedCampaignTypes: filtered },
   });
 
   return { success: true };

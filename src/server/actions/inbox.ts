@@ -84,7 +84,7 @@ export async function getConversationMessagesAction(conversationId: string) {
   return { conversation, messages, notes };
 }
 
-export async function sendReplyAction(conversationId: string, body: string) {
+export async function sendReplyAction(conversationId: string, body: string, mediaUrl?: string) {
   const { session } = await requireOrg();
   const orgId = (session.user as any).orgId;
 
@@ -102,6 +102,7 @@ export async function sendReplyAction(conversationId: string, body: string) {
       contactId: conversation.contactId,
       direction: "OUTBOUND",
       body,
+      mediaUrl: mediaUrl || null,
       status: "QUEUED",
     },
   });
@@ -111,6 +112,7 @@ export async function sendReplyAction(conversationId: string, body: string) {
     orgId,
     contactId: conversation.contactId,
     messageBody: body,
+    mediaUrl: mediaUrl || undefined,
     phone: conversation.contact.phone,
     firstName: conversation.contact.firstName,
     lastName: conversation.contact.lastName,

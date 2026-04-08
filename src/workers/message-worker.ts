@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getOrgClient } from "@/lib/twilio";
 import { renderMergeFields } from "@/server/services/campaign-service";
 import { checkAndDeductBalance, calculateMessageCost, syncBalanceToRedis } from "@/server/services/quota-service";
+import { shortenLinksInMessage } from "@/server/services/link-tracking-service";
 import IORedis from "ioredis";
 
 const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
@@ -88,8 +89,16 @@ export const messageWorker = new Worker<MessageJobData>(
     // 3. Render merge fields (use full contact from DB for all merge tags)
     const renderedBody = renderMergeFields(messageBody, contact, org.name);
 
+    // 3.5. Auto-shorten URLs for link tracking
+    let trackedBody = renderedBody;
+    try {
+      trackedBody = await shortenLinksInMessage(orgId, renderedBody, campaignId);
+    } catch (err) {
+      await job.log(`Link shortening failed, using original URLs: ${err}`);
+    }
+
     // 4. Append political disclaimer if configured
-    let finalBody = renderedBody;
+    let finalBody = trackedBody;
     if (org.politicalDisclaimer) {
       finalBody = `${renderedBody}\n\n${org.politicalDisclaimer}`;
     }

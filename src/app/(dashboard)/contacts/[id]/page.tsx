@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { MediaUpload } from "@/components/ui/media-upload";
 import {
   getContactAction,
   updateContactAction,
@@ -60,6 +61,7 @@ export default function ContactDetailPage() {
     optInStatus: "",
   });
   const [quickMessage, setQuickMessage] = useState("");
+  const [quickMediaUrl, setQuickMediaUrl] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
   const [sendSuccess, setSendSuccess] = useState("");
   const [timeline, setTimeline] = useState<any[]>([]);
@@ -226,13 +228,18 @@ export default function ContactDetailPage() {
   }
 
   async function handleQuickSend() {
-    if (!quickMessage.trim()) return;
+    if (!quickMessage.trim() && !quickMediaUrl) return;
     setSendingMessage(true);
     setSendSuccess("");
     setError("");
     try {
-      await quickSendAction({ contactId, body: quickMessage.trim() });
+      await quickSendAction({
+        contactId,
+        body: quickMessage.trim(),
+        mediaUrl: quickMediaUrl || undefined,
+      });
       setQuickMessage("");
+      setQuickMediaUrl("");
       setSendSuccess("Message queued for delivery.");
       await loadContact();
       setTimeout(() => setSendSuccess(""), 3000);
@@ -490,6 +497,22 @@ export default function ContactDetailPage() {
               </p>
             ) : (
               <>
+                {/* MMS Attachment */}
+                {quickMediaUrl ? (
+                  <MediaUpload
+                    value={quickMediaUrl}
+                    onUpload={(url) => setQuickMediaUrl(url)}
+                    onRemove={() => setQuickMediaUrl("")}
+                  />
+                ) : (
+                  <div className="flex items-center gap-2 p-3 rounded-lg border border-dashed border-muted-foreground/25">
+                    <MediaUpload
+                      value=""
+                      onUpload={(url) => setQuickMediaUrl(url)}
+                      onRemove={() => setQuickMediaUrl("")}
+                    />
+                  </div>
+                )}
                 <Textarea
                   value={quickMessage}
                   onChange={(e) => setQuickMessage(e.target.value)}
@@ -500,6 +523,7 @@ export default function ContactDetailPage() {
                   <p className="text-xs text-muted-foreground">
                     {quickMessage.length} characters
                     {quickMessage.length > 160 && ` (${Math.ceil(quickMessage.length / 153)} segments)`}
+                    {quickMediaUrl && " + MMS attachment"}
                   </p>
                   <div className="flex items-center gap-2">
                     {sendSuccess && (
@@ -507,10 +531,10 @@ export default function ContactDetailPage() {
                     )}
                     <Button
                       onClick={handleQuickSend}
-                      disabled={!quickMessage.trim() || sendingMessage}
+                      disabled={(!quickMessage.trim() && !quickMediaUrl) || sendingMessage}
                     >
                       <Send className="h-4 w-4 mr-2" />
-                      {sendingMessage ? "Sending..." : "Send"}
+                      {sendingMessage ? "Sending..." : quickMediaUrl ? "Send MMS" : "Send"}
                     </Button>
                   </div>
                 </div>

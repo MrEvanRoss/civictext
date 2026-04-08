@@ -23,6 +23,7 @@ import {
   closeConversationAction,
   reopenConversationAction,
 } from "@/server/actions/inbox";
+import { MediaUpload } from "@/components/ui/media-upload";
 import {
   Inbox,
   Send,
@@ -52,6 +53,7 @@ export default function InboxPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unassigned" | "mine">("all");
   const [replyText, setReplyText] = useState("");
+  const [replyMediaUrl, setReplyMediaUrl] = useState("");
   const [noteText, setNoteText] = useState("");
   const [contactNoteText, setContactNoteText] = useState("");
   const [sending, setSending] = useState(false);
@@ -113,11 +115,12 @@ export default function InboxPage() {
   }
 
   async function handleSendReply() {
-    if (!selectedId || !replyText.trim()) return;
+    if (!selectedId || (!replyText.trim() && !replyMediaUrl)) return;
     setSending(true);
     try {
-      await sendReplyAction(selectedId, replyText.trim());
+      await sendReplyAction(selectedId, replyText.trim(), replyMediaUrl || undefined);
       setReplyText("");
+      setReplyMediaUrl("");
       await loadThread(selectedId);
       await loadConversations();
     } catch (err: any) {
@@ -546,7 +549,26 @@ export default function InboxPage() {
                   )}
                 </div>
               )}
+              {/* MMS Attachment Preview */}
+              {replyMediaUrl && (
+                <MediaUpload
+                  value={replyMediaUrl}
+                  onUpload={(url) => setReplyMediaUrl(url)}
+                  onRemove={() => setReplyMediaUrl("")}
+                  compact
+                />
+              )}
               <div className="flex gap-2">
+                {/* Attachment button */}
+                {!replyMediaUrl && (
+                  <MediaUpload
+                    value=""
+                    onUpload={(url) => setReplyMediaUrl(url)}
+                    onRemove={() => setReplyMediaUrl("")}
+                    compact
+                    className="self-end"
+                  />
+                )}
                 <Textarea
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
@@ -562,7 +584,7 @@ export default function InboxPage() {
                 />
                 <Button
                   onClick={handleSendReply}
-                  disabled={!replyText.trim() || sending}
+                  disabled={(!replyText.trim() && !replyMediaUrl) || sending}
                   className="self-end"
                 >
                   <Send className="h-4 w-4" />

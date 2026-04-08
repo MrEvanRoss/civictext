@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,9 @@ export default function LoginPage() {
       if (result?.error) {
         setError("Invalid email or password");
       } else {
-        router.push("/dashboard");
+        const session = await getSession();
+        const destination = (session?.user as any)?.isSuperAdmin ? "/admin/orgs" : "/dashboard";
+        router.push(destination);
         router.refresh();
       }
     } catch {
