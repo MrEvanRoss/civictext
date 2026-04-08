@@ -9,14 +9,23 @@ import { Send, X, CheckCircle2, AlertCircle } from "lucide-react";
 import { countSegments, hasUnicodeChars, getRemainingChars } from "@/lib/sms-utils";
 import { sendTestMessageAction } from "@/server/actions/campaigns";
 
-const URL_REGEX = /https?:\/\/[^\s]+/g;
+// Matches http(s):// URLs and www. URLs without protocol
+const URL_REGEX = /(?:https?:\/\/[^\s]+|(?:www\.)[^\s]+)/gi;
+
+/**
+ * Normalize a URL — ensure it has a protocol for URL parsing.
+ */
+function normalizeUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) return url;
+  return `https://${url}`;
+}
 
 /**
  * Extract domain from a URL for display.
  */
 function extractDomain(url: string): string {
   try {
-    const u = new URL(url);
+    const u = new URL(normalizeUrl(url));
     return u.hostname.replace(/^www\./, "");
   } catch {
     return url;
@@ -28,9 +37,13 @@ function extractDomain(url: string): string {
  */
 function generateMockTitle(url: string): string {
   try {
-    const u = new URL(url);
+    const u = new URL(normalizeUrl(url));
     const path = u.pathname.replace(/^\/|\/$/g, "");
-    if (!path) return u.hostname;
+    if (!path) {
+      // No path — capitalize the domain as title
+      const domain = u.hostname.replace(/^www\./, "");
+      return domain.charAt(0).toUpperCase() + domain.slice(1);
+    }
     // Convert path slug to title case
     return path
       .split("/")

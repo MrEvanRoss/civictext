@@ -553,7 +553,7 @@ function GeneralTab({
 // SIGNUP MESSAGES TAB
 // ===========================================================================
 
-const SETTINGS_URL_REGEX = /https?:\/\/[^\s]+/g;
+const SETTINGS_URL_REGEX = /(?:https?:\/\/[^\s]+|(?:www\.)[^\s]+)/gi;
 
 function renderSettingsLinks(text: string): React.ReactNode {
   if (!text) return null;
