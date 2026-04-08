@@ -225,6 +225,49 @@ export default function NewCampaignPage() {
     }
   }
 
+  async function handleSaveDraft() {
+    if (!name || !type) return;
+    setLoading(true);
+    setError("");
+
+    try {
+      const campaign = await createCampaignAction({
+        name,
+        type: type as any,
+        segmentId: segmentId || undefined,
+        messageBody: messageBody || "Draft — message not yet written",
+        mediaUrl: mediaUrl || undefined,
+        scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
+        ...(interestListMode && {
+          interestListMode,
+          interestListIds: selectedListIds.length > 0 ? selectedListIds : undefined,
+        }),
+        ...(type === "GOTV" && gotvElectionDate && {
+          gotvSettings: {
+            electionDate: gotvElectionDate || undefined,
+            pollHours: gotvPollHours || undefined,
+            defaultPollingLocation: gotvDefaultLocation || undefined,
+          },
+        }),
+        ...(type === "P2P" && {
+          p2pScript: messageBody || undefined,
+          p2pReplyScript: p2pReplyScript || undefined,
+        }),
+      });
+
+      // For P2P campaigns, assign contacts to agents if selected
+      if (type === "P2P" && selectedAgents.length > 0) {
+        await assignP2PContactsAction(campaign.id, selectedAgents);
+      }
+
+      router.push(`/campaigns/${campaign.id}`);
+    } catch (err: any) {
+      setError(err.message || "Failed to save draft");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleCreate() {
     setLoading(true);
     setError("");
@@ -552,9 +595,14 @@ export default function NewCampaignPage() {
             <Button variant="outline" onClick={() => setStep(0)}>
               Back
             </Button>
-            <Button onClick={() => setStep(2)} disabled={!canProceed()}>
-              Next: Compose
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={handleSaveDraft} disabled={loading} className="text-muted-foreground">
+                {loading ? "Saving..." : "Save as Draft"}
+              </Button>
+              <Button onClick={() => setStep(2)} disabled={!canProceed()}>
+                Next: Compose
+              </Button>
+            </div>
           </CardFooter>
         </Card>
       )}
@@ -877,9 +925,14 @@ export default function NewCampaignPage() {
             <Button variant="outline" onClick={() => setStep(1)}>
               Back
             </Button>
-            <Button onClick={() => setStep(3)} disabled={!canProceed()}>
-              {type === "P2P" ? "Next: Assign Agents" : "Next: Schedule"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={handleSaveDraft} disabled={loading} className="text-muted-foreground">
+                {loading ? "Saving..." : "Save as Draft"}
+              </Button>
+              <Button onClick={() => setStep(3)} disabled={!canProceed()}>
+                {type === "P2P" ? "Next: Assign Agents" : "Next: Schedule"}
+              </Button>
+            </div>
           </CardFooter>
         </Card>
       )}
@@ -972,9 +1025,14 @@ export default function NewCampaignPage() {
             <Button variant="outline" onClick={() => setStep(2)}>
               Back
             </Button>
-            <Button onClick={() => setStep(4)} disabled={!canProceed()}>
-              Next: Schedule
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={handleSaveDraft} disabled={loading} className="text-muted-foreground">
+                {loading ? "Saving..." : "Save as Draft"}
+              </Button>
+              <Button onClick={() => setStep(4)} disabled={!canProceed()}>
+                Next: Schedule
+              </Button>
+            </div>
           </CardFooter>
         </Card>
       )}
@@ -1047,9 +1105,14 @@ export default function NewCampaignPage() {
             <Button variant="outline" onClick={() => setStep(3)}>
               Back
             </Button>
-            <Button onClick={() => setStep(5)} disabled={!canProceed()}>
-              Next: Review
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={handleSaveDraft} disabled={loading} className="text-muted-foreground">
+                {loading ? "Saving..." : "Save as Draft"}
+              </Button>
+              <Button onClick={() => setStep(5)} disabled={!canProceed()}>
+                Next: Review
+              </Button>
+            </div>
           </CardFooter>
         </Card>
       )}
@@ -1153,9 +1216,14 @@ export default function NewCampaignPage() {
             <Button variant="outline" onClick={() => setStep(2)}>
               Back
             </Button>
-            <Button onClick={() => setStep(4)} disabled={!canProceed()}>
-              Next: Review
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={handleSaveDraft} disabled={loading} className="text-muted-foreground">
+                {loading ? "Saving..." : "Save as Draft"}
+              </Button>
+              <Button onClick={() => setStep(4)} disabled={!canProceed()}>
+                Next: Review
+              </Button>
+            </div>
           </CardFooter>
         </Card>
       )}
@@ -1243,17 +1311,22 @@ export default function NewCampaignPage() {
             <Button variant="outline" onClick={() => setStep(type === "P2P" ? 4 : 3)}>
               Back
             </Button>
-            <Button onClick={handleCreate} disabled={loading}>
-              {loading
-                ? "Creating..."
-                : type === "P2P"
-                  ? scheduleType === "later"
-                    ? "Create & Schedule P2P Campaign"
-                    : "Launch P2P Campaign"
-                  : scheduleType === "now"
-                    ? "Create & Send Now"
-                    : "Create & Schedule"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={handleSaveDraft} disabled={loading} className="text-muted-foreground">
+                Save as Draft
+              </Button>
+              <Button onClick={handleCreate} disabled={loading}>
+                {loading
+                  ? "Creating..."
+                  : type === "P2P"
+                    ? scheduleType === "later"
+                      ? "Create & Schedule P2P Campaign"
+                      : "Launch P2P Campaign"
+                    : scheduleType === "now"
+                      ? "Create & Send Now"
+                      : "Create & Schedule"}
+              </Button>
+            </div>
           </CardFooter>
         </Card>
       )}

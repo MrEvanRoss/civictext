@@ -19,6 +19,7 @@ import {
   MessageSquare,
   Plus,
   Copy,
+  Pencil,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -242,17 +243,32 @@ export default function CampaignsPage() {
                             {new Date(campaign.createdAt).toLocaleDateString()}
                           </td>
                           <td className="py-3 px-4 text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDuplicate(campaign.id);
-                              }}
-                            >
-                              <Copy className="h-3 w-3 mr-1" />
-                              Duplicate
-                            </Button>
+                            <div className="flex items-center justify-end gap-1">
+                              {campaign.status === "DRAFT" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    router.push(`/campaigns/${campaign.id}/edit`);
+                                  }}
+                                >
+                                  <Pencil className="h-3 w-3 mr-1" />
+                                  Edit
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDuplicate(campaign.id);
+                                }}
+                              >
+                                <Copy className="h-3 w-3 mr-1" />
+                                Duplicate
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}

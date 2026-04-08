@@ -3,6 +3,7 @@
 import { requireOrg, requirePermission } from "./auth";
 import { PERMISSIONS } from "@/lib/constants";
 import { db } from "@/lib/db";
+import IORedis from "ioredis";
 
 /**
  * Get supervisor overview: escalated conversations, agent workload, queue stats.
@@ -152,6 +153,26 @@ export async function getSupervisorDashboardAction() {
     };
   });
 
+  // Check Redis for flagged P2P agents (abuse detection)
+  let flaggedAgentIds: string[] = [];
+  try {
+    const redis = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
+      maxRetriesPerRequest: null,
+      lazyConnect: true,
+    });
+    const agentCheckIds = agentMetrics.map((a: { id: string }) => a.id);
+    const flagChecks = await Promise.all(
+      agentCheckIds.map(async (id: string) => {
+        const flagged = await redis.get(`p2p:agent:${id}:flagged`);
+        return flagged ? id : null;
+      })
+    );
+    flaggedAgentIds = flagChecks.filter((id): id is string => id !== null);
+    await redis.quit();
+  } catch {
+    // Redis unavailable — skip flag checks
+  }
+
   return {
     escalatedCount,
     openCount,
@@ -163,5 +184,6 @@ export async function getSupervisorDashboardAction() {
     weekMessages,
     todayOptOuts,
     p2pCampaigns,
+    flaggedAgentIds,
   };
 }

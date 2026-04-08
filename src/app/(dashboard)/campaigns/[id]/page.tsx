@@ -27,6 +27,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Download,
+  Pencil,
 } from "lucide-react";
 
 const STATUS_VARIANTS: Record<string, "default" | "success" | "warning" | "destructive" | "secondary" | "outline"> = {
@@ -143,10 +144,16 @@ export default function CampaignDetailPage() {
 
         <div className="flex gap-2">
           {campaign.status === "DRAFT" && (
-            <Button onClick={() => handleStatusChange("SENDING")}>
-              <Send className="h-4 w-4 mr-1" />
-              Send Now
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => router.push(`/campaigns/${campaignId}/edit`)}>
+                <Pencil className="h-4 w-4 mr-1" />
+                Edit
+              </Button>
+              <Button onClick={() => handleStatusChange("SENDING")}>
+                <Send className="h-4 w-4 mr-1" />
+                Send Now
+              </Button>
+            </>
           )}
           {campaign.status === "SENDING" && (
             <Button variant="outline" onClick={() => handleStatusChange("PAUSED")}>

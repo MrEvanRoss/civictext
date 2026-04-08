@@ -225,23 +225,36 @@ export default function SupervisorPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {data.agentMetrics.map((agent: any) => (
-                  <div key={agent.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                    <div className="flex items-center gap-3">
-                      <div className={`h-2.5 w-2.5 rounded-full ${agent.isOnline ? "bg-green-500" : "bg-gray-300"}`} />
-                      <div>
-                        <p className="text-sm font-medium">{agent.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {agent.role} &middot; {agent.todayNotes} notes today
-                        </p>
+                {data.agentMetrics.map((agent: any) => {
+                  const isFlagged = data.flaggedAgentIds?.includes(agent.id);
+                  return (
+                    <div key={agent.id} className={`flex items-center justify-between p-3 rounded-lg ${isFlagged ? "bg-warning/10 border border-warning/30" : "bg-muted/50"}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`h-2.5 w-2.5 rounded-full ${agent.isOnline ? "bg-green-500" : "bg-gray-300"}`} />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium">{agent.name}</p>
+                            {isFlagged && (
+                              <span title="This agent's send rate triggered an automated review flag. Check audit logs to verify human-initiated sending.">
+                                <Badge variant="outline" className="text-[10px] text-warning border-warning/30">
+                                  <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
+                                  Rate flagged
+                                </Badge>
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {agent.role} &middot; {agent.todayNotes} notes today
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-bold">{agent.openConversations}</p>
+                        <p className="text-xs text-muted-foreground">open</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold">{agent.openConversations}</p>
-                      <p className="text-xs text-muted-foreground">open</p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -340,13 +353,23 @@ export default function SupervisorPage() {
                     {campaign.agents.map((agent: any) => {
                       const total = agent.sent + agent.pending + agent.skipped;
                       const agentPct = total > 0 ? (agent.sent / total) * 100 : 0;
+                      const isAgentFlagged = data.flaggedAgentIds?.includes(agent.agentId);
                       return (
-                        <div key={agent.agentId} className="flex items-center gap-3 text-sm p-2 rounded bg-muted/50">
+                        <div key={agent.agentId} className={`flex items-center gap-3 text-sm p-2 rounded ${isAgentFlagged ? "bg-warning/10 border border-warning/30" : "bg-muted/50"}`}>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <span className="font-medium truncate">{agent.agentName}</span>
+                              {/* Abuse detection flag */}
+                              {isAgentFlagged && (
+                                <span title="This agent's send rate triggered an automated review flag. Check audit logs to verify human-initiated sending.">
+                                  <Badge variant="outline" className="text-[10px] text-warning border-warning/30">
+                                    <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
+                                    Rate flagged
+                                  </Badge>
+                                </span>
+                              )}
                               {/* Flag agents who haven't sent recently */}
-                              {agent.pending > 0 && agent.lastSentAt && (
+                              {!isAgentFlagged && agent.pending > 0 && agent.lastSentAt && (
                                 (() => {
                                   const minsSinceLastSend = (Date.now() - new Date(agent.lastSentAt).getTime()) / 60000;
                                   return minsSinceLastSend > 15 ? (

@@ -159,8 +159,22 @@ export async function updateCampaign(
   if (input.name) data.name = input.name;
   if (input.messageBody) data.messageBody = input.messageBody;
   if (input.mediaUrl !== undefined) data.mediaUrl = input.mediaUrl || null;
-  if (input.segmentId) data.segment = { connect: { id: input.segmentId } };
+  if (input.segmentId) {
+    data.segment = { connect: { id: input.segmentId } };
+  } else if (input.segmentId === undefined && input.interestListMode) {
+    // Clear segment when switching to interest list targeting
+    data.segment = { disconnect: true };
+  }
   if (input.scheduledAt) data.scheduledAt = new Date(input.scheduledAt);
+  if (input.scheduledAt === undefined) data.scheduledAt = null;
+
+  // Interest list targeting
+  if (input.interestListMode !== undefined) data.interestListMode = input.interestListMode || null;
+  if (input.interestListIds !== undefined) data.interestListIds = input.interestListIds || [];
+
+  // P2P fields
+  if (input.p2pScript !== undefined) data.p2pScript = input.p2pScript || null;
+  if (input.p2pReplyScript !== undefined) data.p2pReplyScript = input.p2pReplyScript || null;
 
   return db.campaign.update({
     where: { id: input.id },

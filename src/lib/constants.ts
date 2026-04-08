@@ -91,8 +91,8 @@ export const DEFAULT_MMS_RATE_CENTS = 8;
 export const MIN_TRANSACTION_CENTS = 500; // $5.00
 
 // P2P configuration
-export const P2P_DEFAULT_BATCH_SIZE = 1;         // contacts shown to agent at a time
-export const P2P_PREFETCH_COUNT = 3;              // prefetch next N for instant transitions
-export const P2P_MIN_SEND_INTERVAL_MS = 1000;     // minimum ms between sends per agent
-export const P2P_MAX_CONTACTS_PER_AGENT = 1000;   // max contacts assignable to one agent
-export const P2P_SUSPICIOUS_RATE_PER_HOUR = 120;  // flag agents sending faster than this
+export const P2P_DEFAULT_BATCH_SIZE = 1;              // contacts shown to agent at a time
+export const P2P_PREFETCH_COUNT = 3;                   // prefetch next N for instant transitions
+export const P2P_MAX_CONTACTS_PER_AGENT = 1000;        // max contacts assignable to one agent
+export const P2P_SUSPICIOUS_RATE_PER_HOUR = 120;       // flag agents sending faster than this
+export const P2P_SUSPICIOUS_MIN_INTERVAL_MS = 500;     // flag if avg click gap is below this over 30s window

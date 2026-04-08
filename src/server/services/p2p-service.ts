@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
 import { renderMergeFields } from "./campaign-service";
-import { P2P_MIN_SEND_INTERVAL_MS } from "@/lib/constants";
+import { P2P_SUSPICIOUS_MIN_INTERVAL_MS } from "@/lib/constants";
 
 const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
   maxRetriesPerRequest: null,
@@ -175,6 +175,8 @@ export async function getNextBatch(
 /**
  * Sends a single P2P message. This is the ONLY path for P2P sends.
  * Every call represents one human-initiated action.
+ * No synchronous rate limiting — the message worker handles carrier-level throttling.
+ * Abuse detection is monitoring-only and never blocks sends.
  */
 export async function sendOne(
   orgId: string,
@@ -182,22 +184,9 @@ export async function sendOne(
   agentUserId: string,
   body: string,
   mediaUrl?: string,
-  sessionStartTime?: number
+  sendLatencyMs?: number
 ) {
-  // 1. Rate limit check: minimum 1 second between sends per agent
-  const lastSendKey = `p2p:agent:${agentUserId}:lastSend`;
-  const lastSend = await connection.get(lastSendKey);
-  if (lastSend) {
-    const elapsed = Date.now() - parseInt(lastSend, 10);
-    if (elapsed < P2P_MIN_SEND_INTERVAL_MS) {
-      // Wait the remaining time
-      await new Promise((resolve) =>
-        setTimeout(resolve, P2P_MIN_SEND_INTERVAL_MS - elapsed)
-      );
-    }
-  }
-
-  // 2. Verify assignment belongs to this agent and is PENDING
+  // 1. Verify assignment belongs to this agent and is PENDING
   const assignment = await db.p2PAssignment.findFirst({
     where: { id: assignmentId, assignedToId: agentUserId, orgId },
     include: { contact: true, campaign: { include: { org: true } } },
@@ -205,7 +194,7 @@ export async function sendOne(
   if (!assignment) throw new Error("Assignment not found or not yours");
   if (assignment.status !== "PENDING") throw new Error("Assignment already processed");
 
-  // 3. Verify contact is still opted in
+  // 2. Verify contact is still opted in
   if (assignment.contact.optInStatus !== "OPTED_IN") {
     // Auto-skip opted-out contacts
     await db.p2PAssignment.update({
@@ -215,7 +204,6 @@ export async function sendOne(
     return { skipped: true, reason: "Contact is not opted in" };
   }
 
-  // 4. Create Message record
   const message = await db.message.create({
     data: {
       orgId,
@@ -228,7 +216,7 @@ export async function sendOne(
     },
   });
 
-  // 5. Queue the message for sending (priority 1 = highest, same as inbox replies)
+  // 4. Queue the message for sending (priority 1 = highest, same as inbox replies)
   await messageQueue.add(
     "send",
     {
@@ -242,7 +230,7 @@ export async function sendOne(
     { priority: 1 }
   );
 
-  // 6. Update assignment
+  // 5. Update assignment
   const messageModified = body !== (assignment.campaign.p2pScript || assignment.campaign.messageBody);
   await db.p2PAssignment.update({
     where: { id: assignmentId },
@@ -253,13 +241,13 @@ export async function sendOne(
     },
   });
 
-  // 7. Increment campaign sent count
+  // 6. Increment campaign sent count
   await db.campaign.update({
     where: { id: assignment.campaignId },
     data: { sentCount: { increment: 1 } },
   });
 
-  // 8. Create/upsert conversation
+  // 7. Create/upsert conversation
   await db.conversation.upsert({
     where: {
       orgId_contactId: { orgId, contactId: assignment.contactId },
@@ -276,11 +264,7 @@ export async function sendOne(
     },
   });
 
-  // 9. Audit log
-  const sendLatency = sessionStartTime
-    ? Date.now() - sessionStartTime
-    : undefined;
-
+  // 8. Audit log
   await db.consentAuditLog.create({
     data: {
       orgId,
@@ -292,13 +276,36 @@ export async function sendOne(
         campaignId: assignment.campaignId,
         assignmentId,
         messageModified,
-        sendLatency,
+        sendLatencyMs: sendLatencyMs ?? null,
+        clickTimestamp: new Date().toISOString(),
       },
     },
   });
 
-  // 10. Record agent's last send time for rate limiting
-  await connection.set(lastSendKey, Date.now().toString(), "EX", 60);
+  // 9. Abuse detection — monitoring only, never blocks sends
+  const now = Date.now();
+  const redisKey = `p2p:agent:${agentUserId}:sends`;
+  await connection.zadd(redisKey, now, `${assignmentId}:${now}`);
+  await connection.expire(redisKey, 3600);
+
+  // Check for suspicious patterns in a 30-second window
+  const windowStart = now - 30000;
+  const recentSends = await connection.zrangebyscore(redisKey, windowStart, now);
+  if (recentSends.length >= 2) {
+    const timestamps = recentSends.map((entry: string) => parseInt(entry.split(":").pop()!));
+    const intervals: number[] = [];
+    for (let i = 1; i < timestamps.length; i++) {
+      intervals.push(timestamps[i] - timestamps[i - 1]);
+    }
+    const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+    if (avgInterval < P2P_SUSPICIOUS_MIN_INTERVAL_MS) {
+      console.warn(
+        `P2P_SUSPICIOUS_RATE: Agent ${agentUserId} averaging ${Math.round(avgInterval)}ms between sends (threshold: ${P2P_SUSPICIOUS_MIN_INTERVAL_MS}ms)`
+      );
+      // Set flag for supervisor dashboard to read
+      await connection.set(`p2p:agent:${agentUserId}:flagged`, "1", "EX", 3600);
+    }
+  }
 
   return { sent: true, messageId: message.id };
 }

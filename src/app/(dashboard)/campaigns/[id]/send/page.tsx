@@ -80,7 +80,6 @@ export default function P2PSendPage() {
   });
   const [contactHistory, setContactHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showHistoryMobile, setShowHistoryMobile] = useState(false);
@@ -91,6 +90,9 @@ export default function P2PSendPage() {
   const [completed, setCompleted] = useState(false);
   const [slideDirection, setSlideDirection] = useState<"in" | "out" | null>(null);
   const [quietHoursWarning, setQuietHoursWarning] = useState(false);
+  const [contactDisplayedAt, setContactDisplayedAt] = useState<number>(Date.now());
+  const [lastSentAssignmentId, setLastSentAssignmentId] = useState<string | null>(null);
+  const [retryList, setRetryList] = useState<Array<{ assignmentId: string; contactName: string; error: string }>>([]);
 
   // Check quiet hours (8AM-9PM)
   useEffect(() => {
@@ -128,6 +130,7 @@ export default function P2PSendPage() {
       setMessageBody(first.renderedBody);
       setIncludeMedia(!!first.mediaUrl);
       setPrefetched(rest);
+      setContactDisplayedAt(Date.now());
 
       // Load contact history
       if (first.contact.id) {
@@ -141,10 +144,17 @@ export default function P2PSendPage() {
     }
   }
 
+  // Prefetch more assignments to replenish the buffer
+  const prefetchNext = useCallback(() => {
+    getNextP2PBatchAction(campaignId, P2P_PREFETCH_COUNT)
+      .then((batch) => setPrefetched((prev) => [...prev, ...batch]))
+      .catch(() => {});
+  }, [campaignId]);
+
   // Advance to next contact
   const advanceToNext = useCallback(async () => {
     setSlideDirection("out");
-    await new Promise((r) => setTimeout(r, 200));
+    await new Promise((r) => setTimeout(r, 150));
 
     if (prefetched.length > 0) {
       const [next, ...rest] = prefetched;
@@ -152,6 +162,7 @@ export default function P2PSendPage() {
       setMessageBody(next.renderedBody);
       setIncludeMedia(!!next.mediaUrl);
       setPrefetched(rest);
+      setContactDisplayedAt(Date.now());
 
       // Load history for new contact
       if (next.contact.id) {
@@ -160,9 +171,7 @@ export default function P2PSendPage() {
 
       // Prefetch more if running low
       if (rest.length < 2) {
-        getNextP2PBatchAction(campaignId, P2P_PREFETCH_COUNT)
-          .then((batch) => setPrefetched((prev) => [...prev, ...batch]))
-          .catch(() => {});
+        prefetchNext();
       }
     } else {
       // Try to get more
@@ -177,6 +186,7 @@ export default function P2PSendPage() {
           setMessageBody(next.renderedBody);
           setIncludeMedia(!!next.mediaUrl);
           setPrefetched(rest);
+          setContactDisplayedAt(Date.now());
           if (next.contact.id) {
             getContactHistoryAction(next.contact.id).then(setContactHistory).catch(() => setContactHistory([]));
           }
@@ -187,40 +197,55 @@ export default function P2PSendPage() {
       }
     }
 
-    // Update progress
-    const stats = await getP2PAgentProgressAction(campaignId);
-    setProgress(stats);
+    // Update progress in background
+    getP2PAgentProgressAction(campaignId)
+      .then(setProgress)
+      .catch(() => {});
 
     setSlideDirection("in");
-    setTimeout(() => setSlideDirection(null), 200);
-  }, [prefetched, campaignId]);
+    setTimeout(() => setSlideDirection(null), 150);
+  }, [prefetched, campaignId, prefetchNext]);
 
-  // Send handler
+  // Add a failed assignment to the retry list
+  function addToRetryList(assignmentId: string, contactName: string, error: string) {
+    setRetryList((prev) => [...prev, { assignmentId, contactName, error }]);
+  }
+
+  // Send handler — fire-and-forget pattern for instant UI transitions
   async function handleSend() {
-    if (!current || sending) return;
-    setSending(true);
-    try {
-      const result = await sendP2PMessageAction(
-        current.assignmentId,
-        messageBody,
-        includeMedia ? current.mediaUrl || undefined : undefined,
-        sessionStart
-      );
+    if (!current) return;
+    // Prevent double-send of the same contact
+    if (current.assignmentId === lastSentAssignmentId) return;
+    setLastSentAssignmentId(current.assignmentId);
 
-      if (result.skipped) {
-        toast("Contact skipped", { description: result.reason });
-      } else {
-        const name = current.contact.firstName || current.contact.phone;
-        toast.success(`Sent to ${name}`);
-        setLocalSendCount((c) => c + 1);
-      }
+    // 1. Capture timing for audit trail
+    const sendLatencyMs = Date.now() - contactDisplayedAt;
 
-      await advanceToNext();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to send");
-    } finally {
-      setSending(false);
-    }
+    // 2. Snapshot the current assignment and message before transitioning
+    const assignmentId = current.assignmentId;
+    const body = messageBody;
+    const media = includeMedia ? current.mediaUrl || undefined : undefined;
+    const contactName = current.contact.firstName || current.contact.phone;
+
+    // 3. Immediately advance the UI to the next contact
+    setLocalSendCount((c) => c + 1);
+    advanceToNext();
+
+    // 4. Fire the server action in the background — do NOT await before advancing
+    sendP2PMessageAction(assignmentId, body, media, sendLatencyMs)
+      .then((result) => {
+        if (result.skipped) {
+          toast("Contact skipped", { description: result.reason });
+        } else {
+          toast.success(`Sent to ${contactName}`);
+        }
+        // Replenish prefetch buffer
+        prefetchNext();
+      })
+      .catch((err: any) => {
+        toast.error(`Failed to send to ${contactName}: ${err.message}`);
+        addToRetryList(assignmentId, contactName, err.message || "Unknown error");
+      });
   }
 
   // Skip handler
@@ -288,7 +313,7 @@ export default function P2PSendPage() {
 
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [current, messageBody, sending, showShortcuts, showSkipInput]);
+  }, [current, messageBody, showShortcuts, showSkipInput]);
 
   // Session timer
   const sessionMinutes = Math.floor((Date.now() - sessionStart) / 60000);
@@ -312,6 +337,74 @@ export default function P2PSendPage() {
   }
 
   if (completed) {
+    // Show retry list if there are failed sends
+    if (retryList.length > 0) {
+      return (
+        <div className="flex items-center justify-center h-[calc(100vh-3.5rem)]">
+          <div className="max-w-lg w-full mx-4">
+            <div className="text-center mb-6">
+              <div className="h-16 w-16 rounded-full bg-warning/10 flex items-center justify-center mx-auto mb-3">
+                <AlertTriangle className="h-8 w-8 text-warning" />
+              </div>
+              <h1 className="text-2xl font-bold mb-1">{retryList.length} message{retryList.length !== 1 ? "s" : ""} failed to send</h1>
+              <p className="text-muted-foreground text-sm">
+                You can retry these or skip them and finish.
+              </p>
+            </div>
+            <div className="space-y-2 mb-6">
+              {retryList.map((item) => (
+                <div key={item.assignmentId} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{item.contactName}</p>
+                    <p className="text-xs text-destructive">{item.error}</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        // Reload assignment for retry
+                        const batch = await getNextP2PBatchAction(campaignId, 1);
+                        if (batch.length > 0) {
+                          setCurrent(batch[0]);
+                          setMessageBody(batch[0].renderedBody);
+                          setIncludeMedia(!!batch[0].mediaUrl);
+                          setContactDisplayedAt(Date.now());
+                          setLastSentAssignmentId(null);
+                          setCompleted(false);
+                          setRetryList((prev) => prev.filter((r) => r.assignmentId !== item.assignmentId));
+                        } else {
+                          toast.error("Could not reload assignment");
+                        }
+                      } catch (err: any) {
+                        toast.error(err.message || "Failed to retry");
+                      }
+                    }}
+                  >
+                    <RotateCcw className="h-3 w-3 mr-1" />
+                    Retry
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3 justify-center">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setRetryList([]);
+                }}
+              >
+                Skip and Finish
+              </Button>
+              <Button onClick={() => router.push(`/campaigns/${campaignId}`)}>
+                Back to Campaign
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex items-center justify-center h-[calc(100vh-3.5rem)]">
         <div className="text-center max-w-md">
@@ -548,15 +641,11 @@ export default function P2PSendPage() {
           <div className="flex items-center gap-3 mt-4">
             <Button
               onClick={handleSend}
-              disabled={!messageBody.trim() || sending}
+              disabled={!messageBody.trim()}
               className="flex-1 h-12 text-base font-medium"
               size="lg"
             >
-              {sending ? (
-                <div className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
-              ) : (
-                <Send className="h-4 w-4 mr-2" />
-              )}
+              <Send className="h-4 w-4 mr-2" />
               Send
               <kbd className="hidden md:inline-flex ml-2 text-[10px] bg-primary-foreground/20 px-1.5 py-0.5 rounded">
                 Enter

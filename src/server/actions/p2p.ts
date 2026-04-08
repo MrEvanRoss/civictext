@@ -39,16 +39,17 @@ export async function getNextP2PBatchAction(campaignId: string, batchSize: numbe
 /**
  * Send a single P2P message. Each call = one human-initiated send.
  * Requires P2P_SEND permission.
+ * sendLatencyMs: time in ms from when the contact was displayed to when the agent clicked Send.
  */
 export async function sendP2PMessageAction(
   assignmentId: string,
   body: string,
   mediaUrl?: string,
-  sessionStartTime?: number
+  sendLatencyMs?: number
 ) {
   const session = await requirePermission(PERMISSIONS.P2P_SEND);
   const user = session.user as any;
-  return sendOne(user.orgId, assignmentId, user.id, body, mediaUrl, sessionStartTime);
+  return sendOne(user.orgId, assignmentId, user.id, body, mediaUrl, sendLatencyMs);
 }
 
 /**
