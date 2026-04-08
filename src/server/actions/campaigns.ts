@@ -244,3 +244,135 @@ export async function sendTestMessageAction(data: {
 
   return { messageId: message.id, phone: e164Phone };
 }
+
+// ---------------------------------------------------------------------------
+// Scheduled campaigns actions
+// ---------------------------------------------------------------------------
+
+/**
+ * Get campaigns with status SCHEDULED.
+ * If month/year provided, filter to that calendar month (in the org's timezone).
+ * Otherwise return all upcoming scheduled campaigns.
+ */
+export async function getScheduledCampaignsAction(month?: number, year?: number) {
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
+
+  // Get org timezone
+  const org = await db.organization.findUnique({
+    where: { id: orgId },
+    select: { timezone: true },
+  });
+  const timezone = org?.timezone || "America/New_York";
+
+  const where: any = {
+    orgId,
+    status: "SCHEDULED",
+    scheduledAt: { not: null },
+  };
+
+  if (month != null && year != null) {
+    // Build start/end of the month in the org's timezone, then convert to UTC
+    // We need the full calendar grid range (prev month days + next month days),
+    // so we widen the window by ~7 days on each side.
+    const startOfMonth = new Date(year, month, 1);
+    const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999);
+    // Widen by 7 days for calendar grid edges
+    const rangeStart = new Date(startOfMonth);
+    rangeStart.setDate(rangeStart.getDate() - 7);
+    const rangeEnd = new Date(endOfMonth);
+    rangeEnd.setDate(rangeEnd.getDate() + 7);
+
+    where.scheduledAt = {
+      gte: rangeStart,
+      lte: rangeEnd,
+    };
+  }
+
+  const campaigns = await db.campaign.findMany({
+    where,
+    orderBy: { scheduledAt: "asc" },
+    include: {
+      segment: { select: { name: true, contactCount: true } },
+    },
+  });
+
+  return { campaigns, timezone };
+}
+
+/**
+ * Reschedule a campaign by updating its scheduledAt date.
+ */
+export async function rescheduleCampaignAction(campaignId: string, newDate: string) {
+  await requirePermission(PERMISSIONS.CAMPAIGN_SEND);
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
+
+  z.string().uuid().parse(campaignId);
+  const parsedDate = new Date(newDate);
+  if (isNaN(parsedDate.getTime())) {
+    throw new Error("Invalid date");
+  }
+
+  const campaign = await db.campaign.findFirst({
+    where: { id: campaignId, orgId },
+  });
+
+  if (!campaign) throw new Error("Campaign not found");
+  if (campaign.status !== "SCHEDULED") {
+    throw new Error("Can only reschedule campaigns with SCHEDULED status");
+  }
+
+  return db.campaign.update({
+    where: { id: campaignId },
+    data: { scheduledAt: parsedDate },
+  });
+}
+
+/**
+ * Cancel a scheduled campaign.
+ */
+export async function cancelScheduledCampaignAction(campaignId: string) {
+  await requirePermission(PERMISSIONS.CAMPAIGN_SEND);
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
+
+  z.string().uuid().parse(campaignId);
+
+  const campaign = await db.campaign.findFirst({
+    where: { id: campaignId, orgId },
+  });
+
+  if (!campaign) throw new Error("Campaign not found");
+  if (campaign.status !== "SCHEDULED") {
+    throw new Error("Can only cancel campaigns with SCHEDULED status");
+  }
+
+  return db.campaign.update({
+    where: { id: campaignId },
+    data: { status: "CANCELLED" },
+  });
+}
+
+/**
+ * Send a scheduled campaign immediately.
+ * Sets status to SENDING and clears scheduledAt.
+ */
+export async function sendNowAction(campaignId: string) {
+  await requirePermission(PERMISSIONS.CAMPAIGN_SEND);
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
+
+  z.string().uuid().parse(campaignId);
+
+  const campaign = await db.campaign.findFirst({
+    where: { id: campaignId, orgId },
+  });
+
+  if (!campaign) throw new Error("Campaign not found");
+  if (campaign.status !== "SCHEDULED") {
+    throw new Error("Can only send campaigns with SCHEDULED status");
+  }
+
+  return changeCampaignStatus(orgId, campaignId, "SENDING");
+}

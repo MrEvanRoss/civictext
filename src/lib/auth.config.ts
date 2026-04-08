@@ -40,7 +40,16 @@ export const authConfig: NextAuthConfig = {
         nextUrl.pathname.startsWith("/analytics") ||
         nextUrl.pathname.startsWith("/phone-numbers") ||
         nextUrl.pathname.startsWith("/billing") ||
-        nextUrl.pathname.startsWith("/settings");
+        nextUrl.pathname.startsWith("/settings") ||
+        nextUrl.pathname.startsWith("/growth") ||
+        nextUrl.pathname.startsWith("/team") ||
+        nextUrl.pathname.startsWith("/templates") ||
+        nextUrl.pathname.startsWith("/surveys") ||
+        nextUrl.pathname.startsWith("/subcommunities") ||
+        nextUrl.pathname.startsWith("/flows") ||
+        nextUrl.pathname.startsWith("/scheduled") ||
+        nextUrl.pathname.startsWith("/supervisor") ||
+        nextUrl.pathname.startsWith("/interest-lists");
       const isAdmin = nextUrl.pathname.startsWith("/admin");
       const isWebhook = nextUrl.pathname.startsWith("/api/webhooks");
 

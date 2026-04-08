@@ -121,6 +121,13 @@ enum SurveyStatus {
   CLOSED
 }
 
+enum ContentFilterAction {
+  HIDE
+  FLAG
+  AUTO_REPLY
+  BLOCK
+}
+
 // ============================================================
 // CORE: Organization & Users
 // ============================================================
@@ -171,6 +178,7 @@ model Organization {
   p2pAssignments           P2PAssignment[]
   subcommunities           Subcommunity[]
   surveys                  Survey[]
+  contentFilters           ContentFilter[]
 
   @@index([status])
 }
@@ -960,4 +968,21 @@ model SurveyResponse {
 
   @@unique([surveyId, contactId])
   @@index([surveyId])
+}
+
+// ============================================================
+// CONTENT FILTERS
+// ============================================================
+
+model ContentFilter {
+  id        String              @id @default(uuid())
+  orgId     String
+  org       Organization        @relation(fields: [orgId], references: [id])
+  phrase    String
+  action    ContentFilterAction  @default(HIDE)
+  isActive  Boolean             @default(true)
+  createdAt DateTime            @default(now())
+
+  @@unique([orgId, phrase])
+  @@index([orgId])
 }
