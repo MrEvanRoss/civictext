@@ -53,6 +53,14 @@ export async function getDashboardStatsAction() {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+  // Start of today (midnight in UTC — sufficient for dashboard counts)
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  // 7 days from now for scheduled campaigns
+  const sevenDaysFromNow = new Date();
+  sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+
   const [
     messagesSent,
     messagesDelivered,
@@ -60,6 +68,13 @@ export async function getDashboardStatsAction() {
     activeCampaigns,
     recentCampaigns,
     plan,
+    // New queries for extended dashboard
+    messagesToday,
+    responsesToday,
+    pendingConversations,
+    scheduledCampaigns,
+    recentCompletedCampaigns,
+    recentOptIns,
   ] = await Promise.all([
     db.message.count({
       where: { orgId, direction: "OUTBOUND", createdAt: { gte: thirtyDaysAgo } },
@@ -88,17 +103,121 @@ export async function getDashboardStatsAction() {
       },
     }),
     db.messagingPlan.findUnique({ where: { orgId } }),
+    // Messages sent today (outbound)
+    db.message.count({
+      where: { orgId, direction: "OUTBOUND", createdAt: { gte: todayStart } },
+    }),
+    // Responses received today (inbound)
+    db.message.count({
+      where: { orgId, direction: "INBOUND", createdAt: { gte: todayStart } },
+    }),
+    // Open/pending conversations
+    db.conversation.count({
+      where: { orgId, state: { in: ["OPEN", "PENDING"] } },
+    }),
+    // Scheduled campaigns in the next 7 days
+    db.campaign.findMany({
+      where: {
+        orgId,
+        status: "SCHEDULED",
+        scheduledAt: { gte: new Date(), lte: sevenDaysFromNow },
+      },
+      orderBy: { scheduledAt: "asc" },
+      take: 10,
+      select: {
+        id: true,
+        name: true,
+        scheduledAt: true,
+        type: true,
+        segmentId: true,
+        totalRecipients: true,
+      },
+    }),
+    // Recently completed campaigns (for activity feed)
+    db.campaign.findMany({
+      where: {
+        orgId,
+        status: "COMPLETED",
+        completedAt: { not: null },
+      },
+      orderBy: { completedAt: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        name: true,
+        sentCount: true,
+        completedAt: true,
+      },
+    }),
+    // Recently opted-in contacts (for activity feed)
+    db.contact.findMany({
+      where: {
+        orgId,
+        optInStatus: "OPTED_IN",
+        optInTimestamp: { not: null },
+      },
+      orderBy: { optInTimestamp: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        optInTimestamp: true,
+      },
+    }),
   ]);
 
   const deliveryRate =
     messagesSent > 0 ? ((messagesDelivered / messagesSent) * 100).toFixed(1) : null;
 
+  // Build recent activity feed from completed campaigns + opted-in contacts
+  type ActivityItem = {
+    type: "campaign_sent" | "contact_joined";
+    description: string;
+    timestamp: Date;
+    linkTo?: string;
+  };
+
+  const activityItems: ActivityItem[] = [];
+
+  for (const c of recentCompletedCampaigns) {
+    if (c.completedAt) {
+      activityItems.push({
+        type: "campaign_sent",
+        description: `Campaign '${c.name}' sent to ${c.sentCount.toLocaleString()} recipients`,
+        timestamp: c.completedAt,
+        linkTo: `/campaigns/${c.id}`,
+      });
+    }
+  }
+
+  for (const contact of recentOptIns) {
+    if (contact.optInTimestamp) {
+      const name = [contact.firstName, contact.lastName].filter(Boolean).join(" ") || "A contact";
+      activityItems.push({
+        type: "contact_joined",
+        description: `${name} joined`,
+        timestamp: contact.optInTimestamp,
+        linkTo: `/contacts/${contact.id}`,
+      });
+    }
+  }
+
+  // Sort by timestamp descending, take 10
+  activityItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const recentActivity = activityItems.slice(0, 10);
+
   return {
     messagesSent,
+    messagesToday,
+    responsesToday,
     deliveryRate,
     activeContacts,
     activeCampaigns,
+    pendingConversations,
     recentCampaigns,
+    scheduledCampaigns,
+    recentActivity,
     plan: plan
       ? {
           balanceCents: plan.balanceCents,

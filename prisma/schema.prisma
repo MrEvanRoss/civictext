@@ -119,6 +119,10 @@ model Organization {
   quietHoursStart          String    @default("21:00")
   quietHoursEnd            String    @default("08:00")
   politicalDisclaimer      String?
+  welcomeMessage           String?   // Message sent to new contacts who opt in
+  optOutMessage            String?   // Confirmation message when a contact opts out
+  messageSignature         String?   // Optional footer appended to all outbound messages
+  accentColor              String?   // UI accent color preference (hex)
   orgType                  String    @default("political") // political, government, nonprofit, advocacy
   allowedCampaignTypes     String[]  @default(["BROADCAST", "P2P", "GOTV", "DRIP", "AUTO_REPLY"])
   status                   OrgStatus @default(PENDING_APPROVAL)
