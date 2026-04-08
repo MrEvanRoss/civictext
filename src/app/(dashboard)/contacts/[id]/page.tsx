@@ -21,9 +21,18 @@ import {
   updateContactAction,
   deleteContactAction,
   getContactTimelineAction,
+  getContactNotesAction,
+  addContactNoteAction,
+  deleteContactNoteAction,
 } from "@/server/actions/contacts";
+import {
+  getContactInterestListsAction,
+  listInterestListsAction,
+  addMemberAction,
+  removeMemberAction,
+} from "@/server/actions/interest-lists";
 import { quickSendAction } from "@/server/actions/inbox";
-import { ArrowLeft, Save, Trash2, Send, MessageSquare, StickyNote, ShieldCheck, ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Send, MessageSquare, StickyNote, ShieldCheck, ArrowDownLeft, ArrowUpRight, Hash, Plus, X } from "lucide-react";
 
 export default function ContactDetailPage() {
   const params = useParams();
@@ -56,9 +65,22 @@ export default function ContactDetailPage() {
   const [timeline, setTimeline] = useState<any[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
 
+  // Notes
+  const [notes, setNotes] = useState<any[]>([]);
+  const [newNote, setNewNote] = useState("");
+  const [addingNote, setAddingNote] = useState(false);
+
+  // Interest Lists
+  const [memberLists, setMemberLists] = useState<any[]>([]);
+  const [allLists, setAllLists] = useState<any[]>([]);
+  const [showAddList, setShowAddList] = useState(false);
+  const [addListId, setAddListId] = useState("");
+
   useEffect(() => {
     loadContact();
     loadTimeline();
+    loadNotes();
+    loadInterestLists();
   }, [contactId]);
 
   async function loadTimeline() {
@@ -67,9 +89,78 @@ export default function ContactDetailPage() {
       const data = await getContactTimelineAction(contactId);
       setTimeline(data);
     } catch {
-      // Timeline is non-critical, don't block the page
+      // Timeline is non-critical
     } finally {
       setTimelineLoading(false);
+    }
+  }
+
+  async function loadNotes() {
+    try {
+      const data = await getContactNotesAction(contactId);
+      setNotes(data);
+    } catch {
+      // Non-critical
+    }
+  }
+
+  async function loadInterestLists() {
+    try {
+      const [memberData, allData] = await Promise.all([
+        getContactInterestListsAction(contactId),
+        listInterestListsAction(),
+      ]);
+      setMemberLists(memberData);
+      setAllLists(allData);
+    } catch {
+      // Non-critical
+    }
+  }
+
+  async function handleAddNote() {
+    if (!newNote.trim()) return;
+    setAddingNote(true);
+    try {
+      await addContactNoteAction(contactId, newNote.trim());
+      setNewNote("");
+      await loadNotes();
+      await loadTimeline();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setAddingNote(false);
+    }
+  }
+
+  async function handleDeleteNote(noteId: string) {
+    if (!confirm("Delete this note?")) return;
+    try {
+      await deleteContactNoteAction(noteId);
+      await loadNotes();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  }
+
+  async function handleAddToList() {
+    if (!addListId) return;
+    try {
+      await addMemberAction(addListId, contactId);
+      setAddListId("");
+      setShowAddList(false);
+      await loadInterestLists();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  }
+
+  async function handleRemoveFromList(listId: string) {
+    if (!confirm("Remove contact from this interest list?")) return;
+    try {
+      await removeMemberAction(listId, contactId);
+      await loadInterestLists();
+    } catch (err: any) {
+      alert(err.message);
     }
   }
 
@@ -486,6 +577,117 @@ export default function ContactDetailPage() {
                 </dd>
               </div>
             </dl>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Interest Lists & Notes side by side */}
+      <div className="grid grid-cols-2 gap-6">
+        {/* Interest Lists */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Hash className="h-5 w-5" />
+                Interest Lists
+              </CardTitle>
+              <Button variant="outline" size="sm" onClick={() => setShowAddList(!showAddList)}>
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Add to List
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {showAddList && (
+              <div className="flex gap-2 mb-4">
+                <Select
+                  value={addListId}
+                  onChange={(e) => setAddListId(e.target.value)}
+                  className="flex-1"
+                >
+                  <option value="">Select a list...</option>
+                  {allLists
+                    .filter((l: any) => !memberLists.some((m: any) => m.interestList.id === l.id))
+                    .map((l: any) => (
+                      <option key={l.id} value={l.id}>{l.name} ({l.keyword})</option>
+                    ))}
+                </Select>
+                <Button size="sm" onClick={handleAddToList} disabled={!addListId}>Add</Button>
+                <Button variant="ghost" size="sm" onClick={() => { setShowAddList(false); setAddListId(""); }}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+            {memberLists.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Not on any interest lists.</p>
+            ) : (
+              <div className="space-y-2">
+                {memberLists.map((m: any) => (
+                  <div key={m.id} className="flex items-center justify-between p-2 rounded-lg border">
+                    <div>
+                      <p className="text-sm font-medium">{m.interestList.name}</p>
+                      <p className="text-xs text-muted-foreground font-mono">{m.interestList.keyword}</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive h-7"
+                      onClick={() => handleRemoveFromList(m.interestList.id)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Notes */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <StickyNote className="h-5 w-5" />
+              Notes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2 mb-4">
+              <Input
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                placeholder="Add a note about this contact..."
+                className="flex-1"
+                onKeyDown={(e) => { if (e.key === "Enter") handleAddNote(); }}
+              />
+              <Button size="sm" onClick={handleAddNote} disabled={addingNote || !newNote.trim()}>
+                {addingNote ? "Adding..." : "Add"}
+              </Button>
+            </div>
+            {notes.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No notes yet.</p>
+            ) : (
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {notes.map((note: any) => (
+                  <div key={note.id} className="p-3 rounded-lg border text-sm">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-muted-foreground">
+                        {note.author?.name || "Team"} &middot; {new Date(note.createdAt).toLocaleString()}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleDeleteNote(note.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <p>{note.body}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

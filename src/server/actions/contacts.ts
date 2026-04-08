@@ -293,3 +293,55 @@ export async function getContactTimelineAction(contactId: string) {
 
   return timeline;
 }
+
+/**
+ * Get notes for a contact.
+ */
+export async function getContactNotesAction(contactId: string) {
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
+
+  return db.contactNote.findMany({
+    where: { contactId, orgId },
+    orderBy: { createdAt: "desc" },
+    include: { author: { select: { name: true } } },
+  });
+}
+
+/**
+ * Add a note to a contact.
+ */
+export async function addContactNoteAction(contactId: string, body: string) {
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
+  const userId = (session.user as any).id;
+
+  if (!body.trim()) throw new Error("Note body is required");
+
+  const contact = await db.contact.findFirst({
+    where: { id: contactId, orgId },
+  });
+  if (!contact) throw new Error("Contact not found");
+
+  return db.contactNote.create({
+    data: {
+      orgId,
+      contactId,
+      authorId: userId,
+      body: body.trim(),
+    },
+    include: { author: { select: { name: true } } },
+  });
+}
+
+/**
+ * Delete a contact note.
+ */
+export async function deleteContactNoteAction(noteId: string) {
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
+
+  await db.contactNote.deleteMany({
+    where: { id: noteId, orgId },
+  });
+}

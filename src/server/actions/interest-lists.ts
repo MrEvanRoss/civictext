@@ -1,13 +1,14 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { requireAuth } from "./auth";
+import { requireOrg } from "./auth";
 
 /**
  * List all interest lists for the current org.
  */
 export async function listInterestListsAction() {
-  const { orgId } = await requireAuth();
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
 
   return db.interestList.findMany({
     where: { orgId },
@@ -22,7 +23,8 @@ export async function listInterestListsAction() {
  * Get a single interest list with its members.
  */
 export async function getInterestListAction(listId: string) {
-  const { orgId } = await requireAuth();
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
 
   return db.interestList.findFirst({
     where: { id: listId, orgId },
@@ -55,7 +57,8 @@ export async function createInterestListAction(input: {
   description?: string;
   welcomeMessage?: string;
 }) {
-  const { orgId } = await requireAuth("MANAGER");
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
 
   const keyword = input.keyword.toUpperCase().trim();
 
@@ -99,7 +102,8 @@ export async function updateInterestListAction(
     isActive?: boolean;
   }
 ) {
-  const { orgId } = await requireAuth("MANAGER");
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
 
   const existing = await db.interestList.findFirst({
     where: { id: listId, orgId },
@@ -121,7 +125,8 @@ export async function updateInterestListAction(
  * Delete an interest list.
  */
 export async function deleteInterestListAction(listId: string) {
-  const { orgId } = await requireAuth("ADMIN");
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
 
   const existing = await db.interestList.findFirst({
     where: { id: listId, orgId },
@@ -135,7 +140,8 @@ export async function deleteInterestListAction(listId: string) {
  * Add a contact to an interest list manually.
  */
 export async function addMemberAction(listId: string, contactId: string) {
-  const { orgId } = await requireAuth();
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
 
   const list = await db.interestList.findFirst({
     where: { id: listId, orgId },
@@ -174,7 +180,8 @@ export async function addMemberAction(listId: string, contactId: string) {
  * Remove a contact from an interest list.
  */
 export async function removeMemberAction(listId: string, contactId: string) {
-  const { orgId } = await requireAuth();
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
 
   const list = await db.interestList.findFirst({
     where: { id: listId, orgId },
@@ -199,7 +206,8 @@ export async function removeMemberAction(listId: string, contactId: string) {
  * Bulk add contacts to an interest list (e.g., by tag or segment).
  */
 export async function bulkAddMembersAction(listId: string, contactIds: string[]) {
-  const { orgId } = await requireAuth("MANAGER");
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
 
   const list = await db.interestList.findFirst({
     where: { id: listId, orgId },
@@ -248,7 +256,8 @@ export async function bulkAddMembersAction(listId: string, contactIds: string[])
  * Get interest lists that a specific contact belongs to.
  */
 export async function getContactInterestListsAction(contactId: string) {
-  const { orgId } = await requireAuth();
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
 
   return db.interestListMember.findMany({
     where: {
