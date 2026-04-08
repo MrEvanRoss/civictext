@@ -105,6 +105,21 @@ export default function CampaignDetailPage() {
     );
   }
 
+  if (error && !campaign) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center space-y-4">
+          <div className="rounded-md bg-destructive/10 border border-destructive/20 p-4 text-sm text-destructive">
+            {error}
+          </div>
+          <Button onClick={() => { setError(""); setLoading(true); loadCampaign(); }}>
+            Try again
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!campaign) return null;
 
   const deliveryRate =

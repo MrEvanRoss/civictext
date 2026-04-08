@@ -331,7 +331,7 @@ export default function ImportPage() {
                 <div className="bg-muted rounded-lg p-3 font-mono text-xs overflow-x-auto">
                   <p>Phone,First Name,Last Name,Email,Tags</p>
                   <p>2125551234,Jane,Smith,jane@example.com,volunteer</p>
-                  <p>(312) 555-6789,John,Doe,john@example.com,"donor,vip"</p>
+                  <p>(312) 555-6789,John,Doe,john@example.com,&quot;donor,vip&quot;</p>
                   <p>+14155550100,Maria,Garcia,,supporter</p>
                 </div>
                 <Button

@@ -112,7 +112,7 @@ export async function bulkAddTagsAction(contactIds: string[], tags: string[]) {
     if (!contact) continue;
 
     const existingTags = contact.tags || [];
-    const newTags = [...new Set([...existingTags, ...validatedTags])];
+    const newTags = Array.from(new Set([...existingTags, ...validatedTags]));
 
     await db.contact.update({
       where: { id: contactId },
@@ -186,8 +186,8 @@ export async function exportContactsAction(filter?: Partial<ContactFilter>) {
       { email: { contains: filter.search, mode: "insensitive" } },
     ];
   }
-  if (filter?.tag) {
-    where.tags = { has: filter.tag };
+  if (filter?.tags && filter.tags.length > 0) {
+    where.tags = { hasSome: filter.tags };
   }
   if (filter?.optInStatus) {
     where.optInStatus = filter.optInStatus;

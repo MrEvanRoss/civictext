@@ -156,8 +156,8 @@ export default function LoginPage() {
                 placeholder="000000"
                 value={totpCode}
                 onChange={(e) => {
-                  // Only allow digits, max 8 chars (backup codes have dashes)
-                  const val = e.target.value.replace(/[^0-9A-Za-z-]/g, "").slice(0, 9);
+                  // Allow digits for 6-digit TOTP codes, plus letters/dashes for backup codes (max 10 chars)
+                  const val = e.target.value.replace(/[^0-9A-Za-z-]/g, "").slice(0, 10);
                   setTotpCode(val);
                 }}
                 className="text-center text-2xl tracking-[0.5em] font-mono"

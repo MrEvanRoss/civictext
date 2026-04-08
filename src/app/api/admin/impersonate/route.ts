@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
+import { rateLimit } from "@/lib/rate-limit";
 
 /**
  * Admin impersonation endpoint.
@@ -14,6 +15,16 @@ export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user || !(session.user as any).isSuperAdmin) {
     return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // Rate limit: 5 impersonations per 5 minutes per admin user
+  const adminId = (session.user as any).id;
+  const { allowed, remaining } = await rateLimit(`rl:impersonate:${adminId}`, 5, 300);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many impersonation attempts. Please wait before trying again." },
+      { status: 429 }
+    );
   }
 
   const url = new URL(request.url);

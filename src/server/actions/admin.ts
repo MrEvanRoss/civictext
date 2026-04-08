@@ -171,6 +171,20 @@ export async function addCreditsAction(orgId: string, amountCents: number) {
 
   await addCredits(orgId, amountCents);
 
+  // Audit trail: record manual credit adjustment in AddOnPurchase.
+  // Note: UsageLedger requires a foreign key to Message (messageId is
+  // non-optional and @unique), so it cannot be used for admin adjustments
+  // that have no associated message. AddOnPurchase is the appropriate
+  // table for recording credit additions.
+  await db.addOnPurchase.create({
+    data: {
+      orgId,
+      messageCount: 0,
+      priceInCents: amountCents,
+      status: "completed",
+    },
+  });
+
   console.info(`[ADMIN] Added ${amountCents}¢ credits to org ${orgId}`);
   return { success: true };
 }

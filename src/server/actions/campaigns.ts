@@ -211,7 +211,7 @@ export async function sendTestMessageAction(data: {
       data: {
         orgId,
         phone: e164Phone,
-        optInStatus: "OPTED_IN",
+        optInStatus: "PENDING",
         optInSource: "test_message",
         optInTimestamp: new Date(),
       },

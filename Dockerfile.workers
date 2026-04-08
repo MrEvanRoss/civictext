@@ -44,7 +44,7 @@ RUN addgroup -g 1001 -S nodejs && \
 USER nodejs
 
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-    CMD node -e "process.exit(0)"
+    CMD node -e "const Redis = require('ioredis'); const r = new Redis(process.env.REDIS_URL); r.ping().then(() => { r.quit(); process.exit(0); }).catch(() => process.exit(1))"
 
 ENTRYPOINT ["dumb-init", "--"]
 

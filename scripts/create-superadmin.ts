@@ -11,9 +11,19 @@ const adapter = new PrismaPg(connectionString);
 const db = new PrismaClient({ adapter });
 
 async function main() {
-  const email = "CivicTextAdmin@EvanRoss.com";
-  const password = "CivicTextAdmin2026!";
-  const name = "CivicText Admin";
+  const email = process.env.SUPERADMIN_EMAIL;
+  const password = process.env.SUPERADMIN_PASSWORD;
+  const name = process.env.SUPERADMIN_NAME || "CivicText Admin";
+
+  if (!email || !password) {
+    console.error("ERROR: Required environment variables are not set.");
+    console.error("  SUPERADMIN_EMAIL    - email address for the superadmin account");
+    console.error("  SUPERADMIN_PASSWORD - password for the superadmin account");
+    console.error("");
+    console.error("Usage:");
+    console.error("  SUPERADMIN_EMAIL=admin@example.com SUPERADMIN_PASSWORD=securepass npx tsx scripts/create-superadmin.ts");
+    process.exit(1);
+  }
 
   // Check if user already exists
   const existing = await db.user.findUnique({ where: { email } });

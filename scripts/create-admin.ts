@@ -51,12 +51,14 @@ async function main() {
       },
     });
 
-    // Create messaging plan
+    // Create messaging plan with prepaid billing fields
     await db.messagingPlan.create({
       data: {
         orgId: org.id,
-        tier: "ENTERPRISE",
-        monthlyAllotment: 1000000,
+        balanceCents: 0,
+        smsRateCents: 4,
+        mmsRateCents: 8,
+        phoneNumberFeeCents: 500,
       },
     });
 

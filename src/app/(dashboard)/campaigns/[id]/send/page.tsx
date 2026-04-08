@@ -155,7 +155,18 @@ export default function P2PSendPage() {
   const prefetchNext = useCallback(() => {
     getNextP2PBatchAction(campaignId, P2P_PREFETCH_COUNT)
       .then((batch) => setPrefetched((prev) => [...prev, ...batch]))
-      .catch(() => {});
+      .catch((err) => {
+        console.warn("P2P prefetch failed:", err?.message || err);
+        // Warn the user if the buffer is running low
+        setPrefetched((prev) => {
+          if (prev.length < 2) {
+            toast.warning("Failed to load upcoming contacts. Your queue may be running low.", {
+              description: "Sending can continue, but new contacts may not load automatically.",
+            });
+          }
+          return prev;
+        });
+      });
   }, [campaignId]);
 
   // Advance to next contact
@@ -421,7 +432,7 @@ export default function P2PSendPage() {
           <div className="h-20 w-20 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-4">
             <PartyPopper className="h-10 w-10 text-success" />
           </div>
-          <h1 className="text-2xl font-bold mb-2">You're done!</h1>
+          <h1 className="text-2xl font-bold mb-2">You&apos;re done!</h1>
           <p className="text-muted-foreground mb-6">
             Great work! You sent {progress.sent} messages and skipped {progress.skipped}.
           </p>

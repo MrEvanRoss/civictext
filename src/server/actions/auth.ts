@@ -64,6 +64,16 @@ async function getImpersonationState() {
 
     const state = JSON.parse(impersonateCookie.value);
     if (state.targetOrgId && state.targetUserId) {
+      // Re-verify the original admin still has superadmin privileges
+      const adminUser = await db.user.findUnique({
+        where: { id: state.adminId },
+        select: { isSuperAdmin: true },
+      });
+      if (!adminUser?.isSuperAdmin) {
+        // Admin privileges were revoked — clear the impersonation cookie
+        cookieStore.delete("civictext_impersonate");
+        return null;
+      }
       return state;
     }
   } catch {

@@ -147,7 +147,7 @@ const SelectSeparator = React.forwardRef<
 SelectSeparator.displayName = SelectPrimitive.Separator.displayName
 
 // Backward-compatible native select for existing pages
-interface NativeSelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {}
+type NativeSelectProps = React.SelectHTMLAttributes<HTMLSelectElement>;
 
 const NativeSelect = React.forwardRef<HTMLSelectElement, NativeSelectProps>(
   ({ className, children, ...props }, ref) => {

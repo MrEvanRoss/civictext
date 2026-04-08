@@ -110,13 +110,21 @@ export async function syncBalanceToRedis(orgId: string): Promise<void> {
 
 /**
  * Add credits to an org's balance (both Redis and DB).
+ * Uses INCRBY on Redis instead of re-syncing, so that if the app crashes
+ * between the DB write and the Redis update the balance stays consistent.
  */
 export async function addCredits(orgId: string, amountCents: number): Promise<void> {
-  await db.messagingPlan.update({
-    where: { orgId },
-    data: { balanceCents: { increment: amountCents } },
+  const balanceKey = `org:${orgId}:balance`;
+
+  await db.$transaction(async (tx) => {
+    await tx.messagingPlan.update({
+      where: { orgId },
+      data: { balanceCents: { increment: amountCents } },
+    });
   });
-  await syncBalanceToRedis(orgId);
+
+  // Atomically increment Redis by the delta instead of overwriting with full balance
+  await redis.incrby(balanceKey, amountCents);
 }
 
 /**
@@ -126,27 +134,37 @@ async function checkBalanceFromDB(
   orgId: string,
   costCents: number
 ): Promise<BalanceCheckResult> {
-  const plan = await db.messagingPlan.findUnique({ where: { orgId } });
-  if (!plan) {
-    return { allowed: false, remainingBalanceCents: 0, costCents };
-  }
+  // Atomic check-and-deduct: the WHERE guard ensures we only deduct if
+  // the balance is sufficient, eliminating the race condition between
+  // reading and writing.
+  const result = await db.messagingPlan.updateMany({
+    where: {
+      orgId,
+      balanceCents: { gte: costCents },
+    },
+    data: {
+      balanceCents: { decrement: costCents },
+      totalSpentCents: { increment: costCents },
+    },
+  });
 
-  if (plan.balanceCents >= costCents) {
-    await db.messagingPlan.update({
-      where: { orgId },
-      data: {
-        balanceCents: { decrement: costCents },
-        totalSpentCents: { increment: costCents },
-      },
-    });
+  if (result.count > 0) {
+    // Deduction succeeded -- fetch updated balance for the response
+    const updated = await db.messagingPlan.findUnique({ where: { orgId } });
     return {
       allowed: true,
-      remainingBalanceCents: plan.balanceCents - costCents,
+      remainingBalanceCents: updated?.balanceCents ?? 0,
       costCents,
     };
   }
 
-  return { allowed: false, remainingBalanceCents: plan.balanceCents, costCents };
+  // Either no plan exists or balance was insufficient
+  const plan = await db.messagingPlan.findUnique({ where: { orgId } });
+  return {
+    allowed: false,
+    remainingBalanceCents: plan?.balanceCents ?? 0,
+    costCents,
+  };
 }
 
 /**

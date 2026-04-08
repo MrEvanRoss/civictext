@@ -220,8 +220,10 @@ export async function POST(request: Request) {
         joinedList = true;
       }
 
-      // Auto opt-in the contact if they're texting a keyword to join
-      if (contact.optInStatus !== "OPTED_IN") {
+      // Only auto opt-in if the contact was already OPTED_IN (leave alone) or OPTED_OUT (re-subscribe).
+      // Do NOT auto opt-in contacts who are NEVER_OPTED_IN or PENDING — they haven't given
+      // explicit consent to receive messages, and joining an interest list alone is not sufficient.
+      if (contact.optInStatus === "OPTED_OUT") {
         await db.contact.update({
           where: { id: contact.id },
           data: {

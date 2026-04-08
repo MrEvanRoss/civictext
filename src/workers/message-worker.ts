@@ -326,6 +326,39 @@ campaignQueue.add(
  * Expand a campaign: resolve segment contacts and create message jobs.
  */
 async function expandCampaign(orgId: string, campaignId: string, job: Job) {
+  // Atomic lock: only one worker can transition SENDING -> expanding.
+  // If another worker already started expansion, updateMany returns 0 rows
+  // and we bail out, preventing duplicate message creation.
+  const lockResult = await db.campaign.updateMany({
+    where: {
+      id: campaignId,
+      orgId,
+      status: "SENDING",
+    },
+    data: {
+      status: "EXPANDING",
+    },
+  });
+
+  if (lockResult.count === 0) {
+    await job.log(`Campaign ${campaignId} already being expanded by another worker, skipping.`);
+    return { status: "skipped", reason: "already_expanding" };
+  }
+
+  // Also check if this campaign already has messages (duplicate expansion guard)
+  const existingMessages = await db.message.count({
+    where: { campaignId },
+  });
+  if (existingMessages > 0) {
+    await job.log(`Campaign ${campaignId} already has ${existingMessages} messages, skipping duplicate expansion.`);
+    // Restore to SENDING since messages already exist
+    await db.campaign.update({
+      where: { id: campaignId },
+      data: { status: "SENDING" },
+    });
+    return { status: "skipped", reason: "already_expanded" };
+  }
+
   const campaign = await db.campaign.findFirst({
     where: { id: campaignId, orgId },
     include: { segment: true },
@@ -416,10 +449,10 @@ async function expandCampaign(orgId: string, campaignId: string, job: Job) {
     select: { id: true, phone: true, firstName: true, lastName: true },
   });
 
-  // Update total recipients
+  // Update total recipients and transition back to SENDING
   await db.campaign.update({
     where: { id: campaignId },
-    data: { totalRecipients: contacts.length },
+    data: { totalRecipients: contacts.length, status: "SENDING" },
   });
 
   await job.log(`Expanding campaign to ${contacts.length} contacts`);

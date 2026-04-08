@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
 import { renderMergeFields } from "./campaign-service";
+import { isQuietHours, runComplianceChecks } from "./compliance-service";
 import { P2P_SUSPICIOUS_MIN_INTERVAL_MS } from "@/lib/constants";
 
 const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
@@ -186,6 +187,12 @@ export async function sendOne(
   mediaUrl?: string,
   sendLatencyMs?: number
 ) {
+  // 0. Check if agent is flagged for suspicious send rate
+  const flagged = await connection.get(`p2p:agent:${agentUserId}:flagged`);
+  if (flagged) {
+    throw new Error("Send rate flagged for review. Please contact your supervisor.");
+  }
+
   // 1. Verify assignment belongs to this agent and is PENDING
   const assignment = await db.p2PAssignment.findFirst({
     where: { id: assignmentId, assignedToId: agentUserId, orgId },
@@ -202,6 +209,23 @@ export async function sendOne(
       data: { status: "OPTED_OUT", skippedAt: new Date() },
     });
     return { skipped: true, reason: "Contact is not opted in" };
+  }
+
+  // 3. Pre-send compliance checks (quiet hours, political disclaimer, etc.)
+  const complianceResult = await runComplianceChecks(
+    orgId,
+    assignment.contactId,
+    body,
+    assignment.contact.phone
+  );
+  if (!complianceResult.allowed) {
+    return {
+      sent: false,
+      blocked: true,
+      reason: complianceResult.reason || "Compliance check failed",
+      action: complianceResult.action,
+      delayUntil: complianceResult.delayUntil,
+    };
   }
 
   const message = await db.message.create({

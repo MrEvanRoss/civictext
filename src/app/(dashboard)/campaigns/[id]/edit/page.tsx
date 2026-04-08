@@ -117,7 +117,7 @@ export default function EditCampaignPage() {
       setMessageBody(campaignData.messageBody || "");
       setMediaUrl(campaignData.mediaUrl || "");
       setP2pReplyScript(campaignData.p2pReplyScript || "");
-      setInterestListMode(campaignData.interestListMode || "");
+      setInterestListMode((campaignData.interestListMode as "" | "everyone" | "include" | "exclude") || "");
       setSelectedListIds(campaignData.interestListIds || []);
 
       if (campaignData.scheduledAt) {

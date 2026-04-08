@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -79,13 +80,10 @@ function Breadcrumbs() {
 export function Topbar() {
   const { data: session } = useSession();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const { theme, setTheme } = useTheme();
 
   const toggleDarkMode = () => {
-    const html = document.documentElement;
-    html.classList.toggle("dark");
-    setDarkMode(!darkMode);
-    localStorage.setItem("theme", html.classList.contains("dark") ? "dark" : "light");
+    setTheme(theme === "dark" ? "light" : "dark");
   };
 
   const initials = session?.user?.name
@@ -124,7 +122,7 @@ export function Topbar() {
             onClick={toggleDarkMode}
             aria-label="Toggle dark mode"
           >
-            {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
 
           {/* Notification bell placeholder */}

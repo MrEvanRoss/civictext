@@ -50,7 +50,7 @@ interface WebhookEndpoint {
   isActive: boolean;
   failCount: number;
   lastError: string | null;
-  createdAt: string;
+  createdAt: Date;
 }
 
 export default function WebhooksPage() {

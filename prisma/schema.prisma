@@ -48,6 +48,7 @@ enum CampaignStatus {
   DRAFT
   SCHEDULED
   SENDING
+  EXPANDING
   PAUSED
   COMPLETED
   CANCELLED
@@ -73,6 +74,7 @@ enum MessageStatus {
 enum ConversationState {
   OPEN
   PENDING
+  CLOSED
   ARCHIVED
   OPTED_OUT
 }
@@ -827,7 +829,7 @@ model ApiKey {
 // ============================================================
 
 model P2PAssignment {
-  id            String              @id @default(cuid())
+  id            String              @id @default(uuid())
   orgId         String
   campaignId    String
   contactId     String
