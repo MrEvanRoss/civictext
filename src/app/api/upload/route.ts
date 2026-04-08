@@ -70,8 +70,13 @@ export async function POST(request: Request) {
     const uniqueId = crypto.randomBytes(12).toString("hex");
     const filename = `${uniqueId}${ext}`;
 
-    // Ensure uploads directory exists
-    const uploadsDir = path.join(process.cwd(), "public", "uploads");
+    // On Vercel the filesystem is read-only, so write to /tmp.
+    // Locally, write to public/uploads for convenience.
+    const isVercel = !!process.env.VERCEL;
+    const uploadsDir = isVercel
+      ? path.join("/tmp", "uploads")
+      : path.join(process.cwd(), "public", "uploads");
+
     await mkdir(uploadsDir, { recursive: true });
 
     // Write file to disk
@@ -79,8 +84,10 @@ export async function POST(request: Request) {
     const filePath = path.join(uploadsDir, filename);
     await writeFile(filePath, buffer);
 
-    // Build public URL
-    const publicUrl = `/uploads/${filename}`;
+    // Build public URL — on Vercel, serve via API route; locally, serve as static
+    const publicUrl = isVercel
+      ? `/api/uploads/${filename}`
+      : `/uploads/${filename}`;
 
     return NextResponse.json({
       url: publicUrl,

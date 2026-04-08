@@ -187,12 +187,12 @@ const STATUS_CONFIG: Record<
   { label: string; variant: "success" | "warning" | "secondary" | "outline"; bannerClass: string }
 > = {
   ACTIVE: {
-    label: "This flow is Active",
+    label: "This journey is Active",
     variant: "success",
     bannerClass: "bg-success/10 text-success border-success/20",
   },
   PAUSED: {
-    label: "This flow is Paused",
+    label: "This journey is Paused",
     variant: "warning",
     bannerClass: "bg-warning/10 text-warning border-warning/20",
   },
@@ -312,13 +312,13 @@ export default function FlowEditorPage() {
     try {
       const data = await getFlowAction(flowId);
       if (!data) {
-        router.push("/flows");
+        router.push("/journeys");
         return;
       }
       setFlow(data as any);
       setNameValue(data.name);
     } catch (err: any) {
-      setError(err.message || "Failed to load flow");
+      setError(err.message || "Failed to load journey");
     } finally {
       setLoading(false);
     }
@@ -491,7 +491,7 @@ export default function FlowEditorPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => router.push("/flows")}
+              onClick={() => router.push("/journeys")}
               className="shrink-0"
             >
               <ArrowLeft className="h-4 w-4" />

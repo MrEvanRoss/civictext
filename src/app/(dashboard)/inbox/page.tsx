@@ -33,7 +33,6 @@ import {
   reopenConversationAction,
 } from "@/server/actions/inbox";
 import { bulkAddTagsAction, updateContactAction } from "@/server/actions/contacts";
-import { suggestRepliesAction } from "@/server/actions/ai";
 import { countSegments, getSegmentLimit } from "@/lib/sms-utils";
 import { MediaUpload } from "@/components/ui/media-upload";
 import {
@@ -198,11 +197,6 @@ export default function InboxPage() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // AI suggested replies state
-  const [aiSuggestionsCache, setAiSuggestionsCache] = useState<Map<string, string[]>>(new Map());
-  const [aiSuggestionsLoading, setAiSuggestionsLoading] = useState(false);
-  const [aiSuggestionsError, setAiSuggestionsError] = useState("");
-
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
@@ -243,29 +237,6 @@ export default function InboxPage() {
       setQuickReplies(data);
     } catch {}
   }
-
-  const handleSuggestReplies = useCallback(async () => {
-    if (!selectedId) return;
-
-    // Check cache first
-    const cached = aiSuggestionsCache.get(selectedId);
-    if (cached) return; // Already have suggestions
-
-    setAiSuggestionsLoading(true);
-    setAiSuggestionsError("");
-    try {
-      const result = await suggestRepliesAction(selectedId);
-      setAiSuggestionsCache((prev) => {
-        const next = new Map(prev);
-        next.set(selectedId, result.suggestions);
-        return next;
-      });
-    } catch (err: any) {
-      setAiSuggestionsError(err.message || "Failed to suggest replies");
-    } finally {
-      setAiSuggestionsLoading(false);
-    }
-  }, [selectedId, aiSuggestionsCache]);
 
   const loadThread = useCallback(async (id: string) => {
     try {
@@ -921,67 +892,6 @@ export default function InboxPage() {
                 </Button>
               </div>
 
-              {/* AI Suggested Replies */}
-              {thread && thread.messages.length > 0 && thread.messages[thread.messages.length - 1].direction === "INBOUND" && (
-                <div className="space-y-2 pt-1 border-t">
-                  {(() => {
-                    const cachedSuggestions = selectedId ? aiSuggestionsCache.get(selectedId) : undefined;
-                    return (
-                      <>
-                        {!cachedSuggestions && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleSuggestReplies}
-                            disabled={aiSuggestionsLoading}
-                            className="text-xs text-muted-foreground h-7 gap-1"
-                          >
-                            {aiSuggestionsLoading ? (
-                              <span className="flex items-center gap-1.5">
-                                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                </svg>
-                                Generating...
-                              </span>
-                            ) : (
-                              <>
-                                <span className="text-xs">&#10024;</span>
-                                Suggest Replies
-                              </>
-                            )}
-                          </Button>
-                        )}
-
-                        {aiSuggestionsError && (
-                          <p className="text-xs text-destructive px-1">{aiSuggestionsError}</p>
-                        )}
-
-                        {cachedSuggestions && cachedSuggestions.length > 0 && (
-                          <div className="space-y-1.5">
-                            <span className="text-[10px] text-muted-foreground font-medium px-1 flex items-center gap-1">
-                              <span className="text-[10px]">&#10024;</span> AI Suggestions
-                            </span>
-                            <div className="flex flex-wrap gap-1.5">
-                              {cachedSuggestions.map((suggestion, i) => (
-                                <button
-                                  key={i}
-                                  type="button"
-                                  onClick={() => setReplyText(suggestion)}
-                                  className="text-xs px-2.5 py-1.5 rounded-full border bg-muted/50 hover:bg-accent hover:border-primary/30 transition-colors text-left max-w-full truncate"
-                                  title={suggestion}
-                                >
-                                  {suggestion}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
             </div>
           </>
         )}

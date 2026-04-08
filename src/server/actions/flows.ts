@@ -123,7 +123,7 @@ export async function getFlowAction(flowId: string) {
     },
   });
 
-  if (!flow) throw new Error("Flow not found");
+  if (!flow) throw new Error("Journey not found");
 
   // Get execution stats
   const [total, active, completed, failed] = await Promise.all([
@@ -191,7 +191,7 @@ export async function updateFlowAction(
   const flow = await db.flow.findFirst({
     where: { id: flowId, orgId },
   });
-  if (!flow) throw new Error("Flow not found");
+  if (!flow) throw new Error("Journey not found");
 
   const updateData: any = { ...validated };
   return db.flow.update({
@@ -220,7 +220,7 @@ export async function updateFlowStatusAction(
     include: { _count: { select: { steps: true } } },
   });
 
-  if (!flow) throw new Error("Flow not found");
+  if (!flow) throw new Error("Journey not found");
 
   // Cannot activate a flow with no steps
   if (status === "ACTIVE" && flow._count.steps === 0) {
@@ -254,7 +254,7 @@ export async function duplicateFlowAction(flowId: string) {
     include: { steps: { orderBy: { position: "asc" } } },
   });
 
-  if (!original) throw new Error("Flow not found");
+  if (!original) throw new Error("Journey not found");
 
   // Create duplicated flow in a transaction
   const duplicated = await db.$transaction(async (tx) => {
@@ -329,7 +329,7 @@ export async function deleteFlowAction(flowId: string) {
     where: { id: flowId, orgId },
   });
 
-  if (!flow) throw new Error("Flow not found");
+  if (!flow) throw new Error("Journey not found");
 
   if (flow.status !== "DRAFT" && flow.status !== "PAUSED") {
     throw new Error(
@@ -373,7 +373,7 @@ export async function createFlowStepAction(
   const flow = await db.flow.findFirst({
     where: { id: flowId, orgId },
   });
-  if (!flow) throw new Error("Flow not found");
+  if (!flow) throw new Error("Journey not found");
 
   // Determine position: use provided or append at end
   let position = validated.position;
@@ -488,7 +488,7 @@ export async function reorderFlowStepsAction(
   const flow = await db.flow.findFirst({
     where: { id: flowId, orgId },
   });
-  if (!flow) throw new Error("Flow not found");
+  if (!flow) throw new Error("Journey not found");
 
   // Update all positions in a transaction
   await db.$transaction(
@@ -522,7 +522,7 @@ export async function getFlowAnalyticsAction(flowId: string) {
     where: { id: flowId, orgId },
     select: { id: true },
   });
-  if (!flow) throw new Error("Flow not found");
+  if (!flow) throw new Error("Journey not found");
 
   const [total, active, completed, failed, paused] = await Promise.all([
     db.flowExecution.count({ where: { flowId } }),

@@ -64,7 +64,7 @@ const navItems: NavEntry[] = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
   { href: "/inbox", label: "Messages", icon: Inbox, badge: true },
   { href: "/campaigns", label: "Campaigns", icon: MessageSquare },
-  { href: "/flows", label: "Flows", icon: GitBranch },
+  { href: "/journeys", label: "Journeys", icon: GitBranch },
   { href: "/surveys", label: "Surveys", icon: ClipboardList },
   { href: "/subcommunities", label: "Interest Lists", icon: UsersRound },
   { href: "/analytics", label: "Insights", icon: TrendingUp },

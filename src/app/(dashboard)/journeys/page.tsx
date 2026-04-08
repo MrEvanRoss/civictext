@@ -194,7 +194,7 @@ export default function FlowsPage() {
       const data = await listFlowsAction();
       setFlows(data as any);
     } catch (err: any) {
-      toast.error(err.message || "Failed to load flows");
+      toast.error(err.message || "Failed to load journeys");
     } finally {
       setLoading(false);
     }
@@ -240,10 +240,10 @@ export default function FlowsPage() {
       });
       resetCreateForm();
       setShowCreate(false);
-      toast.success("Flow created successfully");
+      toast.success("Journey created successfully");
       await loadFlows();
     } catch (err: any) {
-      toast.error(err.message || "Failed to create flow");
+      toast.error(err.message || "Failed to create journey");
     } finally {
       setCreating(false);
     }
@@ -261,19 +261,19 @@ export default function FlowsPage() {
       title: `${labels[newStatus].charAt(0).toUpperCase() + labels[newStatus].slice(1)} "${flowName}"?`,
       description:
         newStatus === "ACTIVE"
-          ? "This flow will begin triggering for matching contacts."
+          ? "This journey will begin triggering for matching contacts."
           : newStatus === "PAUSED"
-            ? "This flow will stop triggering but can be reactivated later."
+            ? "This journey will stop triggering but can be reactivated later."
             : newStatus === "ARCHIVED"
-              ? "This flow will be archived and stop processing. You can restore it to draft later."
-              : "This flow will be returned to draft status.",
+              ? "This journey will be archived and stop processing. You can restore it to draft later."
+              : "This journey will be returned to draft status.",
       action: async () => {
         try {
           await updateFlowStatusAction(flowId, newStatus);
-          toast.success(`Flow ${labels[newStatus]}d`);
+          toast.success(`Journey ${labels[newStatus]}d`);
           await loadFlows();
         } catch (err: any) {
-          toast.error(err.message || `Failed to ${labels[newStatus]} flow`);
+          toast.error(err.message || `Failed to ${labels[newStatus]} journey`);
         }
       },
     });
@@ -284,15 +284,15 @@ export default function FlowsPage() {
       open: true,
       title: `Delete "${flowName}"?`,
       description:
-        "This action cannot be undone. The flow and all its steps will be permanently deleted.",
+        "This action cannot be undone. The journey and all its steps will be permanently deleted.",
       variant: "destructive",
       action: async () => {
         try {
           await deleteFlowAction(flowId);
-          toast.success("Flow deleted");
+          toast.success("Journey deleted");
           await loadFlows();
         } catch (err: any) {
-          toast.error(err.message || "Failed to delete flow");
+          toast.error(err.message || "Failed to delete journey");
         }
       },
     });
@@ -301,10 +301,10 @@ export default function FlowsPage() {
   async function handleDuplicate(flowId: string) {
     try {
       await duplicateFlowAction(flowId);
-      toast.success("Flow duplicated");
+      toast.success("Journey duplicated");
       await loadFlows();
     } catch (err: any) {
-      toast.error(err.message || "Failed to duplicate flow");
+      toast.error(err.message || "Failed to duplicate journey");
     }
   }
 
@@ -325,8 +325,8 @@ export default function FlowsPage() {
       label: "Edit",
       icon: Pencil,
       onClick: () => {
-        // Navigate to flow detail/editor
-        window.location.href = `/flows/${flow.id}`;
+        // Navigate to journey detail/editor
+        window.location.href = `/journeys/${flow.id}`;
       },
     });
 
@@ -405,18 +405,18 @@ export default function FlowsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Flows</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Journeys</h1>
           <p className="text-muted-foreground">
             Automate multi-step messaging sequences
           </p>
         </div>
         <Button onClick={() => setShowCreate(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          Create Flow
+          Create Journey
         </Button>
       </div>
 
-      {/* Create Flow Dialog */}
+      {/* Create Journey Dialog */}
       <Dialog
         open={showCreate}
         onOpenChange={(open) => {
@@ -426,7 +426,7 @@ export default function FlowsPage() {
       >
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
-            <DialogTitle>Create Flow</DialogTitle>
+            <DialogTitle>Create Journey</DialogTitle>
             <DialogDescription>
               Set up an automated messaging sequence triggered by an event.
             </DialogDescription>
@@ -486,7 +486,7 @@ export default function FlowsPage() {
                   className="font-mono uppercase"
                 />
                 <p className="text-xs text-muted-foreground">
-                  The flow triggers when a contact texts this keyword.
+                  The journey triggers when a contact texts this keyword.
                 </p>
               </div>
             )}
@@ -501,7 +501,7 @@ export default function FlowsPage() {
                   placeholder="e.g., volunteer, donor"
                 />
                 <p className="text-xs text-muted-foreground">
-                  The flow triggers when this tag is added to a contact.
+                  The journey triggers when this tag is added to a contact.
                 </p>
               </div>
             )}
@@ -528,7 +528,7 @@ export default function FlowsPage() {
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  The flow triggers when a contact joins this list.
+                  The journey triggers when a contact joins this list.
                 </p>
               </div>
             )}
@@ -560,7 +560,7 @@ export default function FlowsPage() {
               onClick={handleCreate}
               disabled={!name.trim() || creating}
             >
-              {creating ? "Creating..." : "Create Flow"}
+              {creating ? "Creating..." : "Create Journey"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -627,15 +627,15 @@ export default function FlowsPage() {
             <div className="h-16 w-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
               <GitBranch className="h-8 w-8 text-muted-foreground/50" />
             </div>
-            <h3 className="text-lg font-medium mb-1">No flows yet</h3>
+            <h3 className="text-lg font-medium mb-1">No journeys yet</h3>
             <p className="text-sm text-muted-foreground text-center max-w-sm mb-4">
-              Flows let you automate multi-step messaging sequences. Create
-              your first flow to get started with keyword responses, welcome
+              Journeys let you automate multi-step messaging sequences. Create
+              your first journey to get started with keyword responses, welcome
               series, and more.
             </p>
             <Button onClick={() => setShowCreate(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Create Your First Flow
+              Create Your First Journey
             </Button>
           </CardContent>
         </Card>
@@ -659,7 +659,7 @@ export default function FlowsPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <Link
-                        href={`/flows/${flow.id}`}
+                        href={`/journeys/${flow.id}`}
                         className={`text-base font-semibold hover:underline block truncate ${
                           isArchived ? "line-through text-muted-foreground" : ""
                         }`}

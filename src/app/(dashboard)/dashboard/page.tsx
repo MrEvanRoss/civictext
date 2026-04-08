@@ -348,10 +348,10 @@ function QuickActions({ pendingConversations }: { pendingConversations: number }
           New Campaign
         </Button>
       </Link>
-      <Link href="/flows">
+      <Link href="/journeys">
         <Button variant="outline" className="gap-2">
           <Send className="h-4 w-4" />
-          New Flow
+          New Journey
         </Button>
       </Link>
       <Link href="/inbox">

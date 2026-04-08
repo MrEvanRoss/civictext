@@ -9,8 +9,8 @@ import { Send, X, CheckCircle2, AlertCircle } from "lucide-react";
 import { countSegments, hasUnicodeChars, getRemainingChars } from "@/lib/sms-utils";
 import { sendTestMessageAction } from "@/server/actions/campaigns";
 
-// Matches http(s):// URLs and www. URLs without protocol
-const URL_REGEX = /(?:https?:\/\/[^\s]+|(?:www\.)[^\s]+)/gi;
+// Matches http(s):// URLs, www. URLs, and bare domain URLs (e.g. Google.com, example.org/path)
+const URL_REGEX = /(?:https?:\/\/[^\s]+|(?:www\.)[^\s]+|[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.(?:com|org|net|gov|edu|io|co|us|info|biz|me|app|dev|xyz|tv|ai|news|site|store|tech|online|shop|club|pro|page|link)(?:\/[^\s]*)?)/gi;
 
 /**
  * Normalize a URL — ensure it has a protocol for URL parsing.

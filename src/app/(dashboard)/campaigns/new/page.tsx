@@ -26,13 +26,11 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { createCampaignAction, sendTestMessageAction, getAllowedCampaignTypesAction } from "@/server/actions/campaigns";
 import { listSegmentsAction } from "@/server/actions/contacts";
 import { assignP2PContactsAction } from "@/server/actions/p2p";
 import { getTeamMembersAction } from "@/server/actions/inbox";
 import { listInterestListsAction } from "@/server/actions/interest-lists";
-import { generateMessageAction } from "@/server/actions/ai";
 import { countSegments, hasUnicodeChars, getRemainingChars } from "@/lib/sms-utils";
 import { DEFAULT_SMS_RATE_CENTS, DEFAULT_MMS_RATE_CENTS } from "@/lib/constants";
 
@@ -153,16 +151,6 @@ export default function NewCampaignPage() {
   const [testResult, setTestResult] = useState<{ success?: string; error?: string } | null>(null);
   const testResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // AI Message Generator state
-  const [showAiDialog, setShowAiDialog] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [aiTone, setAiTone] = useState("Professional");
-  const [aiMaxLength, setAiMaxLength] = useState(160);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiVariants, setAiVariants] = useState<string[]>([]);
-  const [aiSelectedVariant, setAiSelectedVariant] = useState<number | null>(null);
-  const [aiError, setAiError] = useState("");
-
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
@@ -197,33 +185,6 @@ export default function NewCampaignPage() {
     }
     setShowMergeDropdown(false);
   }, []);
-
-  const handleAiGenerate = useCallback(async () => {
-    if (!aiPrompt.trim()) return;
-    setAiLoading(true);
-    setAiError("");
-    setAiVariants([]);
-    setAiSelectedVariant(null);
-    try {
-      const result = await generateMessageAction(aiPrompt, aiTone, aiMaxLength);
-      setAiVariants(result.variants);
-    } catch (err: any) {
-      setAiError(err.message || "Failed to generate messages");
-    } finally {
-      setAiLoading(false);
-    }
-  }, [aiPrompt, aiTone, aiMaxLength]);
-
-  const handleUseAiVariant = useCallback(() => {
-    if (aiSelectedVariant !== null && aiVariants[aiSelectedVariant]) {
-      setMessageBody(aiVariants[aiSelectedVariant]);
-      setShowAiDialog(false);
-      setAiPrompt("");
-      setAiVariants([]);
-      setAiSelectedVariant(null);
-      setAiError("");
-    }
-  }, [aiSelectedVariant, aiVariants]);
 
   useEffect(() => {
     loadSegments();
@@ -762,17 +723,6 @@ export default function NewCampaignPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      {/* AI Message Generator button */}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs gap-1"
-                        onClick={() => setShowAiDialog(true)}
-                      >
-                        <span className="text-sm">&#10024;</span>
-                        AI Write
-                      </Button>
                       {/* Merge fields dropdown */}
                       <div className="relative" ref={mergeDropdownRef}>
                         <Button
@@ -992,130 +942,6 @@ export default function NewCampaignPage() {
                 </div>
               </div>
             )}
-            {/* AI Message Generator Dialog */}
-            <Dialog open={showAiDialog} onOpenChange={(open) => {
-              setShowAiDialog(open);
-              if (!open) {
-                setAiVariants([]);
-                setAiSelectedVariant(null);
-                setAiError("");
-              }
-            }}>
-              <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <span>&#10024;</span> AI Message Generator
-                  </DialogTitle>
-                  <DialogDescription>
-                    Describe what you want to say and the AI will generate message options for you.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 pt-2">
-                  {/* Prompt input */}
-                  <div className="space-y-2">
-                    <Label htmlFor="aiPrompt">Describe what you want to say...</Label>
-                    <Textarea
-                      id="aiPrompt"
-                      value={aiPrompt}
-                      onChange={(e) => setAiPrompt(e.target.value)}
-                      placeholder="e.g., Remind voters about early voting starting next week, mention polling locations"
-                      rows={3}
-                    />
-                  </div>
-
-                  {/* Tone selector */}
-                  <div className="space-y-2">
-                    <Label>Tone</Label>
-                    <RadioGroup
-                      value={aiTone}
-                      onValueChange={setAiTone}
-                      className="flex flex-wrap gap-3"
-                    >
-                      {["Professional", "Friendly", "Urgent", "Casual", "Formal"].map((t) => (
-                        <label
-                          key={t}
-                          className="flex items-center gap-1.5 cursor-pointer text-sm"
-                        >
-                          <RadioGroupItem value={t} />
-                          {t}
-                        </label>
-                      ))}
-                    </RadioGroup>
-                  </div>
-
-                  {/* Max length selector */}
-                  <div className="space-y-2">
-                    <Label>Max length</Label>
-                    <NativeSelect
-                      value={String(aiMaxLength)}
-                      onChange={(e) => setAiMaxLength(Number(e.target.value))}
-                    >
-                      <option value="160">1 segment (160 chars)</option>
-                      <option value="320">2 segments (320 chars)</option>
-                      <option value="480">3 segments (480 chars)</option>
-                    </NativeSelect>
-                  </div>
-
-                  {/* Generate button */}
-                  <Button
-                    onClick={handleAiGenerate}
-                    disabled={!aiPrompt.trim() || aiLoading}
-                    className="w-full"
-                  >
-                    {aiLoading ? (
-                      <span className="flex items-center gap-2">
-                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                        Generating...
-                      </span>
-                    ) : (
-                      "Generate Messages"
-                    )}
-                  </Button>
-
-                  {/* Error state */}
-                  {aiError && (
-                    <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
-                      {aiError}
-                    </div>
-                  )}
-
-                  {/* Results area */}
-                  {aiVariants.length > 0 && (
-                    <div className="space-y-3">
-                      <Label>Select a variant</Label>
-                      {aiVariants.map((variant, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => setAiSelectedVariant(i)}
-                          className={`w-full text-left p-3 rounded-lg border-2 transition-colors ${
-                            aiSelectedVariant === i
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover:border-muted-foreground/30"
-                          }`}
-                        >
-                          <p className="text-sm whitespace-pre-wrap">{variant}</p>
-                          <p className="text-xs text-muted-foreground mt-1.5">
-                            {variant.length} chars &middot; {countSegments(variant)} segment{countSegments(variant) !== 1 ? "s" : ""}
-                          </p>
-                        </button>
-                      ))}
-                      <Button
-                        onClick={handleUseAiVariant}
-                        disabled={aiSelectedVariant === null}
-                        className="w-full"
-                      >
-                        Use This Message
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </DialogContent>
-            </Dialog>
-
             {/* P2P Reply Script */}
             {type === "P2P" && (
               <div className="space-y-2 border-t pt-4">

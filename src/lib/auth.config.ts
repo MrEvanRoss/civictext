@@ -46,7 +46,7 @@ export const authConfig: NextAuthConfig = {
         nextUrl.pathname.startsWith("/templates") ||
         nextUrl.pathname.startsWith("/surveys") ||
         nextUrl.pathname.startsWith("/subcommunities") ||
-        nextUrl.pathname.startsWith("/flows") ||
+        nextUrl.pathname.startsWith("/journeys") ||
         nextUrl.pathname.startsWith("/scheduled") ||
         nextUrl.pathname.startsWith("/supervisor") ||
         nextUrl.pathname.startsWith("/interest-lists");
