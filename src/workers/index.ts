@@ -10,6 +10,10 @@ import("./message-worker")
   .then(() => console.info("Message + campaign workers loaded"))
   .catch((err) => console.error("Failed to load message workers:", err));
 
+import("./flow-worker")
+  .then(() => console.info("Flow worker loaded"))
+  .catch((err) => console.error("Failed to load flow worker:", err));
+
 console.info("CivicText workers ready. Waiting for jobs...");
 
 // Keep the process alive

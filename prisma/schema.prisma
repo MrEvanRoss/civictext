@@ -128,6 +128,40 @@ enum ContentFilterAction {
   BLOCK
 }
 
+enum FlowStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum FlowTrigger {
+  KEYWORD
+  TAG_ADDED
+  LIST_JOINED
+  CONTACT_CREATED
+  MANUAL
+}
+
+enum FlowStepType {
+  SEND_MESSAGE
+  WAIT_DELAY
+  ADD_TAG
+  REMOVE_TAG
+  ADD_TO_LIST
+  REMOVE_FROM_LIST
+  BRANCH_CONDITION
+  UPDATE_CONTACT
+  WAIT_FOR_REPLY
+}
+
+enum FlowExecutionStatus {
+  ACTIVE
+  COMPLETED
+  FAILED
+  PAUSED
+}
+
 // ============================================================
 // CORE: Organization & Users
 // ============================================================
@@ -179,6 +213,8 @@ model Organization {
   subcommunities           Subcommunity[]
   surveys                  Survey[]
   contentFilters           ContentFilter[]
+  flows                    Flow[]
+  messageBundles           MessageBundle[]
 
   @@index([status])
 }
@@ -215,6 +251,7 @@ model User {
   createdTemplates MessageTemplate[] @relation("TemplateCreator")
   createdApiKeys   ApiKey[]
   p2pAssignments   P2PAssignment[]
+  flows            Flow[]
 
   @@index([orgId])
   @@index([email])
@@ -297,6 +334,7 @@ model Contact {
   p2pAssignments   P2PAssignment[]
   subcommunityMembers SubcommunityMember[]
   surveyResponses  SurveyResponse[]
+  flowExecutions   FlowExecution[]
 
   @@unique([orgId, phone])
   @@index([orgId, optInStatus])
@@ -984,5 +1022,84 @@ model ContentFilter {
   createdAt DateTime            @default(now())
 
   @@unique([orgId, phrase])
+  @@index([orgId])
+}
+
+// ============================================================
+// FLOWS (Automation)
+// ============================================================
+
+model Flow {
+  id            String       @id @default(uuid())
+  orgId         String
+  org           Organization @relation(fields: [orgId], references: [id])
+  name          String
+  description   String?
+  status        FlowStatus   @default(DRAFT)
+  trigger       FlowTrigger
+  triggerConfig Json         @default("{}")
+  createdById   String
+  createdBy     User         @relation(fields: [createdById], references: [id])
+  steps         FlowStep[]
+  executions    FlowExecution[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([orgId])
+  @@index([orgId, status])
+}
+
+model FlowStep {
+  id            String       @id @default(uuid())
+  flowId        String
+  flow          Flow         @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  type          FlowStepType
+  config        Json         @default("{}")
+  position      Int          @default(0)
+  parentStepId  String?
+  parentStep    FlowStep?    @relation("StepChildren", fields: [parentStepId], references: [id])
+  children      FlowStep[]   @relation("StepChildren")
+  yesStepId     String?      @unique
+  noStepId      String?      @unique
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([flowId])
+}
+
+model FlowExecution {
+  id            String              @id @default(uuid())
+  flowId        String
+  flow          Flow                @relation(fields: [flowId], references: [id])
+  contactId     String
+  contact       Contact             @relation(fields: [contactId], references: [id])
+  status        FlowExecutionStatus @default(ACTIVE)
+  currentStepId String?
+  startedAt     DateTime            @default(now())
+  completedAt   DateTime?
+  data          Json                @default("{}")
+
+  @@index([flowId])
+  @@index([contactId])
+  @@index([flowId, status])
+}
+
+// ============================================================
+// MESSAGE BUNDLES (Pre-Purchase)
+// ============================================================
+
+model MessageBundle {
+  id              String    @id @default(uuid())
+  orgId           String
+  org             Organization @relation(fields: [orgId], references: [id])
+  bundleName      String
+  messageCount    Int
+  pricePerMessage Float
+  totalPrice      Float
+  purchasedAt     DateTime  @default(now())
+  expiresAt       DateTime?
+  remaining       Int
+  stripePaymentId String?
+
   @@index([orgId])
 }

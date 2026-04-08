@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -9,26 +10,82 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getBillingOverviewAction } from "@/server/actions/billing";
-import { AlertTriangle } from "lucide-react";
+import {
+  listBundlesAction,
+  getActiveBundlesAction,
+  getBundleSummaryAction,
+  purchaseBundleAction,
+  BUNDLE_TIERS,
+  type BundleTier,
+} from "@/server/actions/message-bundles";
+import {
+  AlertTriangle,
+  Package,
+  TrendingUp,
+  DollarSign,
+  CheckCircle2,
+  Loader2,
+} from "lucide-react";
+
+// ---------------------------------------------------------------------------
+// Standard rate used for savings percentage display
+// ---------------------------------------------------------------------------
+const STANDARD_RATE = 0.04;
 
 export default function BillingPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // Bundle state
+  const [activeBundles, setActiveBundles] = useState<any[]>([]);
+  const [allBundles, setAllBundles] = useState<any[]>([]);
+  const [bundleSummary, setBundleSummary] = useState<any>(null);
+  const [purchasing, setPurchasing] = useState<BundleTier | null>(null);
+
   useEffect(() => {
-    loadBilling();
+    loadAll();
   }, []);
 
-  async function loadBilling() {
+  async function loadAll() {
     try {
-      const result = await getBillingOverviewAction();
-      setData(result);
+      const [billingResult, active, all, summary] = await Promise.all([
+        getBillingOverviewAction(),
+        getActiveBundlesAction(),
+        listBundlesAction(),
+        getBundleSummaryAction(),
+      ]);
+      setData(billingResult);
+      setActiveBundles(active);
+      setAllBundles(all);
+      setBundleSummary(summary);
     } catch (err) {
       console.error("Failed to load billing:", err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handlePurchase(tier: BundleTier) {
+    setPurchasing(tier);
+    try {
+      await purchaseBundleAction(tier);
+      // Reload all bundle data
+      const [active, all, summary] = await Promise.all([
+        getActiveBundlesAction(),
+        listBundlesAction(),
+        getBundleSummaryAction(),
+      ]);
+      setActiveBundles(active);
+      setAllBundles(all);
+      setBundleSummary(summary);
+    } catch (err) {
+      console.error("Failed to purchase bundle:", err);
+    } finally {
+      setPurchasing(null);
     }
   }
 
@@ -99,137 +156,447 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* Balance & Rates */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
-          <CardHeader className="pb-2">
-            <CardDescription>Prepaid Balance</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold font-mono">
-              ${((plan?.balanceCents || 0) / 100).toFixed(2)}
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              available for messaging
-            </p>
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="bundles">Message Bundles</TabsTrigger>
+        </TabsList>
 
-        <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
-          <CardHeader className="pb-2">
-            <CardDescription>SMS Rate</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">
-              {Number(plan?.smsRateCents || 4) % 1 === 0 ? (plan?.smsRateCents || 4) : Number(plan?.smsRateCents || 4).toFixed(2)}&#162;
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              per SMS segment
-            </p>
-          </CardContent>
-        </Card>
+        {/* ================================================================ */}
+        {/* OVERVIEW TAB — existing billing content                          */}
+        {/* ================================================================ */}
+        <TabsContent value="overview" className="space-y-6">
+          {/* Balance & Rates */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+              <CardHeader className="pb-2">
+                <CardDescription>Prepaid Balance</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold font-mono">
+                  ${((plan?.balanceCents || 0) / 100).toFixed(2)}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  available for messaging
+                </p>
+              </CardContent>
+            </Card>
 
-        <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
-          <CardHeader className="pb-2">
-            <CardDescription>MMS Rate</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">
-              {Number(plan?.mmsRateCents || 8) % 1 === 0 ? (plan?.mmsRateCents || 8) : Number(plan?.mmsRateCents || 8).toFixed(2)}&#162;
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              per MMS message
-            </p>
-          </CardContent>
-        </Card>
+            <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+              <CardHeader className="pb-2">
+                <CardDescription>SMS Rate</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">
+                  {Number(plan?.smsRateCents || 4) % 1 === 0 ? (plan?.smsRateCents || 4) : Number(plan?.smsRateCents || 4).toFixed(2)}&#162;
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  per SMS segment
+                </p>
+              </CardContent>
+            </Card>
 
-        <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
-          <CardHeader className="pb-2">
-            <CardDescription>Phone Numbers</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">
-              {data?.activePhoneNumbers || 0}
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              ${((data?.monthlyPhoneCostCents || 0) / 100).toFixed(2)}/month
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+            <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+              <CardHeader className="pb-2">
+                <CardDescription>MMS Rate</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">
+                  {Number(plan?.mmsRateCents || 8) % 1 === 0 ? (plan?.mmsRateCents || 8) : Number(plan?.mmsRateCents || 8).toFixed(2)}&#162;
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  per MMS message
+                </p>
+              </CardContent>
+            </Card>
 
-      {/* Spending Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Spending Summary</CardTitle>
-          <CardDescription>Your messaging costs at a glance.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <dl className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <dt className="text-muted-foreground">Total Spent</dt>
-              <dd className="font-medium font-mono text-lg">
-                ${((plan?.totalSpentCents || 0) / 100).toFixed(2)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Est. SMS Remaining</dt>
-              <dd className="font-medium text-lg">
-                {plan?.smsRateCents
-                  ? Math.floor((plan.balanceCents || 0) / plan.smsRateCents).toLocaleString()
-                  : "0"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Est. MMS Remaining</dt>
-              <dd className="font-medium text-lg">
-                {plan?.mmsRateCents
-                  ? Math.floor((plan.balanceCents || 0) / plan.mmsRateCents).toLocaleString()
-                  : "0"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Stripe Customer</dt>
-              <dd>
-                <Badge variant={plan?.stripeCustomerId ? "success" : "secondary"}>
-                  {plan?.stripeCustomerId ? "Connected" : "Not Connected"}
-                </Badge>
-              </dd>
-            </div>
-          </dl>
-        </CardContent>
-      </Card>
+            <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+              <CardHeader className="pb-2">
+                <CardDescription>Phone Numbers</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">
+                  {data?.activePhoneNumbers || 0}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  ${((data?.monthlyPhoneCostCents || 0) / 100).toFixed(2)}/month
+                </p>
+              </CardContent>
+            </Card>
+          </div>
 
-      {/* Recent Purchases */}
-      {data?.addOns?.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Purchases</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {data.addOns.map((addon: any) => (
-                <div
-                  key={addon.id}
-                  className="flex items-center justify-between py-2 border-b last:border-0 text-sm"
-                >
-                  <div>
-                    <p className="font-medium">
-                      {addon.messageCount.toLocaleString()} credits
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(addon.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <p className="font-medium font-mono">
-                    ${(addon.priceInCents / 100).toFixed(2)}
-                  </p>
+          {/* Spending Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Spending Summary</CardTitle>
+              <CardDescription>Your messaging costs at a glance.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <dl className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <dt className="text-muted-foreground">Total Spent</dt>
+                  <dd className="font-medium font-mono text-lg">
+                    ${((plan?.totalSpentCents || 0) / 100).toFixed(2)}
+                  </dd>
                 </div>
-              ))}
+                <div>
+                  <dt className="text-muted-foreground">Est. SMS Remaining</dt>
+                  <dd className="font-medium text-lg">
+                    {plan?.smsRateCents
+                      ? Math.floor((plan.balanceCents || 0) / plan.smsRateCents).toLocaleString()
+                      : "0"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Est. MMS Remaining</dt>
+                  <dd className="font-medium text-lg">
+                    {plan?.mmsRateCents
+                      ? Math.floor((plan.balanceCents || 0) / plan.mmsRateCents).toLocaleString()
+                      : "0"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Stripe Customer</dt>
+                  <dd>
+                    <Badge variant={plan?.stripeCustomerId ? "success" : "secondary"}>
+                      {plan?.stripeCustomerId ? "Connected" : "Not Connected"}
+                    </Badge>
+                  </dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
+
+          {/* Recent Purchases */}
+          {data?.addOns?.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Purchases</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {data.addOns.map((addon: any) => (
+                    <div
+                      key={addon.id}
+                      className="flex items-center justify-between py-2 border-b last:border-0 text-sm"
+                    >
+                      <div>
+                        <p className="font-medium">
+                          {addon.messageCount.toLocaleString()} credits
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(addon.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <p className="font-medium font-mono">
+                        ${(addon.priceInCents / 100).toFixed(2)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* ================================================================ */}
+        {/* MESSAGE BUNDLES TAB                                              */}
+        {/* ================================================================ */}
+        <TabsContent value="bundles" className="space-y-6">
+          {/* Bundle Summary Card */}
+          {bundleSummary && (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+                <CardHeader className="pb-2">
+                  <CardDescription className="flex items-center gap-1.5">
+                    <Package className="h-4 w-4" />
+                    Pre-Purchased Remaining
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold font-mono">
+                    {bundleSummary.totalRemaining.toLocaleString()}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    messages available
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+                <CardHeader className="pb-2">
+                  <CardDescription className="flex items-center gap-1.5">
+                    <DollarSign className="h-4 w-4" />
+                    Total Bundle Spend
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold font-mono">
+                    ${bundleSummary.totalSpent.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    across all bundles
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+                <CardHeader className="pb-2">
+                  <CardDescription className="flex items-center gap-1.5">
+                    <TrendingUp className="h-4 w-4" />
+                    Total Savings
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold font-mono text-green-600">
+                    ${bundleSummary.savings.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    vs. standard rate
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+                <CardHeader className="pb-2">
+                  <CardDescription className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Active Bundles
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold">
+                    {bundleSummary.activeBundleCount}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    with messages remaining
+                  </p>
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+
+          {/* Active Bundles with Progress Bars */}
+          {activeBundles.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Active Bundles</CardTitle>
+                <CardDescription>
+                  Bundles with remaining messages, used in FIFO order.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {activeBundles.map((bundle: any) => {
+                    const usedPct =
+                      bundle.messageCount > 0
+                        ? ((bundle.messageCount - bundle.remaining) /
+                            bundle.messageCount) *
+                          100
+                        : 0;
+                    const remainPct = 100 - usedPct;
+                    return (
+                      <div key={bundle.id} className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">
+                              {bundle.bundleName}
+                            </span>
+                            <span className="text-muted-foreground">
+                              {bundle.remaining.toLocaleString()} /{" "}
+                              {bundle.messageCount.toLocaleString()} remaining
+                            </span>
+                          </div>
+                          <span className="text-muted-foreground text-xs">
+                            {bundle.expiresAt
+                              ? `Expires ${new Date(bundle.expiresAt).toLocaleDateString()}`
+                              : "No expiry"}
+                          </span>
+                        </div>
+                        <Progress value={remainPct} className="h-2" />
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Buy Message Bundle — Tier Cards */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Buy Message Bundle</CardTitle>
+              <CardDescription>
+                Pre-purchase messages at a discounted rate. Bundles expire 12
+                months after purchase.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {(
+                  Object.entries(BUNDLE_TIERS) as [
+                    BundleTier,
+                    (typeof BUNDLE_TIERS)[BundleTier],
+                  ][]
+                ).map(([key, tier]) => {
+                  const savingsPct = Math.round(
+                    ((STANDARD_RATE - tier.pricePerMessage) / STANDARD_RATE) *
+                      100
+                  );
+                  return (
+                    <Card
+                      key={key}
+                      className="relative overflow-hidden border-2 hover:border-primary/50 transition-colors"
+                    >
+                      {savingsPct >= 50 && (
+                        <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded-bl-md">
+                          Best Value
+                        </div>
+                      )}
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-lg">{tier.name}</CardTitle>
+                        <CardDescription>
+                          {tier.messageCount.toLocaleString()} messages
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div>
+                          <p className="text-2xl font-bold font-mono">
+                            ${tier.totalPrice.toLocaleString()}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            ${tier.pricePerMessage}/message
+                          </p>
+                        </div>
+                        <Badge
+                          variant="secondary"
+                          className="text-green-700 bg-green-100"
+                        >
+                          Save {savingsPct}% vs standard
+                        </Badge>
+                        <Button
+                          className="w-full"
+                          onClick={() => handlePurchase(key)}
+                          disabled={purchasing !== null}
+                        >
+                          {purchasing === key ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Purchasing...
+                            </>
+                          ) : (
+                            "Purchase"
+                          )}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Purchase History Table */}
+          {allBundles.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Purchase History</CardTitle>
+                <CardDescription>
+                  All message bundle purchases for your organization.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left">
+                        <th className="pb-2 font-medium text-muted-foreground">
+                          Bundle
+                        </th>
+                        <th className="pb-2 font-medium text-muted-foreground">
+                          Messages
+                        </th>
+                        <th className="pb-2 font-medium text-muted-foreground">
+                          Remaining
+                        </th>
+                        <th className="pb-2 font-medium text-muted-foreground">
+                          Price
+                        </th>
+                        <th className="pb-2 font-medium text-muted-foreground">
+                          Purchased
+                        </th>
+                        <th className="pb-2 font-medium text-muted-foreground">
+                          Expires
+                        </th>
+                        <th className="pb-2 font-medium text-muted-foreground">
+                          Status
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allBundles.map((bundle: any) => {
+                        const expired =
+                          bundle.expiresAt &&
+                          new Date(bundle.expiresAt) < new Date();
+                        const depleted = bundle.remaining === 0;
+                        return (
+                          <tr
+                            key={bundle.id}
+                            className="border-b last:border-0"
+                          >
+                            <td className="py-3 font-medium">
+                              {bundle.bundleName}
+                            </td>
+                            <td className="py-3">
+                              {bundle.messageCount.toLocaleString()}
+                            </td>
+                            <td className="py-3 font-mono">
+                              {bundle.remaining.toLocaleString()}
+                            </td>
+                            <td className="py-3 font-mono">
+                              ${bundle.totalPrice.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </td>
+                            <td className="py-3">
+                              {new Date(
+                                bundle.purchasedAt
+                              ).toLocaleDateString()}
+                            </td>
+                            <td className="py-3">
+                              {bundle.expiresAt
+                                ? new Date(
+                                    bundle.expiresAt
+                                  ).toLocaleDateString()
+                                : "--"}
+                            </td>
+                            <td className="py-3">
+                              {expired ? (
+                                <Badge variant="destructive">Expired</Badge>
+                              ) : depleted ? (
+                                <Badge variant="secondary">Used</Badge>
+                              ) : (
+                                <Badge variant="success">Active</Badge>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
