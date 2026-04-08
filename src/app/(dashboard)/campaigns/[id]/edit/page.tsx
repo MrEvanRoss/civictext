@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,28 @@ import { getTeamMembersAction } from "@/server/actions/inbox";
 import { listInterestListsAction } from "@/server/actions/interest-lists";
 import { countSegments } from "@/lib/sms-utils";
 import { ArrowLeft } from "lucide-react";
+
+/**
+ * Insert text at the current cursor position in a textarea.
+ */
+function insertAtCursor(textarea: HTMLTextAreaElement, text: string) {
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const before = textarea.value.substring(0, start);
+  const after = textarea.value.substring(end);
+  const nativeSetter = Object.getOwnPropertyDescriptor(
+    window.HTMLTextAreaElement.prototype,
+    "value"
+  )?.set;
+  if (nativeSetter) {
+    nativeSetter.call(textarea, before + text + after);
+  } else {
+    textarea.value = before + text + after;
+  }
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  textarea.selectionStart = textarea.selectionEnd = start + text.length;
+  textarea.focus();
+}
 
 const WIZARD_STEPS_DEFAULT = [
   { title: "Details" },
@@ -79,6 +101,32 @@ export default function EditCampaignPage() {
 
   const WIZARD_STEPS = type === "P2P" ? WIZARD_STEPS_P2P : WIZARD_STEPS_DEFAULT;
   const segmentCount = countSegments(messageBody);
+
+  // Merge field insertion
+  const messageTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [showMergeDropdown, setShowMergeDropdown] = useState(false);
+  const mergeDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (mergeDropdownRef.current && !mergeDropdownRef.current.contains(e.target as Node)) {
+        setShowMergeDropdown(false);
+      }
+    }
+    if (showMergeDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showMergeDropdown]);
+
+  const handleInsertMergeField = useCallback((field: string) => {
+    if (messageTextareaRef.current) {
+      insertAtCursor(messageTextareaRef.current, field);
+    } else {
+      setMessageBody((prev) => prev + field);
+    }
+    setShowMergeDropdown(false);
+  }, []);
 
   const loadAll = useCallback(async () => {
     setPageLoading(true);
@@ -404,13 +452,64 @@ export default function EditCampaignPage() {
               <div className="space-y-2">
                 <Label>Message Body</Label>
                 <Textarea
+                  ref={messageTextareaRef}
                   value={messageBody}
                   onChange={(e) => setMessageBody(e.target.value)}
                   rows={6}
                 />
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span>{messageBody.length} chars</span>
-                  <span>{segmentCount} segment{segmentCount !== 1 ? "s" : ""}</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span>{messageBody.length} chars</span>
+                    <span>{segmentCount} segment{segmentCount !== 1 ? "s" : ""}</span>
+                  </div>
+                  <div className="relative" ref={mergeDropdownRef}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => setShowMergeDropdown((v) => !v)}
+                    >
+                      <span className="font-mono text-xs">{"{+"}</span>
+                      Merge Fields
+                    </Button>
+                    {showMergeDropdown && (
+                      <div className="absolute right-0 top-full mt-1 z-20 w-52 rounded-lg border bg-popover shadow-lg p-1">
+                        {[
+                          { label: "First Name", value: "{{firstName}}" },
+                          { label: "Last Name", value: "{{lastName}}" },
+                          { label: "Full Name", value: "{{fullName}}" },
+                          { label: "Prefix", value: "{{prefix}}" },
+                          { label: "Suffix", value: "{{suffix}}" },
+                          { label: "Phone", value: "{{phone}}" },
+                          { label: "Address", value: "{{address}}" },
+                          { label: "Precinct", value: "{{precinct}}" },
+                          { label: "Org Name", value: "{{orgName}}" },
+                          ...(type === "GOTV"
+                            ? [
+                                { label: "Polling Location", value: "{{pollingLocation}}" },
+                                { label: "Election Date", value: "{{electionDate}}" },
+                                { label: "Poll Hours", value: "{{pollHours}}" },
+                                { label: "Poll Close Time", value: "{{pollCloseTime}}" },
+                                { label: "Early Vote End", value: "{{earlyVoteEnd}}" },
+                              ]
+                            : []),
+                        ].map((field) => (
+                          <button
+                            key={field.value}
+                            type="button"
+                            className="w-full text-left px-3 py-1.5 rounded-md text-sm hover:bg-accent transition-colors flex items-center justify-between"
+                            onClick={() => handleInsertMergeField(field.value)}
+                          >
+                            <span>{field.label}</span>
+                            <span className="text-xs text-muted-foreground font-mono">
+                              {field.value}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
