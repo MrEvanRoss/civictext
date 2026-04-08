@@ -17,55 +17,204 @@ import {
 } from "@/components/ui/tooltip";
 import {
   LayoutDashboard,
-  Users,
-  MessageSquare,
   Inbox,
-  BarChart3,
-  Phone,
-  CreditCard,
-  Settings,
-  UserPlus,
-  Hash,
-  FileText,
+  MessageSquare,
+  GitBranch,
+  ClipboardList,
+  UsersRound,
+  TrendingUp,
+  CalendarClock,
+  Megaphone,
+  Link2,
+  QrCode,
+  MessageCircle,
+  Globe,
+  ShoppingBag,
+  FileInput,
   Shield,
+  Settings,
   PanelLeftClose,
   PanelLeft,
+  ChevronRight,
 } from "lucide-react";
 
+// --- Types ---
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: boolean;
+}
+
+interface NavGroupCollapsible {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  collapsible: true;
+  items: NavItem[];
+}
+
+type NavEntry = NavItem | NavGroupCollapsible;
+
+// --- Navigation structure ---
+
+const navItems: NavEntry[] = [
+  { href: "/dashboard", label: "Home", icon: LayoutDashboard },
+  { href: "/inbox", label: "Messages", icon: Inbox, badge: true },
+  { href: "/campaigns", label: "Campaigns", icon: MessageSquare },
+  { href: "/flows", label: "Flows", icon: GitBranch },
+  { href: "/surveys", label: "Surveys", icon: ClipboardList },
+  { href: "/subcommunities", label: "Subcommunities", icon: UsersRound },
+  { href: "/analytics", label: "Insights", icon: TrendingUp },
+  { href: "/scheduled", label: "Scheduled", icon: CalendarClock },
+  {
+    label: "Growth Tools",
+    icon: Megaphone,
+    collapsible: true,
+    items: [
+      { href: "/growth/custom-url", label: "Custom URL", icon: Link2 },
+      { href: "/growth/qr-code", label: "QR Code", icon: QrCode },
+      { href: "/growth/activation-text", label: "Activation", icon: MessageCircle },
+      { href: "/growth/popup", label: "Website", icon: Globe },
+      { href: "/growth/shopify", label: "Shopify", icon: ShoppingBag },
+      { href: "/growth/integrations", label: "Forms", icon: FileInput },
+    ],
+  },
+  { href: "/supervisor", label: "Supervisor", icon: Shield },
+  { href: "/settings", label: "Settings", icon: Settings },
+];
+
+// Flat export for consumers like the command palette that iterate all nav items.
+// Includes all items (top-level + nested growth sub-items).
 const navGroups = [
   {
-    label: "MESSAGING",
-    items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/inbox", label: "Inbox", icon: Inbox, badge: true },
-      { href: "/campaigns", label: "Campaigns", icon: MessageSquare },
-      { href: "/templates", label: "Templates", icon: FileText },
-    ],
-  },
-  {
-    label: "CONTACTS",
-    items: [
-      { href: "/contacts", label: "Contacts", icon: Users },
-      { href: "/interest-lists", label: "Interest Lists", icon: Hash },
-    ],
-  },
-  {
-    label: "MANAGEMENT",
-    items: [
-      { href: "/supervisor", label: "Supervisor", icon: Shield },
-      { href: "/analytics", label: "Analytics", icon: BarChart3 },
-      { href: "/phone-numbers", label: "Phone Numbers", icon: Phone },
-    ],
-  },
-  {
-    label: "ACCOUNT",
-    items: [
-      { href: "/billing", label: "Billing", icon: CreditCard },
-      { href: "/team", label: "Team", icon: UserPlus },
-      { href: "/settings", label: "Settings", icon: Settings },
-    ],
+    label: "NAVIGATION",
+    items: navItems.flatMap((entry) => {
+      if ("collapsible" in entry && entry.collapsible) {
+        return entry.items;
+      }
+      return [entry as NavItem];
+    }),
   },
 ];
+
+// --- Helpers ---
+
+function isCollapsibleGroup(entry: NavEntry): entry is NavGroupCollapsible {
+  return "collapsible" in entry && entry.collapsible === true;
+}
+
+// --- Collapsible Group Component ---
+
+function CollapsibleNavGroup({
+  group,
+  collapsed: sidebarCollapsed,
+  pathname,
+}: {
+  group: NavGroupCollapsible;
+  collapsed: boolean;
+  pathname: string;
+}) {
+  const isChildActive = group.items.some(
+    (item) => pathname === item.href || pathname.startsWith(item.href)
+  );
+
+  const [expanded, setExpanded] = useState(isChildActive);
+
+  // Auto-expand when a child route is active
+  useEffect(() => {
+    if (isChildActive) setExpanded(true);
+  }, [isChildActive]);
+
+  const GroupIcon = group.icon;
+
+  // When the sidebar itself is collapsed, render just the icon with a tooltip
+  if (sidebarCollapsed) {
+    return (
+      <Tooltip delayDuration={0}>
+        <TooltipTrigger asChild>
+          <button
+            onClick={() => setExpanded((prev) => !prev)}
+            className={cn(
+              "flex items-center justify-center px-2 py-2 text-sm rounded-lg transition-all duration-150 w-full",
+              isChildActive
+                ? "bg-primary text-primary-foreground font-medium shadow-sm"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+            )}
+          >
+            <GroupIcon className={cn("h-4 w-4 shrink-0", isChildActive && "text-primary-foreground")} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right" sideOffset={8} className="space-y-1">
+          <p className="font-medium">{group.label}</p>
+          {group.items.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "block px-2 py-1 text-xs rounded hover:bg-accent",
+                pathname === item.href || pathname.startsWith(item.href)
+                  ? "text-primary font-medium"
+                  : "text-muted-foreground"
+              )}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  // Expanded sidebar: show group header + collapsible children
+  return (
+    <div>
+      <button
+        onClick={() => setExpanded((prev) => !prev)}
+        className={cn(
+          "flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all duration-150 w-full",
+          isChildActive
+            ? "bg-primary/10 text-primary font-medium"
+            : "text-muted-foreground hover:bg-accent hover:text-foreground"
+        )}
+      >
+        <GroupIcon className="h-4 w-4 shrink-0" />
+        <span className="flex-1 truncate text-left">{group.label}</span>
+        <ChevronRight
+          className={cn(
+            "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+            expanded && "rotate-90"
+          )}
+        />
+      </button>
+      {expanded && (
+        <div className="ml-4 mt-0.5 space-y-0.5 border-l border-border/50 pl-2">
+          {group.items.map((item) => {
+            const isActive =
+              pathname === item.href || pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-1.5 text-sm rounded-lg transition-all duration-150",
+                  isActive
+                    ? "bg-primary text-primary-foreground font-medium shadow-sm"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                )}
+              >
+                <item.icon className={cn("h-3.5 w-3.5 shrink-0", isActive && "text-primary-foreground")} />
+                <span className="flex-1 truncate">{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- NavContent ---
 
 function NavContent({
   collapsed,
@@ -94,56 +243,58 @@ function NavContent({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-2 py-3 overflow-y-auto space-y-4">
-        {navGroups.map((group) => (
-          <div key={group.label}>
-            {!collapsed && (
-              <p className="px-3 mb-1.5 text-[10px] font-semibold tracking-wider text-muted-foreground/60 uppercase">
-                {group.label}
-              </p>
-            )}
-            {collapsed && <div className="h-px bg-border/50 mx-2 mb-2" />}
-            <div className="space-y-0.5">
-              {group.items.map((item) => {
-                const isActive =
-                  pathname === item.href ||
-                  (item.href !== "/dashboard" && pathname.startsWith(item.href));
+      <nav className="flex-1 px-2 py-3 overflow-y-auto space-y-0.5">
+        {navItems.map((entry) => {
+          // Collapsible group (Growth Tools)
+          if (isCollapsibleGroup(entry)) {
+            return (
+              <CollapsibleNavGroup
+                key={entry.label}
+                group={entry}
+                collapsed={collapsed}
+                pathname={pathname}
+              />
+            );
+          }
 
-                const linkContent = (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all duration-150",
-                      collapsed && "justify-center px-2",
-                      isActive
-                        ? "bg-primary text-primary-foreground font-medium shadow-sm"
-                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                    )}
-                  >
-                    <item.icon className={cn("h-4 w-4 shrink-0", isActive && "text-primary-foreground")} />
-                    {!collapsed && (
-                      <span className="flex-1 truncate">{item.label}</span>
-                    )}
-                  </Link>
-                );
+          // Regular nav item
+          const item = entry as NavItem;
+          const isActive =
+            pathname === item.href ||
+            (item.href !== "/dashboard" && pathname.startsWith(item.href));
 
-                if (collapsed) {
-                  return (
-                    <Tooltip key={item.href} delayDuration={0}>
-                      <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
-                      <TooltipContent side="right" sideOffset={8}>
-                        {item.label}
-                      </TooltipContent>
-                    </Tooltip>
-                  );
-                }
+          const linkContent = (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all duration-150",
+                collapsed && "justify-center px-2",
+                isActive
+                  ? "bg-primary text-primary-foreground font-medium shadow-sm"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}
+            >
+              <item.icon className={cn("h-4 w-4 shrink-0", isActive && "text-primary-foreground")} />
+              {!collapsed && (
+                <span className="flex-1 truncate">{item.label}</span>
+              )}
+            </Link>
+          );
 
-                return linkContent;
-              })}
-            </div>
-          </div>
-        ))}
+          if (collapsed) {
+            return (
+              <Tooltip key={item.href} delayDuration={0}>
+                <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
+                <TooltipContent side="right" sideOffset={8}>
+                  {item.label}
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
+
+          return linkContent;
+        })}
       </nav>
 
       {/* Collapse toggle (desktop only) */}
@@ -221,9 +372,10 @@ export function MobileNav() {
 
   const mobileItems = [
     { href: "/dashboard", label: "Home", icon: LayoutDashboard },
-    { href: "/inbox", label: "Inbox", icon: Inbox },
+    { href: "/inbox", label: "Messages", icon: Inbox },
     { href: "/campaigns", label: "Campaigns", icon: MessageSquare },
-    { href: "/contacts", label: "Contacts", icon: Users },
+    { href: "/analytics", label: "Insights", icon: TrendingUp },
+    { href: "/settings", label: "Settings", icon: Settings },
   ];
 
   return (

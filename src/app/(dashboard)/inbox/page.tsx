@@ -59,9 +59,76 @@ import {
   ArrowLeft,
 } from "lucide-react";
 
-function relativeTime(dateStr: string): string {
+interface InboxContact {
+  id: string;
+  phone: string;
+  firstName: string | null;
+  lastName: string | null;
+  tags: string[];
+  contactNotes?: {
+    id: string;
+    body: string;
+    createdAt: Date | string;
+    author: { name: string | null } | null;
+    [key: string]: unknown;
+  }[];
+}
+
+interface Conversation {
+  id: string;
+  contactId: string;
+  lastMessageAt: Date | string | null;
+  lastMessageBody?: string | null;
+  unreadCount?: number;
+  state: string;
+  isEscalated: boolean;
+  escalatedReason: string | null;
+  responseTags: string[];
+  assignedToId: string | null;
+  contact: InboxContact;
+  assignedTo: { name: string | null } | null;
+  [key: string]: unknown;
+}
+
+interface ThreadMessage {
+  id: string;
+  direction: string;
+  body: string | null;
+  mediaUrl: string | null;
+  status: string;
+  createdAt: Date | string;
+  campaign: { id: string; name: string; type: string } | null;
+  [key: string]: unknown;
+}
+
+interface ConversationNote {
+  id: string;
+  body: string;
+  createdAt: Date | string;
+  author: { name: string | null } | null;
+}
+
+interface ThreadData {
+  conversation: Conversation;
+  messages: ThreadMessage[];
+  notes: ConversationNote[];
+}
+
+interface TeamMember {
+  id: string;
+  name: string | null;
+  role: string;
+}
+
+interface QuickReply {
+  id: string;
+  name: string;
+  body: string;
+}
+
+function relativeTime(dateVal: Date | string): string {
   const now = Date.now();
-  const then = new Date(dateStr).getTime();
+  const then = new Date(dateVal).getTime();
   const diff = now - then;
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return "now";
@@ -70,17 +137,17 @@ function relativeTime(dateStr: string): string {
   if (hours < 24) return `${hours}h`;
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d`;
-  return new Date(dateStr).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return new Date(dateVal).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-function getInitials(contact: any): string {
+function getInitials(contact: InboxContact | null | undefined): string {
   if (contact?.firstName) {
     return `${contact.firstName[0]}${contact.lastName?.[0] || ""}`.toUpperCase();
   }
   return contact?.phone?.slice(-2) || "?";
 }
 
-function getContactName(contact: any): string {
+function getContactName(contact: InboxContact | null | undefined): string {
   if (contact?.firstName) {
     return `${contact.firstName} ${contact.lastName || ""}`.trim();
   }
@@ -102,9 +169,9 @@ function DeliveryIcon({ status }: { status: string }) {
 }
 
 export default function InboxPage() {
-  const [conversations, setConversations] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [thread, setThread] = useState<any>(null);
+  const [thread, setThread] = useState<ThreadData | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unassigned" | "mine">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -118,8 +185,8 @@ export default function InboxPage() {
   const [escalateReason, setEscalateReason] = useState("");
   const [showEscalate, setShowEscalate] = useState(false);
   const [responseTagInput, setResponseTagInput] = useState("");
-  const [teamMembers, setTeamMembers] = useState<any[]>([]);
-  const [quickReplies, setQuickReplies] = useState<any[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);

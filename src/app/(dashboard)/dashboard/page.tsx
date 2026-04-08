@@ -31,6 +31,30 @@ import {
   Upload,
 } from "lucide-react";
 
+interface RecentCampaign {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  sentCount: number;
+  deliveredCount: number;
+  createdAt: Date | string;
+}
+
+interface DashboardStats {
+  messagesSent: number;
+  deliveryRate: string | null;
+  activeContacts: number;
+  activeCampaigns: number;
+  recentCampaigns: RecentCampaign[];
+  plan: {
+    balanceCents: number;
+    balanceDollars: string;
+    smsRateCents: number;
+    mmsRateCents: number;
+  } | null;
+}
+
 const ONBOARDING_STEPS = [
   {
     key: "twilioSetup" as const,
@@ -68,7 +92,7 @@ function formatRate(cents: number): string {
   return Number(cents) % 1 === 0 ? String(cents) : Number(cents).toFixed(2);
 }
 
-function relativeTime(dateStr: string): string {
+function relativeTime(dateStr: Date | string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
   const diff = now - then;
@@ -162,7 +186,7 @@ function StatCard({
 
 export default function DashboardPage() {
   const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -226,7 +250,7 @@ export default function DashboardPage() {
         />
         <StatCard
           title="Active Campaigns"
-          value={stats?.activeCampaigns || "0"}
+          value={String(stats?.activeCampaigns ?? 0)}
           subtitle="currently sending"
           icon={Zap}
           accentClass="bg-warning/10 text-warning"
@@ -317,9 +341,9 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {stats?.recentCampaigns?.length > 0 ? (
+            {stats?.recentCampaigns && stats.recentCampaigns.length > 0 ? (
               <div className="space-y-2">
-                {stats.recentCampaigns.map((c: any) => (
+                {stats!.recentCampaigns.map((c: RecentCampaign) => (
                   <Link
                     key={c.id}
                     href={`/campaigns/${c.id}`}

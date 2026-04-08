@@ -25,6 +25,27 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+interface CampaignSummary {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  sentCount: number;
+  deliveredCount: number;
+  createdAt: Date | string;
+  segment: { name: string; contactCount: number | null } | null;
+  _count: { messages: number };
+  [key: string]: unknown;
+}
+
+interface CampaignListResult {
+  campaigns: CampaignSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 const TYPE_LABELS: Record<string, string> = {
   BROADCAST: "Broadcast",
   P2P: "Peer-to-Peer",
@@ -53,7 +74,7 @@ const STATUS_DOT_COLORS: Record<string, string> = {
 
 export default function CampaignsPage() {
   const router = useRouter();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<CampaignListResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
@@ -209,7 +230,7 @@ export default function CampaignsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {data?.campaigns.map((campaign: any) => (
+                      {data?.campaigns.map((campaign: CampaignSummary) => (
                         <tr
                           key={campaign.id}
                           className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
