@@ -26,18 +26,44 @@ export async function assignContactsToAgents(
     include: { segment: true },
   });
   if (!campaign) throw new Error("Campaign not found or not P2P type");
-  if (!campaign.segmentId) throw new Error("Campaign has no segment");
   if (agentIds.length === 0) throw new Error("At least one agent is required");
 
-  // Get opted-in contacts from the segment
-  const segment = await db.segment.findUnique({ where: { id: campaign.segmentId } });
-  if (!segment) throw new Error("Segment not found");
+  // Resolve target contacts (segment, interest lists, or both)
+  let contacts: Array<{ id: string }>;
 
-  // Evaluate segment rules to get contacts (simplified: get all opted-in contacts)
-  const contacts = await db.contact.findMany({
-    where: { orgId, optInStatus: "OPTED_IN" },
-    select: { id: true },
-  });
+  if (campaign.interestListMode === "include" && campaign.interestListIds.length > 0) {
+    // Include: only contacts on selected interest lists
+    const members = await db.interestListMember.findMany({
+      where: {
+        interestListId: { in: campaign.interestListIds },
+        contact: { orgId, optInStatus: "OPTED_IN" },
+      },
+      select: { contactId: true },
+    });
+    // Deduplicate contacts who are on multiple lists
+    const uniqueIds = Array.from(new Set(members.map((m: { contactId: string }) => m.contactId)));
+    contacts = uniqueIds.map((id) => ({ id }));
+  } else if (campaign.interestListMode === "exclude" && campaign.interestListIds.length > 0) {
+    // Exclude: all opted-in contacts except those on selected lists
+    const [allContacts, excludeMembers] = await Promise.all([
+      db.contact.findMany({ where: { orgId, optInStatus: "OPTED_IN" }, select: { id: true } }),
+      db.interestListMember.findMany({
+        where: { interestListId: { in: campaign.interestListIds }, contact: { orgId } },
+        select: { contactId: true },
+      }),
+    ]);
+    const excludeSet = new Set(excludeMembers.map((m: { contactId: string }) => m.contactId));
+    contacts = allContacts.filter((c: { id: string }) => !excludeSet.has(c.id));
+  } else {
+    // Segment-only or "everyone"
+    if (!campaign.segmentId && campaign.interestListMode !== "everyone") {
+      throw new Error("Campaign has no segment or interest list targeting");
+    }
+    contacts = await db.contact.findMany({
+      where: { orgId, optInStatus: "OPTED_IN" },
+      select: { id: true },
+    });
+  }
 
   // Shuffle contacts for even distribution
   const shuffled = contacts.sort(() => Math.random() - 0.5);
@@ -100,6 +126,22 @@ export async function getNextBatch(
     include: { org: true },
   });
   if (!campaign) throw new Error("Campaign not found");
+
+  if (campaign.status === "SCHEDULED") {
+    const launchTime = campaign.scheduledAt
+      ? new Date(campaign.scheduledAt).toLocaleString()
+      : "the scheduled time";
+    throw new Error(`This campaign is scheduled to launch at ${launchTime}. Please wait until then to start sending.`);
+  }
+  if (campaign.status === "DRAFT") {
+    throw new Error("This campaign has not been launched yet.");
+  }
+  if (campaign.status === "PAUSED") {
+    throw new Error("This campaign is currently paused.");
+  }
+  if (campaign.status === "COMPLETED" || campaign.status === "CANCELLED") {
+    throw new Error("This campaign is no longer active.");
+  }
 
   const assignments = await db.p2PAssignment.findMany({
     where: {

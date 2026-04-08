@@ -77,6 +77,7 @@ export async function getSupervisorDashboardAction() {
       where: { orgId, action: "OPTED_OUT", createdAt: { gte: today } },
     }),
     // Active P2P campaigns with per-agent stats
+    // Wrapped in catch to handle case where P2P tables don't exist yet
     db.campaign.findMany({
       where: { orgId, type: "P2P", status: { in: ["SENDING", "SCHEDULED"] } },
       select: {
@@ -90,7 +91,7 @@ export async function getSupervisorDashboardAction() {
           select: { assignedToId: true, status: true, sentAt: true },
         },
       },
-    }),
+    }).catch(() => [] as any[]),
   ]);
 
   // Calculate per-agent metrics

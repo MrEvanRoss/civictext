@@ -266,19 +266,24 @@ async function checkScheduledCampaigns(job: Job) {
       continue;
     }
 
-    // P2P campaigns do not use automated expansion
+    // P2P campaigns: transition to SENDING but skip expansion
+    // (agents send individually from their pre-assigned queues)
     if (campaign.type === "P2P") {
-      await job.log(`Skipping P2P campaign ${campaign.id}: P2P uses agent-initiated sends`);
+      await db.campaign.update({
+        where: { id: campaign.id },
+        data: { status: "SENDING", startedAt: new Date() },
+      });
+      triggered++;
+      await job.log(`Launched scheduled P2P campaign: ${campaign.name} (${campaign.id}) — agents can now send`);
       continue;
     }
 
-    // Transition to SENDING
+    // Non-P2P: Transition to SENDING and queue expansion
     await db.campaign.update({
       where: { id: campaign.id },
       data: { status: "SENDING", startedAt: new Date() },
     });
 
-    // Queue expansion
     await campaignQueue.add("expand", {
       orgId: campaign.orgId,
       campaignId: campaign.id,
@@ -313,22 +318,90 @@ async function expandCampaign(orgId: string, campaignId: string, job: Job) {
   });
 
   if (!campaign) throw new Error("Campaign not found");
-  if (!campaign.segmentId) throw new Error("No segment assigned");
 
-  // Get segment contacts (opted-in only)
-  const segment = await db.segment.findFirst({
-    where: { id: campaign.segmentId, orgId },
+  // ==========================================
+  // RESOLVE TARGET CONTACTS
+  // Supports: segment only, interest lists, or both
+  // Deduplicates contacts across multiple lists
+  // ==========================================
+  let contactIds: Set<string>;
+
+  const hasInterestLists = campaign.interestListMode && campaign.interestListMode !== "everyone";
+  const hasInterestListSend = campaign.interestListMode === "everyone" && campaign.interestListIds.length > 0;
+
+  if (campaign.interestListMode === "everyone" && campaign.interestListIds.length === 0) {
+    // "Send to everyone" — all opted-in contacts
+    const allContacts = await db.contact.findMany({
+      where: { orgId, optInStatus: "OPTED_IN" },
+      select: { id: true },
+    });
+    contactIds = new Set(allContacts.map((c: { id: string }) => c.id));
+    await job.log(`Targeting all opted-in contacts: ${contactIds.size}`);
+
+  } else if (campaign.interestListMode === "include" && campaign.interestListIds.length > 0) {
+    // "Include" — only contacts ON these interest lists
+    const members = await db.interestListMember.findMany({
+      where: {
+        interestListId: { in: campaign.interestListIds },
+        contact: { orgId, optInStatus: "OPTED_IN" },
+      },
+      select: { contactId: true },
+    });
+    // Set automatically deduplicates contacts on multiple lists
+    contactIds = new Set(members.map((m: { contactId: string }) => m.contactId));
+    await job.log(`Interest list INCLUDE targeting: ${contactIds.size} unique contacts from ${campaign.interestListIds.length} list(s)`);
+
+  } else if (campaign.interestListMode === "exclude" && campaign.interestListIds.length > 0) {
+    // "Exclude" — all opted-in contacts EXCEPT those on these lists
+    const [allContacts, excludeMembers] = await Promise.all([
+      db.contact.findMany({
+        where: { orgId, optInStatus: "OPTED_IN" },
+        select: { id: true },
+      }),
+      db.interestListMember.findMany({
+        where: {
+          interestListId: { in: campaign.interestListIds },
+          contact: { orgId },
+        },
+        select: { contactId: true },
+      }),
+    ]);
+    const excludeSet = new Set(excludeMembers.map((m: { contactId: string }) => m.contactId));
+    contactIds = new Set(allContacts.filter((c: { id: string }) => !excludeSet.has(c.id)).map((c: { id: string }) => c.id));
+    await job.log(`Interest list EXCLUDE targeting: ${contactIds.size} contacts (excluded ${excludeSet.size} from ${campaign.interestListIds.length} list(s))`);
+
+  } else if (campaign.segmentId) {
+    // Segment-only targeting (original behavior)
+    const contacts = await db.contact.findMany({
+      where: { orgId, optInStatus: "OPTED_IN" },
+      select: { id: true },
+    });
+    contactIds = new Set(contacts.map((c: { id: string }) => c.id));
+    await job.log(`Segment targeting: ${contactIds.size} opted-in contacts`);
+
+  } else {
+    throw new Error("No targeting configured — no segment or interest lists selected");
+  }
+
+  if (contactIds.size === 0) {
+    await job.log("No contacts to send to — campaign has 0 eligible recipients");
+    await db.campaign.update({
+      where: { id: campaignId },
+      data: { status: "COMPLETED", completedAt: new Date(), totalRecipients: 0 },
+    });
+    return { status: "completed", messageCount: 0 };
+  }
+
+  // Fetch contact details for message jobs
+  const contacts = await db.contact.findMany({
+    where: { id: { in: Array.from(contactIds) } },
+    select: { id: true, phone: true, firstName: true, lastName: true },
   });
 
-  if (!segment) throw new Error("Segment not found");
-
-  // Get all opted-in contacts matching segment
-  const contacts = await db.contact.findMany({
-    where: {
-      orgId,
-      optInStatus: "OPTED_IN",
-    },
-    select: { id: true, phone: true, firstName: true, lastName: true },
+  // Update total recipients
+  await db.campaign.update({
+    where: { id: campaignId },
+    data: { totalRecipients: contacts.length },
   });
 
   await job.log(`Expanding campaign to ${contacts.length} contacts`);

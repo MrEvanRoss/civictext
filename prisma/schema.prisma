@@ -336,6 +336,10 @@ model Campaign {
   createdById     String
   settings        Json?          // Campaign-specific settings
 
+  // Interest list targeting
+  interestListMode    String?   // "everyone" | "include" | "exclude" (null = segment only)
+  interestListIds     String[]  @default([]) // list IDs to include or exclude
+
   // P2P-specific fields
   p2pScript           String?   // default script agents see (merge-field template)
   p2pReplyScript      String?   // suggested follow-up for replies

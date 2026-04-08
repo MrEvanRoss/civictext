@@ -30,6 +30,9 @@ export const createCampaignSchema = z.object({
       })
     )
     .optional(),
+  // Interest list targeting
+  interestListMode: z.enum(["everyone", "include", "exclude"]).optional(),
+  interestListIds: z.array(z.string().uuid()).optional(),
   // P2P-specific
   p2pScript: z.string().optional(),
   p2pReplyScript: z.string().optional(),

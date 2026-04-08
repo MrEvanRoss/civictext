@@ -22,6 +22,7 @@ import { createCampaignAction, sendTestMessageAction, getAllowedCampaignTypesAct
 import { listSegmentsAction } from "@/server/actions/contacts";
 import { assignP2PContactsAction } from "@/server/actions/p2p";
 import { getTeamMembersAction } from "@/server/actions/inbox";
+import { listInterestListsAction } from "@/server/actions/interest-lists";
 import { countSegments, hasUnicodeChars, getRemainingChars } from "@/lib/sms-utils";
 import { DEFAULT_SMS_RATE_CENTS, DEFAULT_MMS_RATE_CENTS } from "@/lib/constants";
 
@@ -75,6 +76,7 @@ const WIZARD_STEPS_P2P = [
   { title: "Audience" },
   { title: "Script" },
   { title: "Assign Agents" },
+  { title: "Schedule" },
   { title: "Review" },
 ];
 
@@ -128,6 +130,11 @@ export default function NewCampaignPage() {
   const [gotvPollHours, setGotvPollHours] = useState("7:00 AM - 8:00 PM");
   const [gotvDefaultLocation, setGotvDefaultLocation] = useState("");
 
+  // Interest list targeting
+  const [interestLists, setInterestLists] = useState<any[]>([]);
+  const [interestListMode, setInterestListMode] = useState<"" | "everyone" | "include" | "exclude">("");
+  const [selectedListIds, setSelectedListIds] = useState<string[]>([]);
+
   // P2P state
   const [p2pReplyScript, setP2pReplyScript] = useState("");
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
@@ -145,6 +152,7 @@ export default function NewCampaignPage() {
     loadSegments();
     loadAllowedTypes();
     loadTeamMembers();
+    loadInterestLists();
   }, []);
 
   async function loadTeamMembers() {
@@ -153,6 +161,13 @@ export default function NewCampaignPage() {
       setTeamMembers(members.filter((m: any) =>
         ["OWNER", "ADMIN", "MANAGER", "SENDER"].includes(m.role)
       ));
+    } catch {}
+  }
+
+  async function loadInterestLists() {
+    try {
+      const data = await listInterestListsAction();
+      setInterestLists(data.filter((l: any) => l.isActive));
     } catch {}
   }
 
@@ -192,12 +207,19 @@ export default function NewCampaignPage() {
       case 0:
         return !!(name && type);
       case 1:
-        return type === "AUTO_REPLY" || !!segmentId;
+        if (type === "AUTO_REPLY") return true;
+        if (interestListMode === "everyone") return true;
+        if (interestListMode === "include" && selectedListIds.length > 0) return true;
+        if (interestListMode === "exclude" && selectedListIds.length > 0) return true;
+        return !!segmentId;
       case 2:
         return !!messageBody;
       case 3:
         if (type === "P2P") return selectedAgents.length > 0;
         return scheduleType === "now" || !!scheduledAt;
+      case 4:
+        if (type === "P2P") return scheduleType === "now" || !!scheduledAt;
+        return true;
       default:
         return true;
     }
@@ -208,6 +230,8 @@ export default function NewCampaignPage() {
     setError("");
 
     try {
+      const isP2PScheduled = type === "P2P" && scheduleType === "later" && scheduledAt;
+
       const campaign = await createCampaignAction({
         name,
         type: type as any,
@@ -215,9 +239,13 @@ export default function NewCampaignPage() {
         messageBody,
         mediaUrl: mediaUrl || undefined,
         scheduledAt:
-          type !== "P2P" && scheduleType === "later" && scheduledAt
+          scheduleType === "later" && scheduledAt
             ? new Date(scheduledAt).toISOString()
             : undefined,
+        ...(interestListMode && {
+          interestListMode,
+          interestListIds: selectedListIds.length > 0 ? selectedListIds : undefined,
+        }),
         ...(type === "GOTV" && {
           gotvSettings: {
             electionDate: gotvElectionDate || undefined,
@@ -231,9 +259,16 @@ export default function NewCampaignPage() {
         }),
       });
 
-      // For P2P campaigns, assign contacts to agents
+      // For P2P campaigns, assign contacts to agents immediately
+      // (they'll be ready when the campaign launches, whether now or scheduled)
       if (type === "P2P" && selectedAgents.length > 0) {
         await assignP2PContactsAction(campaign.id, selectedAgents);
+      }
+
+      // If P2P is scheduled for later, transition to SCHEDULED status
+      if (isP2PScheduled) {
+        const { changeCampaignStatusAction } = await import("@/server/actions/campaigns");
+        await changeCampaignStatusAction(campaign.id, "SCHEDULED");
       }
 
       router.push(`/campaigns/${campaign.id}`);
@@ -359,38 +394,155 @@ export default function NewCampaignPage() {
               </div>
             ) : (
               <>
+                {/* Targeting Mode */}
                 <div className="space-y-2">
-                  <Label>Segment *</Label>
-                  <NativeSelect
-                    value={segmentId}
-                    onChange={(e) => setSegmentId(e.target.value)}
-                  >
-                    <option value="">Select a segment...</option>
-                    {segments.map((seg) => (
-                      <option key={seg.id} value={seg.id}>
-                        {seg.name} ({seg.contactCount} contacts)
-                      </option>
-                    ))}
-                  </NativeSelect>
+                  <Label>Targeting Method *</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div
+                      className={`border rounded-lg p-3 cursor-pointer transition-colors ${
+                        !interestListMode && segmentId ? "border-primary bg-primary/5" : !interestListMode ? "border-primary bg-primary/5" : "hover:border-primary/50"
+                      }`}
+                      onClick={() => { setInterestListMode(""); setSelectedListIds([]); }}
+                    >
+                      <p className="font-medium text-sm">Segment</p>
+                      <p className="text-xs text-muted-foreground mt-1">Use saved contact segments</p>
+                    </div>
+                    <div
+                      className={`border rounded-lg p-3 cursor-pointer transition-colors ${
+                        interestListMode === "everyone" ? "border-primary bg-primary/5" : "hover:border-primary/50"
+                      }`}
+                      onClick={() => { setInterestListMode("everyone"); setSegmentId(""); }}
+                    >
+                      <p className="font-medium text-sm">Everyone</p>
+                      <p className="text-xs text-muted-foreground mt-1">All opted-in contacts</p>
+                    </div>
+                    <div
+                      className={`border rounded-lg p-3 cursor-pointer transition-colors ${
+                        interestListMode === "include" ? "border-primary bg-primary/5" : "hover:border-primary/50"
+                      }`}
+                      onClick={() => { setInterestListMode("include"); setSegmentId(""); }}
+                    >
+                      <p className="font-medium text-sm">Interest Lists (Include)</p>
+                      <p className="text-xs text-muted-foreground mt-1">Only contacts ON selected lists</p>
+                    </div>
+                    <div
+                      className={`border rounded-lg p-3 cursor-pointer transition-colors ${
+                        interestListMode === "exclude" ? "border-primary bg-primary/5" : "hover:border-primary/50"
+                      }`}
+                      onClick={() => { setInterestListMode("exclude"); setSegmentId(""); }}
+                    >
+                      <p className="font-medium text-sm">Interest Lists (Exclude)</p>
+                      <p className="text-xs text-muted-foreground mt-1">All contacts EXCEPT those on selected lists</p>
+                    </div>
+                  </div>
                 </div>
 
-                {selectedSegment && (
-                  <div className="rounded-md bg-muted p-4 text-sm">
-                    <p className="font-medium">{selectedSegment.name}</p>
-                    <p className="text-muted-foreground mt-1">
-                      {selectedSegment.contactCount} contacts will receive this
-                      campaign (minus opted-out).
-                    </p>
+                {/* Segment Picker (when segment mode) */}
+                {!interestListMode && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Segment *</Label>
+                      <NativeSelect
+                        value={segmentId}
+                        onChange={(e) => setSegmentId(e.target.value)}
+                      >
+                        <option value="">Select a segment...</option>
+                        {segments.map((seg) => (
+                          <option key={seg.id} value={seg.id}>
+                            {seg.name} ({seg.contactCount} contacts)
+                          </option>
+                        ))}
+                      </NativeSelect>
+                    </div>
+
+                    {selectedSegment && (
+                      <div className="rounded-md bg-muted p-4 text-sm">
+                        <p className="font-medium">{selectedSegment.name}</p>
+                        <p className="text-muted-foreground mt-1">
+                          {selectedSegment.contactCount} contacts will receive this
+                          campaign (minus opted-out).
+                        </p>
+                      </div>
+                    )}
+
+                    {segments.length === 0 && (
+                      <div className="rounded-md bg-warning/10 border border-warning/30 p-4 text-sm text-warning">
+                        No segments found. Create a segment in{" "}
+                        <a href="/contacts/segments" className="underline">
+                          Contacts &gt; Segments
+                        </a>{" "}
+                        first.
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Interest List Picker (when include/exclude mode) */}
+                {(interestListMode === "include" || interestListMode === "exclude") && (
+                  <div className="space-y-3">
+                    <Label>
+                      {interestListMode === "include"
+                        ? "Select lists to include (contacts on ANY of these lists)"
+                        : "Select lists to exclude (contacts NOT on these lists)"}
+                    </Label>
+                    {interestLists.length === 0 ? (
+                      <div className="rounded-md bg-warning/10 border border-warning/30 p-4 text-sm text-warning">
+                        No active interest lists found. Create one in{" "}
+                        <a href="/interest-lists" className="underline">Interest Lists</a> first.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {interestLists.map((list: any) => {
+                          const isSelected = selectedListIds.includes(list.id);
+                          const memberCount = list._count?.members ?? list.memberCount ?? 0;
+                          return (
+                            <div
+                              key={list.id}
+                              className={`border rounded-lg p-3 cursor-pointer transition-colors flex items-center justify-between ${
+                                isSelected ? "border-primary bg-primary/5" : "hover:border-primary/50"
+                              }`}
+                              onClick={() => {
+                                setSelectedListIds((prev) =>
+                                  isSelected ? prev.filter((id) => id !== list.id) : [...prev, list.id]
+                                );
+                              }}
+                            >
+                              <div className="flex items-center gap-3">
+                                <input type="checkbox" checked={isSelected} readOnly className="rounded" />
+                                <div>
+                                  <p className="text-sm font-medium">{list.name}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Keyword: <span className="font-mono">{list.keyword}</span>
+                                  </p>
+                                </div>
+                              </div>
+                              <Badge variant="secondary" className="text-xs">
+                                {memberCount} member{memberCount !== 1 ? "s" : ""}
+                              </Badge>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {selectedListIds.length > 0 && (
+                      <div className="rounded-md bg-muted p-3 text-sm">
+                        <p>
+                          <strong>{selectedListIds.length}</strong> list{selectedListIds.length !== 1 ? "s" : ""} selected.
+                          {interestListMode === "include"
+                            ? " Contacts on multiple lists will only receive the message once."
+                            : " Contacts on any of these lists will be excluded."}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {segments.length === 0 && (
-                  <div className="rounded-md bg-warning/10 border border-warning/30 p-4 text-sm text-warning">
-                    No segments found. Create a segment in{" "}
-                    <a href="/contacts/segments" className="underline">
-                      Contacts &gt; Segments
-                    </a>{" "}
-                    first.
+                {/* "Everyone" confirmation */}
+                {interestListMode === "everyone" && (
+                  <div className="rounded-md bg-info/10 border border-info/20 p-4 text-sm text-info">
+                    This campaign will be sent to <strong>all opted-in contacts</strong> in your organization.
+                    Opted-out contacts are always excluded automatically.
                   </div>
                 )}
               </>
@@ -821,6 +973,81 @@ export default function NewCampaignPage() {
               Back
             </Button>
             <Button onClick={() => setStep(4)} disabled={!canProceed()}>
+              Next: Schedule
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
+      {/* Step 4: Schedule (P2P) */}
+      {step === 4 && type === "P2P" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Schedule Launch</CardTitle>
+            <CardDescription>
+              Choose when agents can start sending. Contacts are already assigned and will be waiting in their queues.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div
+                className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                  scheduleType === "now"
+                    ? "border-primary bg-primary/5"
+                    : "hover:border-primary/50"
+                }`}
+                onClick={() => { setScheduleType("now"); setScheduledAt(""); }}
+              >
+                <p className="font-medium text-sm">Launch Now</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Agents can begin sending immediately after you create the campaign.
+                </p>
+              </div>
+              <div
+                className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                  scheduleType === "later"
+                    ? "border-primary bg-primary/5"
+                    : "hover:border-primary/50"
+                }`}
+                onClick={() => setScheduleType("later")}
+              >
+                <p className="font-medium text-sm">Schedule for Later</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  The campaign will automatically open for agents at the scheduled time.
+                </p>
+              </div>
+            </div>
+
+            {scheduleType === "later" && (
+              <div className="space-y-2">
+                <Label htmlFor="p2pScheduledAt">Launch Date & Time *</Label>
+                <Input
+                  id="p2pScheduledAt"
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(e) => setScheduledAt(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Agents will not be able to send messages until this time. The campaign will automatically transition to &ldquo;Sending&rdquo; when ready.
+                </p>
+              </div>
+            )}
+
+            <div className="rounded-lg bg-info/10 border border-info/20 p-3 text-xs text-info">
+              <p className="font-medium mb-1">How scheduled P2P works:</p>
+              <ul className="space-y-1 list-disc list-inside">
+                <li>Contacts are pre-assigned to agents when you create the campaign</li>
+                <li>The campaign stays in &ldquo;Scheduled&rdquo; status until the launch time</li>
+                <li>At the scheduled time, it automatically opens for sending</li>
+                <li>Agents then send messages one-by-one from their queues</li>
+              </ul>
+            </div>
+          </CardContent>
+          <CardFooter className="justify-between">
+            <Button variant="outline" onClick={() => setStep(3)}>
+              Back
+            </Button>
+            <Button onClick={() => setStep(5)} disabled={!canProceed()}>
               Next: Review
             </Button>
           </CardFooter>
@@ -933,8 +1160,8 @@ export default function NewCampaignPage() {
         </Card>
       )}
 
-      {/* Step 4: Review */}
-      {step === 4 && (
+      {/* Review Step (step 4 for non-P2P, step 5 for P2P) */}
+      {step === (type === "P2P" ? 5 : 4) && (
         <Card>
           <CardHeader>
             <CardTitle>Review Campaign</CardTitle>
@@ -958,23 +1185,35 @@ export default function NewCampaignPage() {
               <dd>
                 {type === "AUTO_REPLY"
                   ? "All contacts (auto-reply)"
-                  : selectedSegment
-                    ? `${selectedSegment.name} (${selectedSegment.contactCount} contacts)`
-                    : "No segment"}
+                  : interestListMode === "everyone"
+                    ? "All opted-in contacts"
+                    : interestListMode === "include"
+                      ? `${selectedListIds.length} interest list${selectedListIds.length !== 1 ? "s" : ""} (include)`
+                      : interestListMode === "exclude"
+                        ? `All contacts except ${selectedListIds.length} list${selectedListIds.length !== 1 ? "s" : ""}`
+                        : selectedSegment
+                          ? `${selectedSegment.name} (${selectedSegment.contactCount} contacts)`
+                          : "No segment"}
               </dd>
 
-              {type === "P2P" ? (
+              <dt className="text-muted-foreground">
+                {type === "P2P" ? "Agents" : "Schedule"}
+              </dt>
+              <dd>
+                {type === "P2P"
+                  ? `${selectedAgents.length} agent${selectedAgents.length !== 1 ? "s" : ""} assigned`
+                  : scheduleType === "now"
+                    ? "Send immediately"
+                    : new Date(scheduledAt).toLocaleString()}
+              </dd>
+
+              {type === "P2P" && (
                 <>
-                  <dt className="text-muted-foreground">Agents</dt>
-                  <dd>{selectedAgents.length} agent{selectedAgents.length !== 1 ? "s" : ""} assigned</dd>
-                </>
-              ) : (
-                <>
-                  <dt className="text-muted-foreground">Schedule</dt>
+                  <dt className="text-muted-foreground">Launch</dt>
                   <dd>
                     {scheduleType === "now"
-                      ? "Send immediately"
-                      : new Date(scheduledAt).toLocaleString()}
+                      ? "Agents can begin sending immediately"
+                      : `Scheduled for ${new Date(scheduledAt).toLocaleString()}`}
                   </dd>
                 </>
               )}
@@ -1001,14 +1240,16 @@ export default function NewCampaignPage() {
             )}
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setStep(3)}>
+            <Button variant="outline" onClick={() => setStep(type === "P2P" ? 4 : 3)}>
               Back
             </Button>
             <Button onClick={handleCreate} disabled={loading}>
               {loading
                 ? "Creating..."
                 : type === "P2P"
-                  ? "Launch P2P Campaign"
+                  ? scheduleType === "later"
+                    ? "Create & Schedule P2P Campaign"
+                    : "Launch P2P Campaign"
                   : scheduleType === "now"
                     ? "Create & Send Now"
                     : "Create & Schedule"}
