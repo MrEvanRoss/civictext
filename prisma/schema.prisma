@@ -107,6 +107,20 @@ enum P2PAssignmentStatus {
   OPTED_OUT
 }
 
+enum SurveyType {
+  MULTIPLE_CHOICE
+  YES_NO
+  OPEN_ENDED
+  RATING
+  NPS
+}
+
+enum SurveyStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
 // ============================================================
 // CORE: Organization & Users
 // ============================================================
@@ -155,6 +169,8 @@ model Organization {
   webhookEndpoints         WebhookEndpoint[]
   apiKeys                  ApiKey[]
   p2pAssignments           P2PAssignment[]
+  subcommunities           Subcommunity[]
+  surveys                  Survey[]
 
   @@index([status])
 }
@@ -271,6 +287,8 @@ model Contact {
   contactNotes     ContactNote[]
   interestListMemberships InterestListMember[]
   p2pAssignments   P2PAssignment[]
+  subcommunityMembers SubcommunityMember[]
+  surveyResponses  SurveyResponse[]
 
   @@unique([orgId, phone])
   @@index([orgId, optInStatus])
@@ -380,6 +398,7 @@ model Campaign {
   usageLedger     UsageLedger[]
   trackedLinks    TrackedLink[]
   p2pAssignments  P2PAssignment[]
+  surveys         Survey[]
 
   @@index([orgId, status])
   @@index([orgId, createdAt])
@@ -859,6 +878,43 @@ model P2PAssignment {
 }
 
 // ============================================================
+// SUBCOMMUNITIES
+// ============================================================
+
+model Subcommunity {
+  id            String                  @id @default(uuid())
+  orgId         String
+  org           Organization            @relation(fields: [orgId], references: [id])
+  name          String
+  description   String?
+  imageUrl      String?
+  joinKeyword   String?
+  isPublic      Boolean                 @default(true)
+  memberCount   Int                     @default(0)
+  members       SubcommunityMember[]
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  @@unique([orgId, name])
+  @@unique([orgId, joinKeyword])
+  @@index([orgId])
+}
+
+model SubcommunityMember {
+  id              String        @id @default(uuid())
+  subcommunityId  String
+  subcommunity    Subcommunity  @relation(fields: [subcommunityId], references: [id], onDelete: Cascade)
+  contactId       String
+  contact         Contact       @relation(fields: [contactId], references: [id])
+  joinedAt        DateTime      @default(now())
+  source          String?
+
+  @@unique([subcommunityId, contactId])
+  @@index([subcommunityId])
+  @@index([contactId])
+}
+
+// ============================================================
 // PLATFORM SETTINGS (admin-configurable key-value store)
 // ============================================================
 
@@ -866,4 +922,42 @@ model PlatformSetting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// SURVEYS
+// ============================================================
+
+model Survey {
+  id          String           @id @default(uuid())
+  orgId       String
+  org         Organization     @relation(fields: [orgId], references: [id])
+  campaignId  String?
+  campaign    Campaign?        @relation(fields: [campaignId], references: [id])
+  name        String
+  question    String
+  type        SurveyType       @default(MULTIPLE_CHOICE)
+  options     Json             @default("[]")
+  allowOther  Boolean          @default(false)
+  status      SurveyStatus     @default(DRAFT)
+  responses   SurveyResponse[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([orgId])
+  @@index([campaignId])
+}
+
+model SurveyResponse {
+  id          String   @id @default(uuid())
+  surveyId    String
+  survey      Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  contactId   String
+  contact     Contact  @relation(fields: [contactId], references: [id])
+  answer      String
+  rawMessage  String?
+  respondedAt DateTime @default(now())
+
+  @@unique([surveyId, contactId])
+  @@index([surveyId])
 }
