@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +49,14 @@ import {
 type SetupStep = "idle" | "scanning" | "verifying" | "backup-codes";
 
 export default function SecuritySettingsPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center py-20"><p className="text-muted-foreground">Loading...</p></div>}>
+      <SecuritySettingsContent />
+    </Suspense>
+  );
+}
+
+function SecuritySettingsContent() {
   const searchParams = useSearchParams();
   const setupRequired = searchParams.get("setup") === "required";
   const [loading, setLoading] = useState(true);
