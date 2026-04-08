@@ -164,6 +164,11 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // Two-Factor Authentication (TOTP)
+  twoFactorEnabled    Boolean   @default(false)
+  twoFactorSecret     String?   // encrypted TOTP secret
+  twoFactorBackupCodes String[] @default([]) // hashed backup codes
+
   // Auth.js required
   emailVerified DateTime?
   image         String?

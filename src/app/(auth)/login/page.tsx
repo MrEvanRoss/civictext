@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { signIn, getSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -15,28 +15,84 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ShieldCheck, ArrowLeft } from "lucide-react";
+import { preAuthenticateAction } from "@/server/actions/two-factor";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [totpCode, setTotpCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<"credentials" | "totp">("credentials");
+  const totpInputRef = useRef<HTMLInputElement>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
+  // Auto-focus TOTP input when switching to step 2
+  useEffect(() => {
+    if (step === "totp") {
+      setTimeout(() => totpInputRef.current?.focus(), 100);
+    }
+  }, [step]);
+
+  async function handleCredentialsSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
+      // Step 1: Pre-authenticate to check if 2FA is required
+      const preAuth = await preAuthenticateAction(email, password);
+
+      if (!preAuth.valid) {
+        setError("Invalid email or password");
+        setLoading(false);
+        return;
+      }
+
+      if (preAuth.requiresTwoFactor) {
+        // Switch to TOTP code entry
+        setStep("totp");
+        setLoading(false);
+        return;
+      }
+
+      // No 2FA — sign in directly
+      await completeSignIn();
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setLoading(false);
+    }
+  }
+
+  async function handleTotpSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+
+    if (!totpCode.trim()) {
+      setError("Please enter your authentication code");
+      return;
+    }
+
+    setLoading(true);
+    await completeSignIn(totpCode.trim());
+  }
+
+  async function completeSignIn(code?: string) {
+    try {
       const result = await signIn("credentials", {
         email,
         password,
+        totpCode: code || "",
         redirect: false,
       });
 
       if (result?.error) {
-        setError("Invalid email or password");
+        if (step === "totp") {
+          setError("Invalid authentication code. Try again or use a backup code.");
+        } else {
+          setError("Invalid email or password");
+        }
       } else {
         const session = await getSession();
         const destination = (session?.user as any)?.isSuperAdmin ? "/admin/orgs" : "/dashboard";
@@ -50,13 +106,83 @@ export default function LoginPage() {
     }
   }
 
+  function handleBackToCredentials() {
+    setStep("credentials");
+    setTotpCode("");
+    setError("");
+  }
+
+  // Step 2: TOTP Code Entry
+  if (step === "totp") {
+    return (
+      <Card>
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-3">
+            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <ShieldCheck className="h-6 w-6 text-primary" />
+            </div>
+          </div>
+          <CardTitle className="text-2xl font-bold">Two-Factor Authentication</CardTitle>
+          <CardDescription>
+            Enter the 6-digit code from your authenticator app
+          </CardDescription>
+        </CardHeader>
+        <form onSubmit={handleTotpSubmit}>
+          <CardContent className="space-y-4">
+            {error && (
+              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="totpCode">Authentication Code</Label>
+              <Input
+                ref={totpInputRef}
+                id="totpCode"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="000000"
+                value={totpCode}
+                onChange={(e) => {
+                  // Only allow digits, max 8 chars (backup codes have dashes)
+                  const val = e.target.value.replace(/[^0-9A-Za-z-]/g, "").slice(0, 9);
+                  setTotpCode(val);
+                }}
+                className="text-center text-2xl tracking-[0.5em] font-mono"
+                required
+              />
+              <p className="text-xs text-muted-foreground text-center">
+                You can also enter a backup code
+              </p>
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col gap-3">
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Verifying..." : "Verify"}
+            </Button>
+            <button
+              type="button"
+              onClick={handleBackToCredentials}
+              className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 justify-center"
+            >
+              <ArrowLeft className="h-3 w-3" />
+              Back to sign in
+            </button>
+          </CardFooter>
+        </form>
+      </Card>
+    );
+  }
+
+  // Step 1: Email + Password
   return (
     <Card>
       <CardHeader className="text-center">
         <CardTitle className="text-2xl font-bold">CivicText</CardTitle>
         <CardDescription>Sign in to your account</CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleCredentialsSubmit}>
         <CardContent className="space-y-4">
           {error && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">

@@ -5,6 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { db } from "./db";
 import { authConfig } from "./auth.config";
+import { verifyTOTPCode, verifyBackupCode } from "./two-factor";
 
 export const {
   handlers,
@@ -24,6 +25,7 @@ export const {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        totpCode: { label: "2FA Code", type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -32,6 +34,7 @@ export const {
 
         const email = credentials.email as string;
         const password = credentials.password as string;
+        const totpCode = (credentials.totpCode as string) || "";
 
         const user = await db.user.findUnique({
           where: { email },
@@ -44,6 +47,35 @@ export const {
         const isValid = await bcrypt.compare(password, user.passwordHash);
         if (!isValid) {
           return null;
+        }
+
+        // Two-Factor Authentication check
+        if (user.twoFactorEnabled && user.twoFactorSecret) {
+          if (!totpCode) {
+            // No TOTP code provided — login page should have prompted for it
+            return null;
+          }
+
+          // Try TOTP code first
+          const totpValid = verifyTOTPCode(user.twoFactorSecret, totpCode);
+          if (!totpValid) {
+            // Try backup code
+            const backupIndex = await verifyBackupCode(
+              totpCode,
+              user.twoFactorBackupCodes
+            );
+            if (backupIndex === -1) {
+              return null; // Neither TOTP nor backup code matched
+            }
+
+            // Remove used backup code
+            const updatedCodes = [...user.twoFactorBackupCodes];
+            updatedCodes.splice(backupIndex, 1);
+            await db.user.update({
+              where: { id: user.id },
+              data: { twoFactorBackupCodes: updatedCodes },
+            });
+          }
         }
 
         // Update last login

@@ -44,6 +44,7 @@ const pages = [
   { href: "/billing", label: "Billing", icon: CreditCard, keywords: ["plan", "balance", "credits", "usage"] },
   { href: "/team", label: "Team", icon: UserPlus, keywords: ["members", "invite", "roles"] },
   { href: "/settings", label: "Settings", icon: Settings, keywords: ["org", "configuration", "webhooks"] },
+  { href: "/settings/security", label: "Security / 2FA", icon: Shield, keywords: ["two-factor", "authentication", "totp", "backup codes"] },
 ];
 
 const actions = [

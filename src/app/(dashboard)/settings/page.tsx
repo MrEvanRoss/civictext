@@ -14,7 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Save, Webhook, KeyRound, MessageSquareReply } from "lucide-react";
+import { Save, Webhook, KeyRound, MessageSquareReply, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -225,6 +225,29 @@ export default function SettingsPage() {
             {saving ? "Saving..." : "Save Settings"}
           </Button>
         </CardFooter>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Account Security</CardTitle>
+          <CardDescription>
+            Protect your account with additional security measures.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Link
+            href="/settings/security"
+            className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors"
+          >
+            <ShieldCheck className="h-5 w-5 text-primary" />
+            <div>
+              <p className="font-medium text-sm">Two-Factor Authentication</p>
+              <p className="text-xs text-muted-foreground">
+                Add an extra layer of security with an authenticator app (TOTP).
+              </p>
+            </div>
+          </Link>
+        </CardContent>
       </Card>
 
       <Card>
