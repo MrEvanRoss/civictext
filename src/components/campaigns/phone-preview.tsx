@@ -24,10 +24,29 @@ function extractDomain(url: string): string {
 }
 
 /**
- * Render message text with links styled as they appear on iOS iMessage.
- * Links show as underlined blue text with a tappable link preview card beneath.
+ * Generate a mock page title from a URL path.
  */
-function renderPreviewWithLinks(text: string): React.ReactNode {
+function generateMockTitle(url: string): string {
+  try {
+    const u = new URL(url);
+    const path = u.pathname.replace(/^\/|\/$/g, "");
+    if (!path) return u.hostname;
+    // Convert path slug to title case
+    return path
+      .split("/")
+      .pop()!
+      .replace(/[-_]/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  } catch {
+    return "Link Preview";
+  }
+}
+
+/**
+ * Render message text only (URLs shown as blue underlined text within bubble).
+ * Returns just the inline content — the rich link card is rendered separately.
+ */
+function renderMessageText(text: string): React.ReactNode {
   if (!text) return null;
   const parts = text.split(URL_REGEX);
   const urls = text.match(URL_REGEX) || [];
@@ -38,33 +57,82 @@ function renderPreviewWithLinks(text: string): React.ReactNode {
   parts.forEach((part, i) => {
     if (part) result.push(part);
     if (i < urls.length) {
-      const domain = extractDomain(urls[i]);
       result.push(
-        <span key={`link-${i}`} className="inline">
-          <span className="underline text-[#6bbbff] break-all cursor-pointer">
-            {urls[i]}
-          </span>
+        <span key={`link-${i}`} className="underline text-[#aadcff] break-all cursor-pointer">
+          {urls[i]}
         </span>
       );
-      // Add a link preview card beneath the last URL
-      if (i === urls.length - 1) {
-        result.push(
-          <span key={`card-${i}`} className="block mt-1.5 rounded-lg bg-white/10 border border-white/10 overflow-hidden">
-            <span className="block bg-white/5 h-16 flex items-center justify-center">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-gray-500">
-                <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </span>
-            <span className="block px-2.5 py-1.5">
-              <span className="block text-[11px] text-gray-400 truncate">{domain}</span>
-            </span>
-          </span>
-        );
-      }
     }
   });
   return result;
+}
+
+/**
+ * Extract all URLs from text.
+ */
+function extractUrls(text: string): string[] {
+  return text.match(URL_REGEX) || [];
+}
+
+/**
+ * iOS-style rich link preview card — rendered as a separate element below the
+ * message bubble, exactly like iMessage shows link previews.
+ */
+function LinkPreviewCard({ url }: { url: string }) {
+  const domain = extractDomain(url);
+  const title = generateMockTitle(url);
+
+  // Pick a branded accent color for the preview image area
+  const colors = [
+    "from-blue-600 to-blue-800",
+    "from-indigo-600 to-indigo-800",
+    "from-purple-600 to-purple-800",
+    "from-teal-600 to-teal-800",
+    "from-emerald-600 to-emerald-800",
+  ];
+  let hash = 0;
+  for (let i = 0; i < url.length; i++) hash = url.charCodeAt(i) + ((hash << 5) - hash);
+  const colorClass = colors[Math.abs(hash) % colors.length];
+
+  return (
+    <div className="ml-auto max-w-[85%] w-fit rounded-2xl overflow-hidden shadow-sm">
+      {/* Image / hero area */}
+      <div
+        className={`bg-gradient-to-br ${colorClass} flex items-center justify-center`}
+        style={{ width: "100%", height: 120 }}
+      >
+        <svg
+          width="40"
+          height="40"
+          viewBox="0 0 24 24"
+          fill="none"
+          className="text-white/30"
+        >
+          <path
+            d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
+      {/* Title + domain */}
+      <div className="bg-[#1c1c1e] px-3 py-2.5">
+        <p className="text-[13px] font-semibold text-gray-100 leading-tight line-clamp-2">
+          {title}
+        </p>
+        <p className="text-[11px] text-gray-500 mt-0.5">{domain}</p>
+      </div>
+    </div>
+  );
 }
 
 /** Example values for merge field rendering */
@@ -215,8 +283,12 @@ export function PhonePreview({
               )}
               {/* Message bubble */}
               <div className="bg-[#34C759] text-white rounded-2xl rounded-tr-sm px-3 py-2 text-[13px] leading-snug ml-auto max-w-[85%] w-fit whitespace-pre-wrap break-words shadow-sm">
-                {renderPreviewWithLinks(resolvedMessage)}
+                {renderMessageText(resolvedMessage)}
               </div>
+              {/* Rich link preview card — separate from the bubble, just like iOS */}
+              {extractUrls(resolvedMessage).length > 0 && (
+                <LinkPreviewCard url={extractUrls(resolvedMessage)[extractUrls(resolvedMessage).length - 1]} />
+              )}
               {/* Delivery indicator */}
               <p className="text-right text-[9px] text-gray-500 pr-1">
                 Delivered
