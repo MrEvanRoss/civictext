@@ -54,7 +54,7 @@ export async function getOrgDetailAction(orgId: string) {
   const org = await db.organization.findUnique({
     where: { id: orgId },
     include: {
-      users: { select: { id: true, name: true, email: true, role: true, lastLoginAt: true } },
+      users: { select: { id: true, name: true, email: true, role: true, lastLoginAt: true, twoFactorEnabled: true } },
       messagingPlan: true,
       twilioSubaccount: { select: { accountSid: true, messagingServiceSid: true } },
       brandRegistrations: { orderBy: { createdAt: "desc" }, take: 1 },
@@ -452,6 +452,31 @@ export async function startImpersonationAction(orgId: string) {
     targetOrgName: org.name,
     adminUserId,
   };
+}
+
+/**
+ * Reset (disable) 2FA for a user. Super admin override for locked-out users.
+ */
+export async function resetUser2FAAction(userId: string) {
+  await requireSuperAdmin();
+
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true, twoFactorEnabled: true },
+  });
+  if (!user) throw new Error("User not found");
+  if (!user.twoFactorEnabled) throw new Error("2FA is not enabled for this user");
+
+  await db.user.update({
+    where: { id: userId },
+    data: {
+      twoFactorEnabled: false,
+      twoFactorSecret: null,
+      twoFactorBackupCodes: [],
+    },
+  });
+
+  return { reset: true, userName: user.name, userEmail: user.email };
 }
 
 // ============================================================

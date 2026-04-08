@@ -21,10 +21,12 @@ import {
   getOrgAutoReplyRulesAction,
   getOrgConsentLogsAction,
   startImpersonationAction,
+  resetUser2FAAction,
 } from "@/server/actions/admin";
 import { adminAddUserToOrgAction } from "@/server/actions/team";
 import { NativeSelect } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 import {
   ArrowLeft,
   Building2,
@@ -46,6 +48,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
+  ShieldCheck,
+  ShieldOff,
 } from "lucide-react";
 
 type Tab = "overview" | "campaigns" | "contacts" | "interest-lists" | "templates" | "webhooks" | "auto-reply" | "consent";
@@ -708,7 +712,9 @@ export default function AdminOrgDetailPage() {
                   <th className="text-left p-2 font-medium">Name</th>
                   <th className="text-left p-2 font-medium">Email</th>
                   <th className="text-left p-2 font-medium">Role</th>
+                  <th className="text-left p-2 font-medium">2FA</th>
                   <th className="text-left p-2 font-medium">Last Login</th>
+                  <th className="text-right p-2 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -717,8 +723,42 @@ export default function AdminOrgDetailPage() {
                     <td className="p-2">{user.name || "\u2014"}</td>
                     <td className="p-2 text-muted-foreground">{user.email}</td>
                     <td className="p-2"><Badge variant="secondary">{user.role}</Badge></td>
+                    <td className="p-2">
+                      {user.twoFactorEnabled ? (
+                        <Badge variant="success" className="text-[10px]">
+                          <ShieldCheck className="h-3 w-3 mr-0.5" />
+                          Enabled
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                          <ShieldOff className="h-3 w-3 mr-0.5" />
+                          Off
+                        </Badge>
+                      )}
+                    </td>
                     <td className="p-2 text-muted-foreground">
                       {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : "Never"}
+                    </td>
+                    <td className="p-2 text-right">
+                      {user.twoFactorEnabled && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs text-destructive hover:text-destructive"
+                          onClick={async () => {
+                            if (!confirm(`Reset 2FA for ${user.name || user.email}? They will need to set it up again.`)) return;
+                            try {
+                              await resetUser2FAAction(user.id);
+                              toast.success(`2FA reset for ${user.name || user.email}`);
+                              loadOrg();
+                            } catch (err: any) {
+                              toast.error(err.message || "Failed to reset 2FA");
+                            }
+                          }}
+                        >
+                          Reset 2FA
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))}
