@@ -147,9 +147,14 @@ function LinkPreviewCard({ url }: { url: string }) {
 
   const title = ogData?.title || fallbackTitle;
   const displayDomain = ogData?.domain || domain;
-  const imageUrl = ogData?.image || null;
+  const rawImageUrl = ogData?.image || null;
   const imageType = ogData?.imageType || null;
   const isFullImage = imageType === "og";
+
+  // Proxy external images through our server to avoid hotlinking / referrer blocks
+  const imageUrl = rawImageUrl
+    ? `/api/og-image?url=${encodeURIComponent(rawImageUrl)}`
+    : null;
 
   // Pick a branded accent color for the gradient background
   const colors = [
