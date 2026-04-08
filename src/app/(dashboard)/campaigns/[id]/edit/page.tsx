@@ -302,7 +302,7 @@ export default function EditCampaignPage() {
                 {/* Targeting Mode */}
                 <div className="space-y-2">
                   <Label>Targeting Method</Label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {[
                       { mode: "" as const, label: "Segment", desc: "Use saved contact segments" },
                       { mode: "everyone" as const, label: "Everyone", desc: "All opted-in contacts" },
@@ -465,7 +465,7 @@ export default function EditCampaignPage() {
                 {selectedAgents.length === teamMembers.length ? "Deselect All" : "Select All"}
               </Button>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {teamMembers.map((member: any) => {
                 const isSelected = selectedAgents.includes(member.id);
                 return (
@@ -510,7 +510,7 @@ export default function EditCampaignPage() {
             <CardDescription>Choose when to launch this campaign.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div
                 className={`border rounded-lg p-4 cursor-pointer transition-colors ${
                   scheduleType === "now" ? "border-primary bg-primary/5" : "hover:border-primary/50"

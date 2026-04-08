@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import {
   getOrgDetailAction,
   approveOrgAction,
-  suspendOrgAction,
+  setInactiveOrgAction,
+  archiveOrgAction,
   reactivateOrgAction,
   addCreditsAction,
   updateOrgRatesAction,
@@ -50,6 +51,7 @@ import {
   ExternalLink,
   ShieldCheck,
   ShieldOff,
+  Archive,
 } from "lucide-react";
 
 type Tab = "overview" | "campaigns" | "contacts" | "interest-lists" | "templates" | "webhooks" | "auto-reply" | "consent";
@@ -61,8 +63,8 @@ export default function AdminOrgDetailPage() {
 
   const [org, setOrg] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [suspendReason, setSuspendReason] = useState("");
-  const [showSuspend, setShowSuspend] = useState(false);
+  const [inactiveReason, setInactiveReason] = useState("");
+  const [showInactive, setShowInactive] = useState(false);
   const [addAmount, setAddAmount] = useState("");
   const [addingCredits, setAddingCredits] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
@@ -210,12 +212,22 @@ export default function AdminOrgDetailPage() {
     }
   }
 
-  async function handleSuspend() {
-    if (!suspendReason.trim()) return;
+  async function handleSetInactive() {
+    if (!inactiveReason.trim()) return;
     try {
-      await suspendOrgAction(orgId, suspendReason.trim());
-      setSuspendReason("");
-      setShowSuspend(false);
+      await setInactiveOrgAction(orgId, inactiveReason.trim());
+      setInactiveReason("");
+      setShowInactive(false);
+      await loadOrg();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  }
+
+  async function handleArchive() {
+    if (!confirm("Archive this organization? It will be hidden from active views but all data will be preserved.")) return;
+    try {
+      await archiveOrgAction(orgId);
       await loadOrg();
     } catch (err: any) {
       alert(err.message);
@@ -334,20 +346,22 @@ export default function AdminOrgDetailPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={() => router.push("/admin/orgs")}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <Button variant="outline" size="sm" onClick={() => router.push("/admin/orgs")} className="shrink-0">
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold">{org.name}</h1>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-bold truncate">{org.name}</h1>
               <Badge
                 variant={
                   org.status === "ACTIVE"
                     ? "success"
-                    : org.status === "SUSPENDED"
+                    : org.status === "INACTIVE"
                     ? "destructive"
+                    : org.status === "ARCHIVED"
+                    ? "secondary"
                     : org.status === "PENDING_APPROVAL"
                     ? "warning"
                     : "secondary"
@@ -359,7 +373,7 @@ export default function AdminOrgDetailPage() {
             <p className="text-sm text-muted-foreground">{org.slug} &middot; ID: {org.id}</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={handleImpersonate}>
             <LogIn className="h-4 w-4 mr-1" />
             Log In As Client
@@ -370,34 +384,39 @@ export default function AdminOrgDetailPage() {
             </Button>
           )}
           {org.status === "ACTIVE" && (
-            <Button variant="destructive" size="sm" onClick={() => setShowSuspend(!showSuspend)}>
+            <Button variant="destructive" size="sm" onClick={() => setShowInactive(!showInactive)}>
               <AlertTriangle className="h-4 w-4 mr-1" />
-              Suspend
+              Set Inactive
             </Button>
           )}
-          {org.status === "SUSPENDED" && (
+          {(org.status === "INACTIVE" || org.status === "ARCHIVED") && (
             <Button variant="default" size="sm" onClick={handleReactivate}>
               Reactivate
+            </Button>
+          )}
+          {(org.status === "ACTIVE" || org.status === "INACTIVE") && (
+            <Button variant="outline" size="sm" onClick={handleArchive}>
+              Archive
             </Button>
           )}
         </div>
       </div>
 
-      {/* Suspend Form */}
-      {showSuspend && (
+      {/* Set Inactive Form */}
+      {showInactive && (
         <div className="border border-destructive/50 rounded-lg p-4 bg-destructive/5">
-          <p className="text-sm font-medium mb-2">Reason for suspension:</p>
+          <p className="text-sm font-medium mb-2">Reason for setting inactive:</p>
           <div className="flex gap-2">
             <Input
-              value={suspendReason}
-              onChange={(e) => setSuspendReason(e.target.value)}
-              placeholder="e.g., Violation of terms, high complaint rate..."
+              value={inactiveReason}
+              onChange={(e) => setInactiveReason(e.target.value)}
+              placeholder="e.g., Violation of terms, high complaint rate, client request..."
               className="flex-1"
             />
-            <Button variant="destructive" size="sm" onClick={handleSuspend}>
-              Confirm Suspend
+            <Button variant="destructive" size="sm" onClick={handleSetInactive}>
+              Confirm Inactive
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowSuspend(false)}>
+            <Button variant="outline" size="sm" onClick={() => setShowInactive(false)}>
               Cancel
             </Button>
           </div>
@@ -405,7 +424,7 @@ export default function AdminOrgDetailPage() {
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <div className="border rounded-lg p-4">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <DollarSign className="h-4 w-4" />
@@ -446,7 +465,7 @@ export default function AdminOrgDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b flex gap-0 overflow-x-auto">
+      <div className="border-b flex gap-0 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -473,7 +492,7 @@ export default function AdminOrgDetailPage() {
 
       {/* Tab Content */}
       {activeTab === "overview" && (
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Balance & Pricing */}
           <div className="border rounded-lg p-4 space-y-4">
             <div className="flex items-center justify-between">
@@ -634,12 +653,12 @@ export default function AdminOrgDetailPage() {
           </div>
 
           {/* Allowed Campaign Types */}
-          <div className="border rounded-lg p-4 col-span-2">
+          <div className="border rounded-lg p-4 md:col-span-2">
             <h2 className="font-semibold mb-3">Allowed Campaign Types</h2>
             <p className="text-xs text-muted-foreground mb-3">
               Control which campaign types this client can create. Uncheck types that are not permitted for compliance reasons (e.g., entities that must use P2P only).
             </p>
-            <div className="grid grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
               {ALL_CAMPAIGN_TYPES.map((ct) => {
                 const allowed = org?.allowedCampaignTypes || ALL_CAMPAIGN_TYPES.map((t) => t.value);
                 const isAllowed = allowed.includes(ct.value);
@@ -668,7 +687,7 @@ export default function AdminOrgDetailPage() {
           </div>
 
           {/* Users Table */}
-          <div className="border rounded-lg p-4 col-span-2">
+          <div className="border rounded-lg p-4 md:col-span-2">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-semibold">Team Members ({org.users.length})</h2>
               <Button size="sm" onClick={() => setShowAddUser(!showAddUser)}>
@@ -677,7 +696,7 @@ export default function AdminOrgDetailPage() {
             </div>
             {showAddUser && (
               <div className="border rounded-lg p-4 bg-muted/30 mb-4 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs">Name</Label>
                     <Input value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} placeholder="Full name" />
@@ -706,6 +725,7 @@ export default function AdminOrgDetailPage() {
                 </Button>
               </div>
             )}
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted/50">
                 <tr>
@@ -764,6 +784,7 @@ export default function AdminOrgDetailPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}

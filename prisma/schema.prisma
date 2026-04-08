@@ -16,7 +16,8 @@ datasource db {
 enum OrgStatus {
   PENDING_APPROVAL
   ACTIVE
-  SUSPENDED
+  INACTIVE
+  ARCHIVED
   DEACTIVATED
 }
 
@@ -848,4 +849,14 @@ model P2PAssignment {
   @@unique([campaignId, contactId])
   @@index([campaignId, assignedToId, status])
   @@index([orgId])
+}
+
+// ============================================================
+// PLATFORM SETTINGS (admin-configurable key-value store)
+// ============================================================
+
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }

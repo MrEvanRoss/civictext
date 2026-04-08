@@ -108,15 +108,27 @@ export async function getOrgDetailAction(orgId: string) {
   };
 }
 
-export async function suspendOrgAction(orgId: string, reason: string) {
+export async function setInactiveOrgAction(orgId: string, reason: string) {
   await requireSuperAdmin();
 
   await db.organization.update({
     where: { id: orgId },
-    data: { status: "SUSPENDED" },
+    data: { status: "INACTIVE" },
   });
 
-  console.info(`[ADMIN] Org ${orgId} suspended. Reason: ${reason}`);
+  console.info(`[ADMIN] Org ${orgId} set to inactive. Reason: ${reason}`);
+  return { success: true };
+}
+
+export async function archiveOrgAction(orgId: string) {
+  await requireSuperAdmin();
+
+  await db.organization.update({
+    where: { id: orgId },
+    data: { status: "ARCHIVED" },
+  });
+
+  console.info(`[ADMIN] Org ${orgId} archived`);
   return { success: true };
 }
 
@@ -515,7 +527,8 @@ export async function getGlobalAnalyticsAction() {
   const [
     totalOrgs,
     activeOrgs,
-    suspendedOrgs,
+    inactiveOrgs,
+    archivedOrgs,
     totalUsers,
     totalContacts,
     totalMessages,
@@ -525,7 +538,8 @@ export async function getGlobalAnalyticsAction() {
   ] = await Promise.all([
     db.organization.count(),
     db.organization.count({ where: { status: "ACTIVE" } }),
-    db.organization.count({ where: { status: "SUSPENDED" } }),
+    db.organization.count({ where: { status: "INACTIVE" } }),
+    db.organization.count({ where: { status: "ARCHIVED" } }),
     db.user.count(),
     db.contact.count(),
     db.message.count({ where: { direction: "OUTBOUND", createdAt: { gte: thirtyDaysAgo } } }),
@@ -561,7 +575,8 @@ export async function getGlobalAnalyticsAction() {
   return {
     totalOrgs,
     activeOrgs,
-    suspendedOrgs,
+    inactiveOrgs,
+    archivedOrgs,
     totalUsers,
     totalContacts,
     totalMessages,

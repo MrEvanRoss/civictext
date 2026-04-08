@@ -314,7 +314,7 @@ export default function ContactDetailPage() {
             <CardDescription>Update contact information.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="prefix">Prefix</Label>
                 <Input
@@ -350,7 +350,7 @@ export default function ContactDetailPage() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -378,7 +378,7 @@ export default function ContactDetailPage() {
                 onChange={(e) => setForm((p) => ({ ...p, street: e.target.value }))}
               />
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="city">City</Label>
                 <Input
@@ -619,7 +619,7 @@ export default function ContactDetailPage() {
       </div>
 
       {/* Interest Lists & Notes side by side */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Interest Lists */}
         <Card>
           <CardHeader>

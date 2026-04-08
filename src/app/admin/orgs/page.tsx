@@ -110,7 +110,7 @@ export default function AdminOrgsPage() {
               <X className="h-4 w-4" />
             </Button>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label>Organization Name</Label>
               <Input
@@ -165,7 +165,7 @@ export default function AdminOrgsPage() {
         </div>
       )}
 
-      <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -186,13 +186,14 @@ export default function AdminOrgsPage() {
           <option value="">All Status</option>
           <option value="PENDING_APPROVAL">Pending Approval</option>
           <option value="ACTIVE">Active</option>
-          <option value="SUSPENDED">Suspended</option>
+          <option value="INACTIVE">Inactive</option>
+          <option value="ARCHIVED">Archived</option>
           <option value="DEACTIVATED">Deactivated</option>
         </NativeSelect>
       </div>
 
-      <div className="border rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="border rounded-lg overflow-x-auto">
+        <table className="w-full text-sm min-w-[640px]">
           <thead className="bg-muted/50">
             <tr>
               <th className="text-left p-3 font-medium">Organization</th>
@@ -242,14 +243,16 @@ export default function AdminOrgsPage() {
                       variant={
                         org.status === "ACTIVE"
                           ? "success"
-                          : org.status === "SUSPENDED"
+                          : org.status === "INACTIVE"
                           ? "destructive"
+                          : org.status === "ARCHIVED"
+                          ? "secondary"
                           : org.status === "PENDING_APPROVAL"
                           ? "warning"
                           : "secondary"
                       }
                     >
-                      {org.status === "PENDING_APPROVAL" ? "PENDING" : org.status}
+                      {org.status === "PENDING_APPROVAL" ? "PENDING" : org.status === "INACTIVE" ? "INACTIVE" : org.status === "ARCHIVED" ? "ARCHIVED" : org.status}
                     </Badge>
                   </td>
                   <td className="p-3 text-right">

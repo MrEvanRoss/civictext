@@ -67,7 +67,7 @@ export default function AdminSystemPage() {
       </div>
 
       {/* Service Status */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Database */}
         <div className="border rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
@@ -148,7 +148,7 @@ export default function AdminSystemPage() {
           <Server className="h-5 w-5" />
           <h2 className="font-semibold">Runtime</h2>
         </div>
-        <div className="grid grid-cols-3 gap-4 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Environment</span>
             <Badge variant="secondary">{data.environment}</Badge>

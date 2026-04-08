@@ -403,7 +403,7 @@ export default function NewCampaignPage() {
 
             <div className="space-y-2">
               <Label>Campaign Type *</Label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {visibleCampaignTypes.map((ct) => (
                   <div
                     key={ct.value}
@@ -453,7 +453,7 @@ export default function NewCampaignPage() {
                 {/* Targeting Mode */}
                 <div className="space-y-2">
                   <Label>Targeting Method *</Label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div
                       className={`border rounded-lg p-3 cursor-pointer transition-colors ${
                         !interestListMode && segmentId ? "border-primary bg-primary/5" : !interestListMode ? "border-primary bg-primary/5" : "hover:border-primary/50"
@@ -635,7 +635,7 @@ export default function NewCampaignPage() {
             {type === "GOTV" && (
               <div className="space-y-2">
                 <Label>GOTV Message Templates</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {[
                     { label: "Polling Reminder", body: "Hi {{firstName}}, Election Day is {{electionDate}}! Your polling place is {{pollingLocation}}. Polls are open {{pollHours}}. Make your voice heard! Reply STOP to opt out." },
                     { label: "Early Vote", body: "{{firstName}}, early voting is open now through {{earlyVoteEnd}}! Skip the lines and vote early at {{pollingLocation}}. Reply STOP to opt out." },
@@ -983,7 +983,7 @@ export default function NewCampaignPage() {
                 <p className="text-xs mt-1">Add team members with the Sender role or higher.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {teamMembers.map((member: any) => {
                   const isSelected = selectedAgents.includes(member.id);
                   return (
@@ -1060,7 +1060,7 @@ export default function NewCampaignPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div
                 className={`border rounded-lg p-4 cursor-pointer transition-colors ${
                   scheduleType === "now"
@@ -1139,7 +1139,7 @@ export default function NewCampaignPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div
                 className={`border rounded-lg p-4 cursor-pointer transition-colors ${
                   scheduleType === "now"
@@ -1190,7 +1190,7 @@ export default function NewCampaignPage() {
                 <p className="text-xs text-muted-foreground">
                   Set default values for GOTV merge fields. These will be used when contact-specific data is not available.
                 </p>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="gotvElectionDate">Election Date</Label>
                     <Input

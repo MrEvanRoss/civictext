@@ -55,7 +55,7 @@ export default function AdminAnalyticsPage() {
       </div>
 
       {/* Top Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="border rounded-lg p-4">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <Building2 className="h-4 w-4" />
@@ -64,8 +64,11 @@ export default function AdminAnalyticsPage() {
           <p className="text-2xl font-bold">{data.totalOrgs}</p>
           <div className="flex gap-2 mt-1">
             <Badge variant="success" className="text-xs">{data.activeOrgs} active</Badge>
-            {data.suspendedOrgs > 0 && (
-              <Badge variant="destructive" className="text-xs">{data.suspendedOrgs} suspended</Badge>
+            {data.inactiveOrgs > 0 && (
+              <Badge variant="destructive" className="text-xs">{data.inactiveOrgs} inactive</Badge>
+            )}
+            {data.archivedOrgs > 0 && (
+              <Badge variant="secondary" className="text-xs">{data.archivedOrgs} archived</Badge>
             )}
           </div>
         </div>
@@ -93,7 +96,7 @@ export default function AdminAnalyticsPage() {
       </div>
 
       {/* Messaging Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="border rounded-lg p-4">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <MessageSquare className="h-4 w-4" />
@@ -122,7 +125,7 @@ export default function AdminAnalyticsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Platform Summary */}
         <div className="border rounded-lg p-4">
           <h2 className="font-semibold mb-3">Platform Summary</h2>
@@ -132,8 +135,12 @@ export default function AdminAnalyticsPage() {
               <Badge variant="success">{data.activeOrgs}</Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm">Suspended Orgs</span>
-              <Badge variant="destructive">{data.suspendedOrgs}</Badge>
+              <span className="text-sm">Inactive Orgs</span>
+              <Badge variant="destructive">{data.inactiveOrgs}</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Archived Orgs</span>
+              <Badge variant="secondary">{data.archivedOrgs}</Badge>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm">Total Users</span>
@@ -158,8 +165,11 @@ export default function AdminAnalyticsPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground w-5">{i + 1}.</span>
                     <span>{org.name}</span>
-                    {org.status === "SUSPENDED" && (
-                      <Badge variant="destructive" className="text-xs">Suspended</Badge>
+                    {org.status === "INACTIVE" && (
+                      <Badge variant="destructive" className="text-xs">Inactive</Badge>
+                    )}
+                    {org.status === "ARCHIVED" && (
+                      <Badge variant="secondary" className="text-xs">Archived</Badge>
                     )}
                   </div>
                   <span className="font-mono">{org.messageCount.toLocaleString()}</span>

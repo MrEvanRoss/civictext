@@ -400,7 +400,7 @@ export default function DashboardPage() {
               <CardDescription>Common tasks at your fingertips</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
                   { href: "/campaigns/new", icon: Zap, label: "New Campaign", desc: "Create and send messages", accent: "text-primary" },
                   { href: "/contacts/import", icon: Upload, label: "Import Contacts", desc: "Upload a CSV file", accent: "text-info" },
