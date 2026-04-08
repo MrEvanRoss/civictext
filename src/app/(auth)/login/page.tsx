@@ -25,7 +25,7 @@ export default function LoginPage() {
   const [totpCode, setTotpCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<"credentials" | "totp">("credentials");
+  const [step, setStep] = useState<"credentials" | "totp" | "setup-required">("credentials");
   const totpInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-focus TOTP input when switching to step 2
@@ -57,6 +57,13 @@ export default function LoginPage() {
         return;
       }
 
+      if (preAuth.mustSetup2FA) {
+        // Platform requires 2FA for this role but user hasn't set it up yet
+        // Sign them in, then redirect to 2FA setup
+        await completeSignIn(undefined, "/settings/security?setup=required");
+        return;
+      }
+
       // No 2FA — sign in directly
       await completeSignIn();
     } catch {
@@ -78,7 +85,7 @@ export default function LoginPage() {
     await completeSignIn(totpCode.trim());
   }
 
-  async function completeSignIn(code?: string) {
+  async function completeSignIn(code?: string, redirectTo?: string) {
     try {
       const result = await signIn("credentials", {
         email,
@@ -94,9 +101,13 @@ export default function LoginPage() {
           setError("Invalid email or password");
         }
       } else {
-        const session = await getSession();
-        const destination = (session?.user as any)?.isSuperAdmin ? "/admin/orgs" : "/dashboard";
-        router.push(destination);
+        if (redirectTo) {
+          router.push(redirectTo);
+        } else {
+          const session = await getSession();
+          const destination = (session?.user as any)?.isSuperAdmin ? "/admin/orgs" : "/dashboard";
+          router.push(destination);
+        }
         router.refresh();
       }
     } catch {

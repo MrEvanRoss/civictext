@@ -23,6 +23,13 @@ const settingsSchema = z.object({
   supportEmail: z.string().email().or(z.literal("")),
   supportPhone: z.string().max(20),
   maintenanceMode: z.boolean(),
+  // Two-Factor Authentication
+  require2FAForOwners: z.boolean(),
+  require2FAForAdmins: z.boolean(),
+  require2FAForManagers: z.boolean(),
+  require2FAForSenders: z.boolean(),
+  require2FAForViewers: z.boolean(),
+  require2FAGracePeriodDays: z.number().int().min(0).max(90),
 });
 
 type AdminSettings = z.infer<typeof settingsSchema>;
@@ -62,6 +69,13 @@ export async function getAdminSettingsAction(): Promise<AdminSettings | null> {
       supportEmail: map.supportEmail || "",
       supportPhone: map.supportPhone || "",
       maintenanceMode: map.maintenanceMode === "true",
+      // Two-Factor Authentication
+      require2FAForOwners: map.require2FAForOwners === "true",
+      require2FAForAdmins: map.require2FAForAdmins === "true",
+      require2FAForManagers: map.require2FAForManagers === "true",
+      require2FAForSenders: map.require2FAForSenders === "true",
+      require2FAForViewers: map.require2FAForViewers === "true",
+      require2FAGracePeriodDays: parseInt(map.require2FAGracePeriodDays || "7"),
     };
   } catch {
     // PlatformSetting table might not exist yet
@@ -92,4 +106,28 @@ export async function updateAdminSettingsAction(settings: AdminSettings) {
 
   console.info(`[ADMIN] Platform settings updated`);
   return { success: true };
+}
+
+/**
+ * Check if 2FA is required for a given role.
+ * Called during login — no auth required (public read of platform policy).
+ */
+export async function is2FARequiredForRoleAction(role: string): Promise<{
+  required: boolean;
+  gracePeriodDays: number;
+}> {
+  try {
+    const roleKey = `require2FAFor${role.charAt(0).toUpperCase() + role.slice(1).toLowerCase()}s`;
+    const [setting, graceSetting] = await Promise.all([
+      db.platformSetting.findUnique({ where: { key: roleKey } }),
+      db.platformSetting.findUnique({ where: { key: "require2FAGracePeriodDays" } }),
+    ]);
+
+    return {
+      required: setting?.value === "true",
+      gracePeriodDays: parseInt(graceSetting?.value || "7"),
+    };
+  } catch {
+    return { required: false, gracePeriodDays: 7 };
+  }
 }

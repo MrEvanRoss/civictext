@@ -23,19 +23,54 @@ export async function preAuthenticateAction(email: string, password: string) {
       id: true,
       passwordHash: true,
       twoFactorEnabled: true,
+      role: true,
+      createdAt: true,
     },
   });
 
   if (!user || !user.passwordHash) {
-    return { valid: false, requiresTwoFactor: false };
+    return { valid: false, requiresTwoFactor: false, mustSetup2FA: false };
   }
 
   const isValid = await bcrypt.compare(password, user.passwordHash);
   if (!isValid) {
-    return { valid: false, requiresTwoFactor: false };
+    return { valid: false, requiresTwoFactor: false, mustSetup2FA: false };
   }
 
-  return { valid: true, requiresTwoFactor: user.twoFactorEnabled };
+  // Check if the platform requires 2FA for this user's role
+  let mustSetup2FA = false;
+  if (!user.twoFactorEnabled) {
+    try {
+      const roleKey = `require2FAFor${user.role.charAt(0).toUpperCase() + user.role.slice(1).toLowerCase()}s`;
+      const [setting, graceSetting] = await Promise.all([
+        db.platformSetting.findUnique({ where: { key: roleKey } }),
+        db.platformSetting.findUnique({ where: { key: "require2FAGracePeriodDays" } }),
+      ]);
+
+      if (setting?.value === "true") {
+        const graceDays = parseInt(graceSetting?.value || "7");
+        if (graceDays === 0) {
+          // Immediate enforcement
+          mustSetup2FA = true;
+        } else {
+          // Check if grace period has expired since the setting was last updated
+          const graceDeadline = new Date(setting.updatedAt);
+          graceDeadline.setDate(graceDeadline.getDate() + graceDays);
+          if (new Date() > graceDeadline) {
+            mustSetup2FA = true;
+          }
+        }
+      }
+    } catch {
+      // PlatformSetting table might not exist yet — don't block login
+    }
+  }
+
+  return {
+    valid: true,
+    requiresTwoFactor: user.twoFactorEnabled,
+    mustSetup2FA,
+  };
 }
 
 /**

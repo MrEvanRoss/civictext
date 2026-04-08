@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   getTwoFactorStatusAction,
   beginTwoFactorSetupAction,
@@ -48,6 +49,8 @@ import {
 type SetupStep = "idle" | "scanning" | "verifying" | "backup-codes";
 
 export default function SecuritySettingsPage() {
+  const searchParams = useSearchParams();
+  const setupRequired = searchParams.get("setup") === "required";
   const [loading, setLoading] = useState(true);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [backupCodesRemaining, setBackupCodesRemaining] = useState(0);
@@ -238,6 +241,19 @@ export default function SecuritySettingsPage() {
           Manage your account security and two-factor authentication.
         </p>
       </div>
+
+      {/* Required 2FA Banner */}
+      {setupRequired && !twoFactorEnabled && (
+        <div className="rounded-lg border border-warning/50 bg-warning/10 p-4 flex items-start gap-3">
+          <ShieldCheck className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium">Two-factor authentication is required</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Your organization requires 2FA for your role. Please set up two-factor authentication below to continue using the platform.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* 2FA Status Card */}
       <Card>

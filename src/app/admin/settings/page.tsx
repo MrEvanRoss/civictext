@@ -25,6 +25,7 @@ import {
   Mail,
   Phone,
   Clock,
+  ShieldCheck,
 } from "lucide-react";
 import {
   getAdminSettingsAction,
@@ -60,6 +61,14 @@ export default function AdminSettingsPage() {
     supportEmail: "",
     supportPhone: "",
     maintenanceMode: false,
+
+    // Two-Factor Authentication
+    require2FAForOwners: false,
+    require2FAForAdmins: false,
+    require2FAForManagers: false,
+    require2FAForSenders: false,
+    require2FAForViewers: false,
+    require2FAGracePeriodDays: 7,
   });
 
   useEffect(() => {
@@ -288,6 +297,61 @@ export default function AdminSettingsPage() {
                   }
                 />
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Two-Factor Authentication */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5" />
+              Two-Factor Authentication
+            </CardTitle>
+            <CardDescription>
+              Require 2FA for specific roles. Users without 2FA enabled will be prompted to set it up on their next login.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Require 2FA for Roles</p>
+              {[
+                { key: "require2FAForOwners" as const, label: "Owners", desc: "Full account control" },
+                { key: "require2FAForAdmins" as const, label: "Admins", desc: "Org management access" },
+                { key: "require2FAForManagers" as const, label: "Managers", desc: "Campaign and team oversight" },
+                { key: "require2FAForSenders" as const, label: "Senders", desc: "Message sending access" },
+                { key: "require2FAForViewers" as const, label: "Viewers", desc: "Read-only access" },
+              ].map((role) => (
+                <label key={role.key} className="flex items-center gap-3 py-1.5">
+                  <input
+                    type="checkbox"
+                    checked={settings[role.key]}
+                    onChange={(e) =>
+                      setSettings((p) => ({ ...p, [role.key]: e.target.checked }))
+                    }
+                    className="h-4 w-4 rounded"
+                  />
+                  <div>
+                    <span className="text-sm font-medium">{role.label}</span>
+                    <span className="text-xs text-muted-foreground ml-2">{role.desc}</span>
+                  </div>
+                </label>
+              ))}
+            </div>
+            <div className="border-t pt-4 space-y-2">
+              <Label>Grace Period (days)</Label>
+              <Input
+                type="number"
+                min="0"
+                max="90"
+                value={settings.require2FAGracePeriodDays}
+                onChange={(e) =>
+                  setSettings((p) => ({ ...p, require2FAGracePeriodDays: parseInt(e.target.value) || 0 }))
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Number of days users have to enable 2FA after the requirement is turned on. Set to 0 to enforce immediately.
+              </p>
             </div>
           </CardContent>
         </Card>
