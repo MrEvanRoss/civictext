@@ -7,6 +7,27 @@ import { ROLE_HIERARCHY, ROLE_PERMISSIONS, type Permission } from "@/lib/constan
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import type { UserRole } from "@prisma/client";
+import { cookies } from "next/headers";
+
+/**
+ * Check if the current session is impersonating another org.
+ * Returns the overridden orgId and role if impersonating, or null.
+ */
+async function getImpersonationState() {
+  try {
+    const cookieStore = await cookies();
+    const impersonateCookie = cookieStore.get("civictext_impersonate");
+    if (!impersonateCookie?.value) return null;
+
+    const state = JSON.parse(impersonateCookie.value);
+    if (state.targetOrgId && state.targetUserId) {
+      return state;
+    }
+  } catch {
+    // Invalid cookie, ignore
+  }
+  return null;
+}
 
 /**
  * Get the current authenticated session or redirect to login.
@@ -21,11 +42,40 @@ export async function requireAuth() {
 
 /**
  * Get the current session and a tenant-scoped database client.
+ * If the super admin is impersonating an org, uses the target orgId instead.
  */
 export async function requireOrg() {
   const session = await requireAuth();
+  const impersonation = (session.user as any).isSuperAdmin ? await getImpersonationState() : null;
+
+  if (impersonation) {
+    // Override the orgId for the duration of this request
+    (session.user as any).orgId = impersonation.targetOrgId;
+    (session.user as any).role = impersonation.targetRole || "OWNER";
+    (session.user as any)._impersonating = true;
+    (session.user as any)._adminId = impersonation.adminId;
+  }
+
   const tenantDb = getTenantDb((session.user as any).orgId);
   return { session, tenantDb };
+}
+
+/**
+ * Check if the current user is impersonating.
+ */
+export async function getImpersonationInfo() {
+  const session = await auth();
+  if (!session?.user || !(session.user as any).isSuperAdmin) return null;
+
+  const state = await getImpersonationState();
+  if (!state) return null;
+
+  return {
+    isImpersonating: true,
+    targetOrgId: state.targetOrgId,
+    targetOrgName: state.targetOrgName,
+    adminId: state.adminId,
+  };
 }
 
 /**

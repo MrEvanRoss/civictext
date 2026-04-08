@@ -229,6 +229,211 @@ export async function createOrgAction(data: {
 // GLOBAL ANALYTICS
 // ============================================================
 
+// ============================================================
+// ORG DEEP DRILL-DOWN (Campaigns, Contacts, Interest Lists, etc.)
+// ============================================================
+
+export async function getOrgCampaignsAction(orgId: string) {
+  await requireSuperAdmin();
+
+  return db.campaign.findMany({
+    where: { orgId },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      status: true,
+      messageBody: true,
+      totalRecipients: true,
+      sentCount: true,
+      deliveredCount: true,
+      failedCount: true,
+      responseCount: true,
+      optOutCount: true,
+      scheduledAt: true,
+      startedAt: true,
+      completedAt: true,
+      createdAt: true,
+      createdBy: { select: { name: true } },
+    },
+  });
+}
+
+export async function getOrgContactsAction(orgId: string, opts?: { page?: number; search?: string }) {
+  await requireSuperAdmin();
+  const page = opts?.page || 1;
+  const pageSize = 50;
+
+  const where: any = { orgId };
+  if (opts?.search) {
+    where.OR = [
+      { phone: { contains: opts.search } },
+      { firstName: { contains: opts.search, mode: "insensitive" } },
+      { lastName: { contains: opts.search, mode: "insensitive" } },
+      { email: { contains: opts.search, mode: "insensitive" } },
+    ];
+  }
+
+  const [contacts, total] = await Promise.all([
+    db.contact.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        phone: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        tags: true,
+        optInStatus: true,
+        lastMessageAt: true,
+        createdAt: true,
+      },
+    }),
+    db.contact.count({ where }),
+  ]);
+
+  return { contacts, total, page, totalPages: Math.ceil(total / pageSize) };
+}
+
+export async function getOrgInterestListsAction(orgId: string) {
+  await requireSuperAdmin();
+
+  return db.interestList.findMany({
+    where: { orgId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      keyword: true,
+      description: true,
+      memberCount: true,
+      isActive: true,
+      createdAt: true,
+    },
+  });
+}
+
+export async function getOrgTemplatesAction(orgId: string) {
+  await requireSuperAdmin();
+
+  return db.messageTemplate.findMany({
+    where: { orgId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      category: true,
+      body: true,
+      usageCount: true,
+      createdAt: true,
+    },
+  });
+}
+
+export async function getOrgWebhooksAction(orgId: string) {
+  await requireSuperAdmin();
+
+  return db.webhookEndpoint.findMany({
+    where: { orgId },
+    select: {
+      id: true,
+      url: true,
+      events: true,
+      isActive: true,
+      failCount: true,
+      lastError: true,
+      createdAt: true,
+    },
+  });
+}
+
+export async function getOrgAutoReplyRulesAction(orgId: string) {
+  await requireSuperAdmin();
+
+  return db.autoReplyRule.findMany({
+    where: { orgId },
+    orderBy: { priority: "desc" },
+    select: {
+      id: true,
+      name: true,
+      keywords: true,
+      replyBody: true,
+      isActive: true,
+      priority: true,
+    },
+  });
+}
+
+export async function getOrgConsentLogsAction(orgId: string, opts?: { page?: number }) {
+  await requireSuperAdmin();
+  const page = opts?.page || 1;
+  const pageSize = 50;
+
+  const [logs, total] = await Promise.all([
+    db.consentAuditLog.findMany({
+      where: { orgId },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      include: {
+        contact: { select: { phone: true, firstName: true, lastName: true } },
+      },
+    }),
+    db.consentAuditLog.count({ where: { orgId } }),
+  ]);
+
+  return { logs, total, page, totalPages: Math.ceil(total / pageSize) };
+}
+
+// ============================================================
+// IMPERSONATION (switch to a client's org)
+// ============================================================
+
+/**
+ * Start impersonation: returns a temporary JWT-like payload
+ * The frontend stores the original admin identity and overrides orgId.
+ */
+export async function startImpersonationAction(orgId: string) {
+  const session = await requireSuperAdmin();
+  const adminUserId = (session.user as any).id;
+
+  // Verify the org exists
+  const org = await db.organization.findUnique({
+    where: { id: orgId },
+    select: { id: true, name: true },
+  });
+  if (!org) throw new Error("Organization not found");
+
+  // Find the org owner to impersonate (or first admin/user)
+  const targetUser = await db.user.findFirst({
+    where: { orgId },
+    orderBy: [
+      { role: "asc" }, // OWNER first in enum
+    ],
+    select: { id: true, name: true, email: true, role: true, orgId: true },
+  });
+
+  if (!targetUser) throw new Error("No users found in this organization");
+
+  return {
+    targetUserId: targetUser.id,
+    targetUserName: targetUser.name,
+    targetUserEmail: targetUser.email,
+    targetOrgId: org.id,
+    targetOrgName: org.name,
+    adminUserId,
+  };
+}
+
+// ============================================================
+// GLOBAL ANALYTICS
+// ============================================================
+
 export async function getGlobalAnalyticsAction() {
   await requireSuperAdmin();
 
