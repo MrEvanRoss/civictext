@@ -148,8 +148,6 @@ function LinkPreviewCard({ url }: { url: string }) {
   const title = ogData?.title || fallbackTitle;
   const displayDomain = ogData?.domain || domain;
   const rawImageUrl = ogData?.image || null;
-  const imageType = ogData?.imageType || null;
-  const isFullImage = imageType === "og";
 
   // Proxy external images through our server to avoid hotlinking / referrer blocks
   const imageUrl = rawImageUrl
@@ -170,7 +168,7 @@ function LinkPreviewCard({ url }: { url: string }) {
 
   return (
     <div className="ml-auto max-w-[85%] w-fit rounded-2xl overflow-hidden shadow-sm">
-      {/* Image / hero area */}
+      {/* Image / hero area — always full-width, just like iOS */}
       {loading ? (
         <div
           className={`bg-gradient-to-br ${colorClass} flex items-center justify-center`}
@@ -181,8 +179,8 @@ function LinkPreviewCard({ url }: { url: string }) {
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
         </div>
-      ) : isFullImage && imageUrl ? (
-        /* Full-size OG/Twitter image — fills the hero area */
+      ) : imageUrl ? (
+        /* Image fills the hero area */
         <div className="relative bg-gray-900" style={{ width: "100%", height: 120 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -198,25 +196,8 @@ function LinkPreviewCard({ url }: { url: string }) {
             }}
           />
         </div>
-      ) : imageUrl ? (
-        /* Icon-size image (favicon/apple-touch-icon) — centered on gradient */
-        <div
-          className={`bg-gradient-to-br ${colorClass} flex items-center justify-center`}
-          style={{ width: "100%", height: 120 }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={imageUrl}
-            alt=""
-            className="rounded-xl shadow-lg object-contain"
-            style={{ width: 56, height: 56 }}
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-            }}
-          />
-        </div>
       ) : (
-        /* No image at all — just the gradient */
+        /* No image — gradient fallback */
         <div
           className={`bg-gradient-to-br ${colorClass} flex items-center justify-center`}
           style={{ width: "100%", height: 120 }}
