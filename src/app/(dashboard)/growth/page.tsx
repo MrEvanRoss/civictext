@@ -14,7 +14,6 @@ import {
   QrCode,
   MessageCircle,
   Globe,
-  ShoppingBag,
   FileInput,
   Upload,
   ArrowRight,
@@ -48,13 +47,6 @@ const tools = [
     icon: Globe,
     href: "/growth/popup",
     actionLabel: "Set Up",
-  },
-  {
-    title: "Shopify",
-    description: "Connect your Shopify store to capture customers",
-    icon: ShoppingBag,
-    href: "/growth/shopify",
-    actionLabel: "Connect",
   },
   {
     title: "External Forms",
