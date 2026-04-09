@@ -221,6 +221,7 @@ function CollapsibleNavGroup({
 interface OrgBranding {
   name: string;
   logoUrl: string | null;
+  pollingLocationsEnabled: boolean;
 }
 
 function NavContent({
@@ -266,7 +267,13 @@ function NavContent({
 
       {/* Navigation */}
       <nav className="flex-1 px-2 py-3 overflow-y-auto space-y-0.5">
-        {navItems.map((entry) => {
+        {navItems.filter((entry) => {
+          // Hide Polling Locations if not enabled for this org
+          if ("href" in entry && entry.href === "/polling-locations") {
+            return orgBranding?.pollingLocationsEnabled === true;
+          }
+          return true;
+        }).map((entry) => {
           // Collapsible group (Growth Tools)
           if (isCollapsibleGroup(entry)) {
             return (

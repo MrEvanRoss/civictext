@@ -302,6 +302,18 @@ export async function updateAllowedCampaignTypesAction(
   return { success: true };
 }
 
+export async function togglePollingLocationsAction(orgId: string, enabled: boolean) {
+  await requireSuperAdmin();
+
+  await db.organization.update({
+    where: { id: orgId },
+    data: { pollingLocationsEnabled: enabled },
+  });
+
+  console.info(`[ADMIN] Org ${orgId} polling locations ${enabled ? "enabled" : "disabled"}`);
+  return { success: true };
+}
+
 export async function createOrgAction(data: {
   orgName: string;
   ownerName: string;

@@ -36,6 +36,7 @@ import {
   deletePollingLocationAction,
   bulkImportPollingLocationsAction,
   exportPollingLocationsAction,
+  isPollingLocationsEnabledAction,
 } from "@/server/actions/polling-locations";
 
 const US_STATES = [
@@ -72,12 +73,20 @@ const emptyForm = {
 };
 
 export default function PollingLocationsPage() {
+  const [featureEnabled, setFeatureEnabled] = useState<boolean | null>(null);
   const [locations, setLocations] = useState<PollingLocation[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const pageSize = 20;
+
+  // Check if feature is enabled for this org
+  useEffect(() => {
+    isPollingLocationsEnabledAction()
+      .then(setFeatureEnabled)
+      .catch(() => setFeatureEnabled(false));
+  }, []);
 
   // Form state
   const [showForm, setShowForm] = useState(false);
@@ -272,6 +281,22 @@ export default function PollingLocationsPage() {
   }
 
   const totalPages = Math.ceil(total / pageSize);
+
+  if (featureEnabled === null) {
+    return <div className="p-8 text-center text-muted-foreground">Loading...</div>;
+  }
+
+  if (!featureEnabled) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <MapPin className="h-12 w-12 text-muted-foreground/50 mb-4" />
+        <h2 className="text-xl font-semibold">Polling Locations Not Enabled</h2>
+        <p className="text-muted-foreground mt-2 max-w-md">
+          The Polling Locations feature is not enabled for your organization. Contact your administrator to enable it.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

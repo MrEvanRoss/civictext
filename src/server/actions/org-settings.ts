@@ -97,6 +97,7 @@ export async function getOrgBrandingAction() {
     select: {
       name: true,
       logoUrl: true,
+      pollingLocationsEnabled: true,
     },
   });
 

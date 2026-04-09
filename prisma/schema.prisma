@@ -203,6 +203,7 @@ model Organization {
   logoUrl                  String?   // Organization logo URL (uploaded via /api/upload)
   orgType                  String    @default("political") // political, government, nonprofit, advocacy
   allowedCampaignTypes     String[]  @default(["BROADCAST", "P2P", "GOTV", "DRIP", "AUTO_REPLY"])
+  pollingLocationsEnabled  Boolean   @default(false)
   status                   OrgStatus @default(PENDING_APPROVAL)
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt

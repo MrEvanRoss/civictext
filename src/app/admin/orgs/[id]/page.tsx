@@ -26,6 +26,7 @@ import {
   resetUser2FAAction,
   resetUserPasswordAction,
   deleteOrgAction,
+  togglePollingLocationsAction,
 } from "@/server/actions/admin";
 import { adminAddUserToOrgAction } from "@/server/actions/team";
 import { NativeSelect } from "@/components/ui/select";
@@ -107,6 +108,7 @@ interface OrgDetailData {
   slug: string;
   status: string;
   allowedCampaignTypes: string[];
+  pollingLocationsEnabled: boolean;
   users: OrgUser[];
   messagingPlan: OrgMessagingPlan | null;
   twilioSubaccount: { accountSid: string; messagingServiceSid: string | null } | null;
@@ -335,6 +337,17 @@ export default function AdminOrgDetailPage() {
       alert(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setSavingTypes(false);
+    }
+  }
+
+  async function handleTogglePollingLocations() {
+    if (!org) return;
+    try {
+      await togglePollingLocationsAction(orgId, !org.pollingLocationsEnabled);
+      await loadOrg();
+      toast.success(`Polling Locations ${!org.pollingLocationsEnabled ? "enabled" : "disabled"}`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update");
     }
   }
 
@@ -970,6 +983,26 @@ export default function AdminOrgDetailPage() {
                   </label>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Feature Toggles */}
+          <div className="border rounded-lg p-4 md:col-span-2">
+            <h2 className="font-semibold mb-3">Feature Toggles</h2>
+            <div className="flex items-center justify-between p-3 rounded-lg border">
+              <div>
+                <p className="text-sm font-medium">Polling Locations</p>
+                <p className="text-xs text-muted-foreground">
+                  Enables the Polling Location directory for mapping precincts to polling places in GOTV campaigns.
+                </p>
+              </div>
+              <Button
+                variant={org.pollingLocationsEnabled ? "default" : "outline"}
+                size="sm"
+                onClick={handleTogglePollingLocations}
+              >
+                {org.pollingLocationsEnabled ? "Enabled" : "Disabled"}
+              </Button>
             </div>
           </div>
 

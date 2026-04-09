@@ -7,6 +7,25 @@ import {
   type PollingLocationInput,
 } from "@/lib/validators/polling-locations";
 
+async function requirePollingLocations(orgId: string) {
+  const org = await db.organization.findUnique({
+    where: { id: orgId },
+    select: { pollingLocationsEnabled: true },
+  });
+  if (!org?.pollingLocationsEnabled) {
+    throw new Error("Polling Locations is not enabled for this organization. Contact your administrator.");
+  }
+}
+
+export async function isPollingLocationsEnabledAction() {
+  const { session } = await requireOrg();
+  const org = await db.organization.findUnique({
+    where: { id: session.user.orgId },
+    select: { pollingLocationsEnabled: true },
+  });
+  return org?.pollingLocationsEnabled ?? false;
+}
+
 // ============================================================
 // LIST
 // ============================================================
@@ -64,6 +83,7 @@ export async function getPollingLocationAction(id: string) {
 export async function createPollingLocationAction(data: PollingLocationInput) {
   const { session } = await requireOrg();
   const orgId = session.user.orgId;
+  await requirePollingLocations(orgId);
 
   const validated = pollingLocationSchema.parse(data);
 
@@ -95,6 +115,7 @@ export async function updatePollingLocationAction(
 ) {
   const { session } = await requireOrg();
   const orgId = session.user.orgId;
+  await requirePollingLocations(orgId);
 
   const validated = pollingLocationSchema.parse(data);
 
@@ -129,6 +150,7 @@ export async function updatePollingLocationAction(
 export async function deletePollingLocationAction(id: string) {
   const { session } = await requireOrg();
   const orgId = session.user.orgId;
+  await requirePollingLocations(orgId);
 
   const existing = await db.pollingLocation.findFirst({
     where: { id, orgId },
@@ -148,6 +170,7 @@ export async function bulkImportPollingLocationsAction(
 ) {
   const { session } = await requireOrg();
   const orgId = session.user.orgId;
+  await requirePollingLocations(orgId);
 
   let created = 0;
   let updated = 0;
