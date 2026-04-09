@@ -32,7 +32,10 @@ import { listSegmentsAction } from "@/server/actions/contacts";
 import { assignP2PContactsAction } from "@/server/actions/p2p";
 import { getTeamMembersAction } from "@/server/actions/inbox";
 import { listInterestListsAction } from "@/server/actions/interest-lists";
+import { listPollingLocationsAction } from "@/server/actions/polling-locations";
 import { countSegments, hasUnicodeChars, getRemainingChars } from "@/lib/sms-utils";
+import { formatTime } from "@/lib/date-utils";
+import { MapPin } from "lucide-react";
 import { DEFAULT_SMS_RATE_CENTS, DEFAULT_MMS_RATE_CENTS } from "@/lib/constants";
 
 // Matches https://, http://, www., and bare domain URLs (e.g. google.com, example.org/path)
@@ -126,10 +129,13 @@ export default function NewCampaignPage() {
   const [scheduleType, setScheduleType] = useState<"now" | "later">("now");
   const [scheduledAt, setScheduledAt] = useState("");
 
-  // GOTV settings
+  // GOTV settings (enhanced)
   const [gotvElectionDate, setGotvElectionDate] = useState("");
-  const [gotvPollHours, setGotvPollHours] = useState("7:00 AM - 8:00 PM");
+  const [gotvEarlyVoteEnd, setGotvEarlyVoteEnd] = useState("");
+  const [gotvPollOpen, setGotvPollOpen] = useState("07:00");
+  const [gotvPollClose, setGotvPollClose] = useState("20:00");
   const [gotvDefaultLocation, setGotvDefaultLocation] = useState("");
+  const [pollingLocationCount, setPollingLocationCount] = useState(0);
 
   // Interest list targeting
   const [interestLists, setInterestLists] = useState<any[]>([]);
@@ -196,6 +202,15 @@ export default function NewCampaignPage() {
     loadTeamMembers();
     loadInterestLists();
   }, []);
+
+  // Load polling location count when GOTV is selected
+  useEffect(() => {
+    if (type === "GOTV") {
+      listPollingLocationsAction(1, 1)
+        .then((result) => setPollingLocationCount(result.total))
+        .catch(() => setPollingLocationCount(0));
+    }
+  }, [type]);
 
   async function loadTeamMembers() {
     try {
@@ -287,7 +302,9 @@ export default function NewCampaignPage() {
         ...(type === "GOTV" && gotvElectionDate && {
           gotvSettings: {
             electionDate: gotvElectionDate || undefined,
-            pollHours: gotvPollHours || undefined,
+            earlyVoteEnd: gotvEarlyVoteEnd || undefined,
+            pollOpenTime: gotvPollOpen || undefined,
+            pollCloseTime: gotvPollClose || undefined,
             defaultPollingLocation: gotvDefaultLocation || undefined,
           },
         }),
@@ -334,7 +351,9 @@ export default function NewCampaignPage() {
         ...(type === "GOTV" && {
           gotvSettings: {
             electionDate: gotvElectionDate || undefined,
-            pollHours: gotvPollHours || undefined,
+            earlyVoteEnd: gotvEarlyVoteEnd || undefined,
+            pollOpenTime: gotvPollOpen || undefined,
+            pollCloseTime: gotvPollClose || undefined,
             defaultPollingLocation: gotvDefaultLocation || undefined,
           },
         }),
@@ -870,9 +889,16 @@ export default function NewCampaignPage() {
                   showSendTest
                   mergeOverrides={{
                     "{{pollingLocation}}": gotvDefaultLocation || "Your local polling place",
-                    "{{electionDate}}": gotvElectionDate || "Election Day",
-                    "{{pollHours}}": gotvPollHours || "7:00 AM - 8:00 PM",
-                    "{{pollCloseTime}}": gotvPollHours?.split("-").pop()?.trim() || "8:00 PM",
+                    "{{electionDate}}": gotvElectionDate
+                      ? new Date(gotvElectionDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+                      : "Election Day",
+                    "{{pollHours}}": gotvPollOpen && gotvPollClose
+                      ? `${formatTime(gotvPollOpen)} - ${formatTime(gotvPollClose)}`
+                      : "7:00 AM - 8:00 PM",
+                    "{{pollCloseTime}}": gotvPollClose ? formatTime(gotvPollClose) : "8:00 PM",
+                    "{{earlyVoteEnd}}": gotvEarlyVoteEnd
+                      ? new Date(gotvEarlyVoteEnd + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+                      : "",
                   }}
                 />
               </div>
@@ -890,9 +916,16 @@ export default function NewCampaignPage() {
                 showSendTest
                 mergeOverrides={{
                   "{{pollingLocation}}": gotvDefaultLocation || "Your local polling place",
-                  "{{electionDate}}": gotvElectionDate || "Election Day",
-                  "{{pollHours}}": gotvPollHours || "7:00 AM - 8:00 PM",
-                  "{{pollCloseTime}}": gotvPollHours?.split("-").pop()?.trim() || "8:00 PM",
+                  "{{electionDate}}": gotvElectionDate
+                    ? new Date(gotvElectionDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+                    : "Election Day",
+                  "{{pollHours}}": gotvPollOpen && gotvPollClose
+                    ? `${formatTime(gotvPollOpen)} - ${formatTime(gotvPollClose)}`
+                    : "7:00 AM - 8:00 PM",
+                  "{{pollCloseTime}}": gotvPollClose ? formatTime(gotvPollClose) : "8:00 PM",
+                  "{{earlyVoteEnd}}": gotvEarlyVoteEnd
+                    ? new Date(gotvEarlyVoteEnd + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+                    : "",
                 }}
               />
             </div>
@@ -1228,28 +1261,56 @@ export default function NewCampaignPage() {
             {/* GOTV Settings */}
             {type === "GOTV" && (
               <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
-                <h4 className="font-medium text-sm">GOTV Settings</h4>
+                <h4 className="font-medium text-sm">GOTV Campaign Settings</h4>
                 <p className="text-xs text-muted-foreground">
-                  Set default values for GOTV merge fields. These will be used when contact-specific data is not available.
+                  Configure election details. Contacts with a precinct number will automatically receive their specific polling location from your Polling Location directory.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="gotvElectionDate">Election Date</Label>
+                    <Label htmlFor="gotvElectionDate">Election Date *</Label>
                     <Input
                       id="gotvElectionDate"
                       type="date"
                       value={gotvElectionDate}
                       onChange={(e) => setGotvElectionDate(e.target.value)}
+                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="gotvPollHours">Poll Hours</Label>
+                    <Label htmlFor="gotvEarlyVoteEnd">Early Voting Ends</Label>
                     <Input
-                      id="gotvPollHours"
-                      value={gotvPollHours}
-                      onChange={(e) => setGotvPollHours(e.target.value)}
-                      placeholder="7:00 AM - 8:00 PM"
+                      id="gotvEarlyVoteEnd"
+                      type="date"
+                      value={gotvEarlyVoteEnd}
+                      onChange={(e) => setGotvEarlyVoteEnd(e.target.value)}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      {"Used by the {{earlyVoteEnd}} merge field"}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="gotvPollOpen">Polls Open (default)</Label>
+                    <Input
+                      id="gotvPollOpen"
+                      type="time"
+                      value={gotvPollOpen}
+                      onChange={(e) => setGotvPollOpen(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Overridden per-precinct if set in Polling Locations
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="gotvPollClose">Polls Close (default)</Label>
+                    <Input
+                      id="gotvPollClose"
+                      type="time"
+                      value={gotvPollClose}
+                      onChange={(e) => setGotvPollClose(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Overridden per-precinct if set in Polling Locations
+                    </p>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -1261,8 +1322,17 @@ export default function NewCampaignPage() {
                     placeholder="Check your local board of elections for your polling place"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Used when a contact does not have a specific polling location assigned.
+                    Used when a contact has no precinct or no matching entry in Polling Locations.
                   </p>
+                </div>
+                <div className="flex items-center gap-2 p-3 border rounded bg-background">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">
+                    Polling Location Directory: <strong>{pollingLocationCount}</strong> precinct{pollingLocationCount !== 1 ? "s" : ""} configured
+                  </span>
+                  <Link href="/polling-locations" className="text-sm text-primary hover:underline ml-auto">
+                    Manage Polling Locations &rarr;
+                  </Link>
                 </div>
               </div>
             )}

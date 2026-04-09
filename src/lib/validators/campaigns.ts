@@ -41,8 +41,12 @@ export const createCampaignSchema = z.object({
   gotvSettings: z
     .object({
       electionDate: z.string().optional(),
-      pollHours: z.string().optional(),
+      earlyVoteEnd: z.string().optional(),
+      pollOpenTime: z.string().optional(),   // "HH:mm" or "H:mm AM/PM"
+      pollCloseTime: z.string().optional(),
       defaultPollingLocation: z.string().optional(),
+      // Legacy field — kept for backward compatibility with older campaigns
+      pollHours: z.string().optional(),
     })
     .optional(),
 });

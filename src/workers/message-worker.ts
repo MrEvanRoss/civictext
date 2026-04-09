@@ -1,7 +1,7 @@
 import { Worker, Queue, type Job } from "bullmq";
 import { db } from "@/lib/db";
 import { getOrgClient } from "@/lib/twilio";
-import { renderMergeFields } from "@/server/services/campaign-service";
+import { renderMergeFields, type GotvContext } from "@/server/services/campaign-service";
 import { checkAndDeductBalance, calculateMessageCost, syncBalanceToRedis } from "@/server/services/quota-service";
 import { shortenLinksInMessage } from "@/server/services/link-tracking-service";
 import { buildSegmentWhere } from "@/server/services/contact-service";
@@ -78,8 +78,53 @@ export const messageWorker = new Worker<MessageJobData>(
       return { status: "delayed", reason: "quiet_hours" };
     }
 
-    // 3. Render merge fields (use full contact from DB for all merge tags)
-    const renderedBody = renderMergeFields(messageBody, contact, org.name);
+    // 3. Resolve GOTV context if this is a GOTV campaign
+    let gotvContext: GotvContext | undefined;
+    if (campaignId) {
+      const campaign = await db.campaign.findUnique({
+        where: { id: campaignId },
+        select: { type: true, settings: true, orgId: true },
+      });
+      if (campaign?.type === "GOTV" && campaign.settings) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const gotvSettings = (campaign.settings as any)?.gotv;
+        if (gotvSettings) {
+          gotvContext = {
+            electionDate: gotvSettings.electionDate,
+            earlyVoteEnd: gotvSettings.earlyVoteEnd,
+            pollOpenTime: gotvSettings.pollOpenTime,
+            pollCloseTime: gotvSettings.pollCloseTime,
+            defaultPollingLocation: gotvSettings.defaultPollingLocation,
+            pollHours: gotvSettings.pollHours,
+          };
+          // Resolve precinct-specific polling location
+          if (contact.precinct) {
+            const pollingLocation = await db.pollingLocation.findUnique({
+              where: {
+                orgId_precinct: {
+                  orgId: campaign.orgId,
+                  precinct: contact.precinct,
+                },
+              },
+            });
+            if (pollingLocation) {
+              gotvContext.resolvedLocationName = pollingLocation.locationName;
+              gotvContext.resolvedLocationAddress = [
+                pollingLocation.street,
+                pollingLocation.city,
+                pollingLocation.state,
+                pollingLocation.zip,
+              ].filter(Boolean).join(", ");
+              gotvContext.resolvedPollOpen = pollingLocation.pollOpenTime || undefined;
+              gotvContext.resolvedPollClose = pollingLocation.pollCloseTime || undefined;
+            }
+          }
+        }
+      }
+    }
+
+    // Render merge fields (use full contact from DB for all merge tags)
+    const renderedBody = renderMergeFields(messageBody, contact, org.name, gotvContext);
 
     // 3.5. Auto-shorten URLs for link tracking
     let trackedBody = renderedBody;

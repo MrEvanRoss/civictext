@@ -321,7 +321,30 @@ export async function duplicateCampaign(
  * {{address}}     - Full address (street, city, state zip)
  * {{precinct}}    - Precinct/district
  * {{orgName}}     - Organization name
+ *
+ * GOTV fields (resolved from campaign settings + polling location directory):
+ * {{pollingLocation}} - Polling place name and address for the contact's precinct
+ * {{electionDate}}    - Election date from campaign GOTV settings
+ * {{pollHours}}       - Full poll hours string (e.g. "7:00 AM - 8:00 PM")
+ * {{pollCloseTime}}   - Poll closing time
+ * {{earlyVoteEnd}}    - Early voting end date
  */
+
+export interface GotvContext {
+  electionDate?: string;
+  earlyVoteEnd?: string;
+  pollOpenTime?: string;
+  pollCloseTime?: string;
+  defaultPollingLocation?: string;
+  // Legacy field — kept for backward compatibility with older campaigns
+  pollHours?: string;
+  // Resolved from PollingLocation table for this contact's precinct:
+  resolvedLocationName?: string;
+  resolvedLocationAddress?: string;
+  resolvedPollOpen?: string;
+  resolvedPollClose?: string;
+}
+
 export function renderMergeFields(
   template: string,
   contact: {
@@ -337,7 +360,8 @@ export function renderMergeFields(
     zip?: string | null;
     precinct?: string | null;
   },
-  orgName?: string
+  orgName?: string,
+  gotvContext?: GotvContext
 ): string {
   const fullName = [
     contact.prefix,
@@ -352,7 +376,7 @@ export function renderMergeFields(
     contact.zip,
   ].filter(Boolean).join(", ");
 
-  return template
+  let result = template
     .replace(/\{\{prefix\}\}/g, contact.prefix || "")
     .replace(/\{\{firstName\}\}/g, contact.firstName || "Friend")
     .replace(/\{\{lastName\}\}/g, contact.lastName || "")
@@ -367,6 +391,60 @@ export function renderMergeFields(
     .replace(/\{\{address\}\}/g, address)
     .replace(/\{\{precinct\}\}/g, contact.precinct || "")
     .replace(/\{\{orgName\}\}/g, orgName || "");
+
+  // GOTV merge field resolution
+  if (gotvContext) {
+    // Polling location: precinct-specific if available, otherwise campaign default
+    const locationDisplay = gotvContext.resolvedLocationName
+      ? `${gotvContext.resolvedLocationName}, ${gotvContext.resolvedLocationAddress}`
+      : gotvContext.defaultPollingLocation || "";
+
+    // Poll hours: precinct-specific if available, otherwise campaign defaults
+    const openTime = gotvContext.resolvedPollOpen || gotvContext.pollOpenTime || "";
+    const closeTime = gotvContext.resolvedPollClose || gotvContext.pollCloseTime || "";
+    const pollHours = openTime && closeTime
+      ? `${formatTimeMerge(openTime)} - ${formatTimeMerge(closeTime)}`
+      : gotvContext.pollHours || "";
+
+    result = result
+      .replace(/\{\{pollingLocation\}\}/g, locationDisplay)
+      .replace(/\{\{electionDate\}\}/g, gotvContext.electionDate ? formatDateMerge(gotvContext.electionDate) : "")
+      .replace(/\{\{pollHours\}\}/g, pollHours)
+      .replace(/\{\{pollCloseTime\}\}/g, closeTime ? formatTimeMerge(closeTime) : "")
+      .replace(/\{\{earlyVoteEnd\}\}/g, gotvContext.earlyVoteEnd ? formatDateMerge(gotvContext.earlyVoteEnd) : "");
+  }
+
+  return result;
+}
+
+/**
+ * Format a date string (YYYY-MM-DD) into a friendly display format.
+ * e.g. "2026-11-03" -> "Tuesday, November 3"
+ */
+function formatDateMerge(dateStr: string): string {
+  try {
+    const date = new Date(dateStr + "T12:00:00");
+    return date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  } catch {
+    return dateStr;
+  }
+}
+
+/**
+ * Format a time string into a friendly display format.
+ * Accepts "HH:mm" (24h) or "H:mm AM/PM". Returns "H:mm AM/PM".
+ */
+function formatTimeMerge(timeStr: string): string {
+  if (!timeStr) return "";
+  if (/[AP]M/i.test(timeStr)) return timeStr;
+  try {
+    const [h, m] = timeStr.split(":").map(Number);
+    const ampm = h >= 12 ? "PM" : "AM";
+    const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return `${hour12}:${String(m).padStart(2, "0")} ${ampm}`;
+  } catch {
+    return timeStr;
+  }
 }
 
 /**

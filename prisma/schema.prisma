@@ -238,6 +238,7 @@ model Organization {
   contentFilters           ContentFilter[]
   flows                    Flow[]
   messageBundles           MessageBundle[]
+  pollingLocations         PollingLocation[]
 
   @@index([status])
 }
@@ -1116,6 +1117,27 @@ model FlowExecution {
 // ============================================================
 // MESSAGE BUNDLES (Pre-Purchase)
 // ============================================================
+
+model PollingLocation {
+  id              String       @id @default(uuid())
+  orgId           String
+  org             Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  precinct        String       // matches Contact.precinct
+  locationName    String       // e.g. "Lincoln Elementary School"
+  street          String
+  city            String
+  state           String
+  zip             String
+  pollOpenTime    String?      // e.g. "7:00 AM" — overrides campaign default if set
+  pollCloseTime   String?      // e.g. "8:00 PM" — overrides campaign default if set
+  notes           String?      // e.g. "Accessible entrance on south side"
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@unique([orgId, precinct])
+  @@index([orgId])
+}
 
 model MessageBundle {
   id              String    @id @default(uuid())

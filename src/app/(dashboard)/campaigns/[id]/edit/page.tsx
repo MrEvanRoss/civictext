@@ -30,8 +30,11 @@ import { listSegmentsAction } from "@/server/actions/contacts";
 import { assignP2PContactsAction } from "@/server/actions/p2p";
 import { getTeamMembersAction } from "@/server/actions/inbox";
 import { listInterestListsAction } from "@/server/actions/interest-lists";
+import { listPollingLocationsAction } from "@/server/actions/polling-locations";
 import { countSegments } from "@/lib/sms-utils";
-import { ArrowLeft } from "lucide-react";
+import { formatTime } from "@/lib/date-utils";
+import { ArrowLeft, MapPin } from "lucide-react";
+import Link from "next/link";
 
 /**
  * Insert text at the current cursor position in a textarea.
@@ -136,6 +139,14 @@ export default function EditCampaignPage() {
   const [p2pReplyScript, setP2pReplyScript] = useState("");
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
 
+  // GOTV settings
+  const [gotvElectionDate, setGotvElectionDate] = useState("");
+  const [gotvEarlyVoteEnd, setGotvEarlyVoteEnd] = useState("");
+  const [gotvPollOpen, setGotvPollOpen] = useState("07:00");
+  const [gotvPollClose, setGotvPollClose] = useState("20:00");
+  const [gotvDefaultLocation, setGotvDefaultLocation] = useState("");
+  const [pollingLocationCount, setPollingLocationCount] = useState(0);
+
   const WIZARD_STEPS = type === "P2P" ? WIZARD_STEPS_P2P : WIZARD_STEPS_DEFAULT;
   const segmentCount = countSegments(messageBody);
 
@@ -207,6 +218,22 @@ export default function EditCampaignPage() {
         const d = new Date(campaignData.scheduledAt);
         setScheduledAt(d.toISOString().slice(0, 16));
       }
+
+      // Pre-populate GOTV settings from campaign.settings JSON
+      if (campaignData.type === "GOTV" && campaignData.settings) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const gotv = (campaignData.settings as any)?.gotv;
+        if (gotv) {
+          setGotvElectionDate(gotv.electionDate || "");
+          setGotvEarlyVoteEnd(gotv.earlyVoteEnd || "");
+          setGotvPollOpen(gotv.pollOpenTime || "07:00");
+          setGotvPollClose(gotv.pollCloseTime || "20:00");
+          setGotvDefaultLocation(gotv.defaultPollingLocation || "");
+        }
+        listPollingLocationsAction(1, 1)
+          .then((r) => setPollingLocationCount(r.total))
+          .catch(() => setPollingLocationCount(0));
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load campaign");
     } finally {
@@ -235,6 +262,15 @@ export default function EditCampaignPage() {
         interestListIds: selectedListIds.length > 0 ? selectedListIds : undefined,
         p2pScript: type === "P2P" ? messageBody : undefined,
         p2pReplyScript: type === "P2P" ? p2pReplyScript || undefined : undefined,
+        ...(type === "GOTV" && {
+          gotvSettings: {
+            electionDate: gotvElectionDate || undefined,
+            earlyVoteEnd: gotvEarlyVoteEnd || undefined,
+            pollOpenTime: gotvPollOpen || undefined,
+            pollCloseTime: gotvPollClose || undefined,
+            defaultPollingLocation: gotvDefaultLocation || undefined,
+          },
+        }),
       });
 
       // For P2P, re-assign agents if changed
@@ -268,6 +304,15 @@ export default function EditCampaignPage() {
         interestListIds: selectedListIds.length > 0 ? selectedListIds : undefined,
         p2pScript: type === "P2P" ? messageBody : undefined,
         p2pReplyScript: type === "P2P" ? p2pReplyScript || undefined : undefined,
+        ...(type === "GOTV" && {
+          gotvSettings: {
+            electionDate: gotvElectionDate || undefined,
+            earlyVoteEnd: gotvEarlyVoteEnd || undefined,
+            pollOpenTime: gotvPollOpen || undefined,
+            pollCloseTime: gotvPollClose || undefined,
+            defaultPollingLocation: gotvDefaultLocation || undefined,
+          },
+        }),
       });
 
       if (type === "P2P" && selectedAgents.length > 0) {
@@ -590,6 +635,19 @@ export default function EditCampaignPage() {
               message={messageBody}
               mediaUrl={mediaUrl || undefined}
               showSendTest
+              mergeOverrides={type === "GOTV" ? {
+                "{{pollingLocation}}": gotvDefaultLocation || "Your local polling place",
+                "{{electionDate}}": gotvElectionDate
+                  ? new Date(gotvElectionDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+                  : "Election Day",
+                "{{pollHours}}": gotvPollOpen && gotvPollClose
+                  ? `${formatTime(gotvPollOpen)} - ${formatTime(gotvPollClose)}`
+                  : "7:00 AM - 8:00 PM",
+                "{{pollCloseTime}}": gotvPollClose ? formatTime(gotvPollClose) : "8:00 PM",
+                "{{earlyVoteEnd}}": gotvEarlyVoteEnd
+                  ? new Date(gotvEarlyVoteEnd + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+                  : "",
+              } : undefined}
             />
           </div>
 
@@ -602,6 +660,19 @@ export default function EditCampaignPage() {
               message={messageBody}
               mediaUrl={mediaUrl || undefined}
               showSendTest
+              mergeOverrides={type === "GOTV" ? {
+                "{{pollingLocation}}": gotvDefaultLocation || "Your local polling place",
+                "{{electionDate}}": gotvElectionDate
+                  ? new Date(gotvElectionDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+                  : "Election Day",
+                "{{pollHours}}": gotvPollOpen && gotvPollClose
+                  ? `${formatTime(gotvPollOpen)} - ${formatTime(gotvPollClose)}`
+                  : "7:00 AM - 8:00 PM",
+                "{{pollCloseTime}}": gotvPollClose ? formatTime(gotvPollClose) : "8:00 PM",
+                "{{earlyVoteEnd}}": gotvEarlyVoteEnd
+                  ? new Date(gotvEarlyVoteEnd + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+                  : "",
+              } : undefined}
             />
           </div>
         </div>
@@ -699,6 +770,47 @@ export default function EditCampaignPage() {
                   value={scheduledAt}
                   onChange={(e) => setScheduledAt(e.target.value)}
                 />
+              </div>
+            )}
+
+            {/* GOTV Settings */}
+            {type === "GOTV" && (
+              <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                <h4 className="font-medium text-sm">GOTV Campaign Settings</h4>
+                <p className="text-xs text-muted-foreground">
+                  Configure election details. Contacts with a precinct number will automatically receive their specific polling location from your Polling Location directory.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="gotvElectionDate">Election Date *</Label>
+                    <Input id="gotvElectionDate" type="date" value={gotvElectionDate} onChange={(e) => setGotvElectionDate(e.target.value)} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="gotvEarlyVoteEnd">Early Voting Ends</Label>
+                    <Input id="gotvEarlyVoteEnd" type="date" value={gotvEarlyVoteEnd} onChange={(e) => setGotvEarlyVoteEnd(e.target.value)} />
+                    <p className="text-xs text-muted-foreground">{"Used by the {{earlyVoteEnd}} merge field"}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="gotvPollOpen">Polls Open (default)</Label>
+                    <Input id="gotvPollOpen" type="time" value={gotvPollOpen} onChange={(e) => setGotvPollOpen(e.target.value)} />
+                    <p className="text-xs text-muted-foreground">Overridden per-precinct if set in Polling Locations</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="gotvPollClose">Polls Close (default)</Label>
+                    <Input id="gotvPollClose" type="time" value={gotvPollClose} onChange={(e) => setGotvPollClose(e.target.value)} />
+                    <p className="text-xs text-muted-foreground">Overridden per-precinct if set in Polling Locations</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="gotvDefaultLocation">Default Polling Location</Label>
+                  <Input id="gotvDefaultLocation" value={gotvDefaultLocation} onChange={(e) => setGotvDefaultLocation(e.target.value)} placeholder="Check your local board of elections for your polling place" />
+                  <p className="text-xs text-muted-foreground">Used when a contact has no precinct or no matching entry in Polling Locations.</p>
+                </div>
+                <div className="flex items-center gap-2 p-3 border rounded bg-background">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">Polling Location Directory: <strong>{pollingLocationCount}</strong> precinct{pollingLocationCount !== 1 ? "s" : ""} configured</span>
+                  <Link href="/polling-locations" className="text-sm text-primary hover:underline ml-auto">Manage Polling Locations &rarr;</Link>
+                </div>
               </div>
             )}
           </CardContent>

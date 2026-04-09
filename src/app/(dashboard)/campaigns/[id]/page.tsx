@@ -55,6 +55,7 @@ const STATUS_VARIANTS: Record<string, "default" | "success" | "warning" | "destr
 const TYPE_LABELS: Record<string, string> = {
   BROADCAST: "Broadcast",
   P2P: "Peer-to-Peer",
+  GOTV: "Get Out the Vote",
   DRIP: "Drip Sequence",
   AUTO_REPLY: "Auto-Reply",
 };
@@ -92,6 +93,8 @@ interface CampaignDetail {
   completedAt: Date | string | null;
   segment: { name: string } | null;
   createdBy: { name: string } | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  settings?: any;
   dripSteps: CampaignDripStep[];
   autoReplyRules?: CampaignAutoReplyRule[];
 }
@@ -430,6 +433,70 @@ export default function CampaignDetailPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* GOTV Settings Card */}
+        {campaign.type === "GOTV" && campaign.settings && (() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const gotv = (campaign.settings as any)?.gotv;
+          if (!gotv) return null;
+
+          const formatDateDisplay = (d: string) => {
+            try {
+              return new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+            } catch { return d; }
+          };
+          const formatTimeDisplay = (t: string) => {
+            if (!t || /[AP]M/i.test(t)) return t || "";
+            try {
+              const [h, m] = t.split(":").map(Number);
+              const ampm = h >= 12 ? "PM" : "AM";
+              const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+              return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+            } catch { return t; }
+          };
+
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle>GOTV Settings</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="space-y-3 text-sm">
+                  {gotv.electionDate && (
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Election Date</dt>
+                      <dd className="font-medium">{formatDateDisplay(gotv.electionDate)}</dd>
+                    </div>
+                  )}
+                  {gotv.earlyVoteEnd && (
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Early Voting Ends</dt>
+                      <dd>{formatDateDisplay(gotv.earlyVoteEnd)}</dd>
+                    </div>
+                  )}
+                  {(gotv.pollOpenTime || gotv.pollCloseTime) && (
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Poll Hours (default)</dt>
+                      <dd>{formatTimeDisplay(gotv.pollOpenTime || "")} - {formatTimeDisplay(gotv.pollCloseTime || "")}</dd>
+                    </div>
+                  )}
+                  {gotv.pollHours && !gotv.pollOpenTime && (
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Poll Hours</dt>
+                      <dd>{gotv.pollHours}</dd>
+                    </div>
+                  )}
+                  {gotv.defaultPollingLocation && (
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Default Location</dt>
+                      <dd className="text-right max-w-[60%]">{gotv.defaultPollingLocation}</dd>
+                    </div>
+                  )}
+                </dl>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         <Card>
           <CardHeader>
