@@ -107,7 +107,7 @@ export async function shortenLinksInMessage(
   for (const url of urls) {
     const fullUrl = ensureProtocol(url);
     const { shortUrl } = await createTrackedLink(orgId, fullUrl, campaignId);
-    result = result.replace(url, shortUrl);
+    result = result.replaceAll(url, shortUrl);
   }
 
   return result;

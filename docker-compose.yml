@@ -6,7 +6,7 @@ services:
     container_name: civictext-postgres
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: civictext
       POSTGRES_PASSWORD: civictext_dev
@@ -19,8 +19,8 @@ services:
     container_name: civictext-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
-    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+      - "127.0.0.1:6379:6379"
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru  # 256MB dev limit — increase for heavy testing
 
   redis-commander:
     image: rediscommander/redis-commander:latest

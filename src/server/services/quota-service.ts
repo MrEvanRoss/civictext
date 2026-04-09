@@ -128,43 +128,45 @@ export async function addCredits(orgId: string, amountCents: number): Promise<vo
 }
 
 /**
- * DB fallback for balance check.
+ * DB fallback for balance check — uses SELECT FOR UPDATE within a
+ * serializable transaction to prevent concurrent overdraw.
  */
 async function checkBalanceFromDB(
   orgId: string,
   costCents: number
 ): Promise<BalanceCheckResult> {
-  // Atomic check-and-deduct: the WHERE guard ensures we only deduct if
-  // the balance is sufficient, eliminating the race condition between
-  // reading and writing.
-  const result = await db.messagingPlan.updateMany({
-    where: {
-      orgId,
-      balanceCents: { gte: costCents },
-    },
-    data: {
-      balanceCents: { decrement: costCents },
-      totalSpentCents: { increment: costCents },
-    },
-  });
+  return db.$transaction(async (tx) => {
+    // Lock the row to prevent concurrent reads from both passing the check
+    const plans = await tx.$queryRaw<
+      Array<{ balanceCents: number }>
+    >`SELECT "balanceCents" FROM "MessagingPlan" WHERE "orgId" = ${orgId} FOR UPDATE`;
 
-  if (result.count > 0) {
-    // Deduction succeeded -- fetch updated balance for the response
-    const updated = await db.messagingPlan.findUnique({ where: { orgId } });
+    const plan = plans[0];
+    if (!plan || plan.balanceCents < costCents) {
+      return {
+        allowed: false,
+        remainingBalanceCents: plan?.balanceCents ?? 0,
+        costCents,
+      };
+    }
+
+    // Deduct while holding the lock — no other transaction can interleave
+    await tx.messagingPlan.update({
+      where: { orgId },
+      data: {
+        balanceCents: { decrement: costCents },
+        totalSpentCents: { increment: costCents },
+      },
+    });
+
     return {
       allowed: true,
-      remainingBalanceCents: updated?.balanceCents ?? 0,
+      remainingBalanceCents: plan.balanceCents - costCents,
       costCents,
     };
-  }
-
-  // Either no plan exists or balance was insufficient
-  const plan = await db.messagingPlan.findUnique({ where: { orgId } });
-  return {
-    allowed: false,
-    remainingBalanceCents: plan?.balanceCents ?? 0,
-    costCents,
-  };
+  }, {
+    isolationLevel: "Serializable",
+  });
 }
 
 /**

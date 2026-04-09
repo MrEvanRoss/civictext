@@ -355,7 +355,7 @@ model ContactNote {
 
   // Relations
   contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  author  User    @relation(fields: [authorId], references: [id])
+  author  User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([contactId, createdAt])
 }
@@ -450,6 +450,7 @@ model Campaign {
   @@index([orgId, status])
   @@index([orgId, createdAt])
   @@index([orgId, type])
+  @@index([orgId, type, status])
 }
 
 model DripStep {
@@ -567,7 +568,7 @@ model ConversationNote {
 
   // Relations
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  author       User         @relation(fields: [authorId], references: [id])
+  author       User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
 }
@@ -914,7 +915,7 @@ model P2PAssignment {
   updatedAt     DateTime            @updatedAt
 
   // Relations
-  org        Organization @relation(fields: [orgId], references: [id])
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   campaign   Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   contact    Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
   assignedTo User         @relation(fields: [assignedToId], references: [id])
@@ -1058,7 +1059,7 @@ model FlowStep {
   config        Json         @default("{}")
   position      Int          @default(0)
   parentStepId  String?
-  parentStep    FlowStep?    @relation("StepChildren", fields: [parentStepId], references: [id])
+  parentStep    FlowStep?    @relation("StepChildren", fields: [parentStepId], references: [id], onDelete: SetNull)
   children      FlowStep[]   @relation("StepChildren")
   yesStepId     String?      @unique
   noStepId      String?      @unique

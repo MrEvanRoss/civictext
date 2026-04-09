@@ -7,8 +7,55 @@ interface RateLimitResult {
 }
 
 /**
+ * In-memory fallback rate limiter for when Redis is unavailable.
+ * Uses a conservative limit to prevent abuse during outages.
+ * Entries are cleaned up lazily on each call.
+ */
+const memoryFallback = new Map<string, { count: number; windowStart: number }>();
+const FALLBACK_LIMIT = 3; // Conservative: 3 requests per window when Redis is down
+const FALLBACK_CLEANUP_INTERVAL = 60_000; // Clean stale entries every 60s
+let lastCleanup = Date.now();
+
+function memoryRateLimit(
+  key: string,
+  windowSeconds: number
+): RateLimitResult {
+  const now = Date.now();
+  const windowMs = windowSeconds * 1000;
+
+  // Periodic cleanup of stale entries to prevent memory leaks
+  if (now - lastCleanup > FALLBACK_CLEANUP_INTERVAL) {
+    memoryFallback.forEach((v, k) => {
+      if (now - v.windowStart > windowMs * 2) memoryFallback.delete(k);
+    });
+    lastCleanup = now;
+  }
+
+  const entry = memoryFallback.get(key);
+
+  if (!entry || now - entry.windowStart > windowMs) {
+    // New window
+    memoryFallback.set(key, { count: 1, windowStart: now });
+    return {
+      allowed: true,
+      remaining: FALLBACK_LIMIT - 1,
+      resetAt: now + windowMs,
+    };
+  }
+
+  entry.count++;
+  const allowed = entry.count <= FALLBACK_LIMIT;
+  return {
+    allowed,
+    remaining: Math.max(0, FALLBACK_LIMIT - entry.count),
+    resetAt: entry.windowStart + windowMs,
+  };
+}
+
+/**
  * Sliding window rate limiter using Redis.
- * Returns whether the request is allowed and how many requests remain.
+ * Falls back to a conservative in-memory limiter when Redis is unavailable
+ * (fail-closed pattern — never allows unlimited requests).
  */
 export async function rateLimit(
   key: string,
@@ -40,8 +87,9 @@ export async function rateLimit(
       resetAt: now + windowMs,
     };
   } catch {
-    // If Redis is down, allow the request (fail open)
-    return { allowed: true, remaining: limit, resetAt: now + windowMs };
+    // Redis unavailable — use conservative in-memory fallback (fail closed)
+    console.warn(`[rate-limit] Redis unavailable for key ${key}, using in-memory fallback`);
+    return memoryRateLimit(key, windowSeconds);
   }
 }
 

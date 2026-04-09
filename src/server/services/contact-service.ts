@@ -261,6 +261,18 @@ export async function getSegmentContacts(
   });
 }
 
+/** Allowed fields for segment filter rules — prevents arbitrary field access */
+const ALLOWED_SEGMENT_FIELDS = new Set([
+  "optInStatus",
+  "tags",
+  "firstName",
+  "lastName",
+  "email",
+  "phone",
+  "lastMessageAt",
+  "createdAt",
+]);
+
 /**
  * Convert segment rules to Prisma where clause.
  */
@@ -269,6 +281,12 @@ export function buildSegmentWhere(
   rules: CreateSegmentInput["rules"]
 ): Prisma.ContactWhereInput {
   const conditions = rules.conditions.map((cond) => {
+    // Reject unknown fields unless they're namespaced custom fields
+    if (!ALLOWED_SEGMENT_FIELDS.has(cond.field) && !cond.field.startsWith("custom.")) {
+      console.warn(`[segment] Rejected unknown field: ${cond.field}`);
+      return {};
+    }
+
     switch (cond.field) {
       case "optInStatus":
         return { optInStatus: cond.value as OptInStatus };
@@ -289,7 +307,7 @@ export function buildSegmentWhere(
       case "createdAt":
         return buildDateCondition(cond.field, cond.operator, cond.value as string);
       default:
-        // Custom field query
+        // Custom field query (already validated by whitelist check above)
         if (cond.field.startsWith("custom.")) {
           const key = cond.field.replace("custom.", "");
           return {
