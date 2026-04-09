@@ -295,12 +295,11 @@ export function PhonePreview({
   const displayName = orgName || "Your Organization";
 
   return (
-    <div className="flex flex-col items-center">
-      {/* iPhone-style frame */}
+    <div className="flex flex-col items-center w-full">
+      {/* iPhone-style frame — scales down on very small screens */}
       <div
-        className="relative border-[3px] border-gray-700 dark:border-gray-500 bg-black"
+        className="relative border-[3px] border-gray-700 dark:border-gray-500 bg-black w-[280px] max-w-full"
         style={{
-          width: 280,
           minHeight: 560,
           borderRadius: 36,
         }}

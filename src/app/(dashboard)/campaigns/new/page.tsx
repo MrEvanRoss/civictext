@@ -875,19 +875,23 @@ export default function NewCampaignPage() {
               </div>
             </div>
 
-            {/* Mobile-only: Send Test button (phone preview only shows on lg+) */}
+            {/* Mobile-only: Phone Preview below the form */}
             <div className="lg:hidden">
-              {messageBody && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => setShowTestModal(true)}
-                >
-                  Send Test Message
-                </Button>
-              )}
+              <div className="flex items-center justify-between mb-3">
+                <Label>Live Preview</Label>
+              </div>
+              <PhonePreview
+                message={messageBody}
+                mediaUrl={mediaUrl || undefined}
+                orgName="CivicText"
+                showSendTest
+                mergeOverrides={{
+                  "{{pollingLocation}}": gotvDefaultLocation || "Your local polling place",
+                  "{{electionDate}}": gotvElectionDate || "Election Day",
+                  "{{pollHours}}": gotvPollHours || "7:00 AM - 8:00 PM",
+                  "{{pollCloseTime}}": gotvPollHours?.split("-").pop()?.trim() || "8:00 PM",
+                }}
+              />
             </div>
 
             {/* Test Message Modal */}

@@ -547,8 +547,20 @@ export default function EditCampaignPage() {
             </CardFooter>
           </Card>
 
-          {/* Live Phone Preview */}
+          {/* Live Phone Preview — desktop (side column) */}
           <div className="hidden lg:block sticky top-6">
+            <PhonePreview
+              message={messageBody}
+              mediaUrl={mediaUrl || undefined}
+              showSendTest
+            />
+          </div>
+
+          {/* Live Phone Preview — mobile (below form) */}
+          <div className="lg:hidden">
+            <div className="flex items-center justify-between mb-3">
+              <Label className="text-base font-medium">Live Preview</Label>
+            </div>
             <PhonePreview
               message={messageBody}
               mediaUrl={mediaUrl || undefined}
