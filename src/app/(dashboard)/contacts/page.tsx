@@ -192,9 +192,9 @@ export default function ContactsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExport}>
+          <Button variant="outline" onClick={handleExport} disabled={exporting}>
             <Download className="mr-2 h-4 w-4" />
-            Export
+            {exporting ? "Exporting..." : "Export"}
           </Button>
           <Link href="/contacts/segments">
             <Button variant="outline">

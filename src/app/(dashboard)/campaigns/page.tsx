@@ -105,8 +105,8 @@ export default function CampaignsPage() {
       const dup = await duplicateCampaignAction(campaignId);
       toast.success("Campaign duplicated successfully");
       router.push(`/campaigns/${dup.id}`);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to duplicate campaign");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to duplicate campaign");
     }
   }
 
@@ -236,6 +236,7 @@ export default function CampaignsPage() {
                           className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                           tabIndex={0}
                           role="link"
+                          aria-label={`Open campaign ${campaign.name}`}
                           onClick={() => router.push(`/campaigns/${campaign.id}`)}
                           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); router.push(`/campaigns/${campaign.id}`); } }}
                         >

@@ -49,11 +49,16 @@ export async function POST(request: Request) {
     }
   }
 
-  const from = params.From; // Contact's phone number
+  const rawFrom = params.From; // Contact's phone number
   const to = params.To; // Our phone number
   const body = (params.Body || "").trim();
   const messageSid = params.MessageSid;
   const mediaUrl = params.MediaUrl0;
+
+  // H-7: Validate and normalize sender phone to E.164
+  const from = rawFrom && /^\+?[1-9]\d{6,14}$/.test(rawFrom.replace(/[\s\-()]/g, ""))
+    ? (rawFrom.startsWith("+") ? rawFrom : `+${rawFrom}`)
+    : null;
 
   // Rate limit by sender phone number (60 requests/minute per phone)
   if (from) {
