@@ -1,10 +1,12 @@
 "use server";
 
-import { requireOrg } from "./auth";
+import { requireOrg, requirePermission } from "./auth";
 import { getCurrentBalance } from "@/server/services/quota-service";
 import { db } from "@/lib/db";
+import { PERMISSIONS } from "@/lib/constants";
 
 export async function getBillingOverviewAction() {
+  await requirePermission(PERMISSIONS.BILLING_VIEW);
   const { session } = await requireOrg();
   const orgId = session.user.orgId;
 
@@ -32,6 +34,7 @@ export async function getBillingOverviewAction() {
 }
 
 export async function getUsageLedgerAction(opts?: { page?: number }) {
+  await requirePermission(PERMISSIONS.BILLING_VIEW);
   const { session } = await requireOrg();
   const orgId = session.user.orgId;
   const page = opts?.page || 1;

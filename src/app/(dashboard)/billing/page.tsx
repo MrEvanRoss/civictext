@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useBillingAccess } from "@/hooks/use-billing-access";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -88,6 +90,8 @@ interface BundleSummary {
 }
 
 export default function BillingPage() {
+  const router = useRouter();
+  const canViewBilling = useBillingAccess();
   const [data, setData] = useState<BillingOverview | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -98,8 +102,12 @@ export default function BillingPage() {
   const [purchasing, setPurchasing] = useState<BundleTier | null>(null);
 
   useEffect(() => {
-    loadAll();
-  }, []);
+    if (canViewBilling) {
+      loadAll();
+    } else {
+      router.replace("/dashboard");
+    }
+  }, [canViewBilling, router]);
 
   async function loadAll() {
     try {

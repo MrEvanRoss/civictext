@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTheme } from "next-themes";
+import { useBillingAccess } from "@/hooks/use-billing-access";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -168,6 +169,7 @@ export default function SettingsPage() {
 function SettingsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const canViewBilling = useBillingAccess();
   const activeTab = (searchParams.get("tab") as TabKey) || "general";
 
   const [loading, setLoading] = useState(true);
@@ -291,7 +293,7 @@ function SettingsContent() {
       {/* Tab bar */}
       <div className="border-b overflow-x-auto">
         <nav className="-mb-px flex gap-1 min-w-max" aria-label="Settings tabs">
-          {TAB_ITEMS.map(({ key, label, icon: Icon }) => (
+          {TAB_ITEMS.filter(({ key }) => key !== "billing" || canViewBilling).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setTab(key)}
@@ -346,7 +348,7 @@ function SettingsContent() {
             onSave={handleSave}
           />
         )}
-        {activeTab === "billing" && <BillingTab />}
+        {activeTab === "billing" && canViewBilling && <BillingTab />}
         {activeTab === "security" && <SecurityTab />}
         {activeTab === "integrations" && (
           <IntegrationsTab orgData={orgData} />

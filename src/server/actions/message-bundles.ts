@@ -1,7 +1,8 @@
 "use server";
 
-import { requireOrg } from "./auth";
+import { requireOrg, requirePermission } from "./auth";
 import { db } from "@/lib/db";
+import { PERMISSIONS } from "@/lib/constants";
 
 // ---------------------------------------------------------------------------
 // Bundle tier definitions
@@ -43,6 +44,7 @@ export type BundleTier = keyof typeof BUNDLE_TIERS;
 // ---------------------------------------------------------------------------
 
 export async function listBundlesAction() {
+  await requirePermission(PERMISSIONS.BILLING_VIEW);
   const { session } = await requireOrg();
   const orgId = session.user.orgId;
 
@@ -59,6 +61,7 @@ export async function listBundlesAction() {
 // ---------------------------------------------------------------------------
 
 export async function getActiveBundlesAction() {
+  await requirePermission(PERMISSIONS.BILLING_VIEW);
   const { session } = await requireOrg();
   const orgId = session.user.orgId;
 
@@ -82,6 +85,7 @@ export async function getActiveBundlesAction() {
 // ---------------------------------------------------------------------------
 
 export async function purchaseBundleAction(tier: BundleTier) {
+  await requirePermission(PERMISSIONS.BILLING_MANAGE);
   const { session } = await requireOrg();
   const orgId = session.user.orgId;
 
@@ -149,6 +153,7 @@ export async function deductFromBundleAction(
 // ---------------------------------------------------------------------------
 
 export async function getBundleSummaryAction() {
+  await requirePermission(PERMISSIONS.BILLING_VIEW);
   const { session } = await requireOrg();
   const orgId = session.user.orgId;
 

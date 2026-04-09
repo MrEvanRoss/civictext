@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useBillingAccess } from "@/hooks/use-billing-access";
 import {
   Card,
   CardContent,
@@ -598,6 +599,7 @@ export default function DashboardPage() {
   const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const canViewBilling = useBillingAccess();
 
   useEffect(() => {
     Promise.all([getOnboardingStatusAction(), getDashboardStatsAction()])
@@ -623,7 +625,7 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
-          {stats?.plan
+          {canViewBilling && stats?.plan
             ? `Balance: $${stats.plan.balanceDollars} \u00b7 SMS: ${formatRate(stats.plan.smsRateCents)}\u00a2/seg \u00b7 MMS: ${formatRate(stats.plan.mmsRateCents)}\u00a2/msg`
             : "Welcome to CivicText"}
         </p>
@@ -689,7 +691,7 @@ export default function DashboardPage() {
         {/* Right column: Upcoming + Alerts */}
         <div className="space-y-6">
           <UpcomingCampaigns campaigns={stats?.scheduledCampaigns ?? []} />
-          <AlertCards plan={stats?.plan ?? null} />
+          {canViewBilling && <AlertCards plan={stats?.plan ?? null} />}
         </div>
       </div>
     </div>

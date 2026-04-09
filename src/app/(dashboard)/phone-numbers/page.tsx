@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useBillingAccess } from "@/hooks/use-billing-access";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -65,6 +66,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function PhoneNumbersPage() {
+  const canViewBilling = useBillingAccess();
   const [status, setStatus] = useState<RegistrationStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -184,9 +186,11 @@ export default function PhoneNumbersPage() {
               To send text messages, you need to register your brand with carriers
               and provision phone numbers. This process takes 5-15 business days.
             </p>
-            <p className="text-sm text-muted-foreground mb-6">
-              Phone numbers cost <span className="font-medium">$5.00/month</span> each, charged from your prepaid balance.
-            </p>
+            {canViewBilling && (
+              <p className="text-sm text-muted-foreground mb-6">
+                Phone numbers cost <span className="font-medium">$5.00/month</span> each, charged from your prepaid balance.
+              </p>
+            )}
             <Link href="/phone-numbers/register">
               <Button>
                 <Plus className="mr-2 h-4 w-4" />

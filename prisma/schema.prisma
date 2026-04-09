@@ -519,9 +519,10 @@ model Message {
   deliveredAt  DateTime?
   createdAt    DateTime         @default(now())
 
-  // Relations — no cascade delete: message logs are retained permanently
+  // L-15: Relations — message logs are retained permanently for compliance auditing.
+  // onDelete: Restrict intentionally blocks campaign deletion if messages exist.
   org          Organization  @relation(fields: [orgId], references: [id], onDelete: Restrict)
-  campaign     Campaign?     @relation(fields: [campaignId], references: [id])
+  campaign     Campaign?     @relation(fields: [campaignId], references: [id])  /// L-15: Defaults to Restrict — campaigns with messages cannot be deleted (audit trail)
   contact      Contact       @relation(fields: [contactId], references: [id])
   usageLedger  UsageLedger?
 

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useBillingAccess } from "@/hooks/use-billing-access";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -114,6 +115,7 @@ const CAMPAIGN_TYPES = [
 
 export default function NewCampaignPage() {
   const router = useRouter();
+  const canViewBilling = useBillingAccess();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -795,10 +797,12 @@ export default function NewCampaignPage() {
                           </div>
                         )}
                       </div>
-                      {/* Cost per recipient */}
-                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                        {(costPerRecipientCents / 100).toFixed(2)}&#162;/msg
-                      </span>
+                      {/* Cost per recipient — visible only to Owner/Admin */}
+                      {canViewBilling && (
+                        <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                          {(costPerRecipientCents / 100).toFixed(2)}&#162;/msg
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -830,7 +834,7 @@ export default function NewCampaignPage() {
                       Unicode detected (emoji or special characters). Segment limit reduced from 160 to 70 characters.
                     </p>
                   )}
-                  {segmentCount > 3 && (
+                  {canViewBilling && segmentCount > 3 && (
                     <p className="text-xs text-warning">
                       Long messages cost more. Consider shortening to reduce per-recipient cost.
                     </p>
@@ -937,7 +941,7 @@ export default function NewCampaignPage() {
                   <div>
                     <h3 className="text-lg font-semibold">Send Test Message</h3>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Send this message to a phone number for testing. Test messages count toward your balance.
+                      Send this message to a phone number for testing.{canViewBilling ? " Test messages count toward your balance." : ""}
                     </p>
                   </div>
                   <div className="space-y-2">

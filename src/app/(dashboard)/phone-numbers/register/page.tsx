@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useBillingAccess } from "@/hooks/use-billing-access";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -75,6 +76,7 @@ interface PhoneForm {
 
 export default function RegisterPage() {
   const router = useRouter();
+  const canViewBilling = useBillingAccess();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -82,11 +84,12 @@ export default function RegisterPage() {
   const [phoneFeeCents, setPhoneFeeCents] = useState(500);
 
   useEffect(() => {
+    if (!canViewBilling) return; // Non-billing users skip loading costs
     getBillingOverviewAction().then((data) => {
       setBalanceCents(data.plan?.balanceCents || 0);
       setPhoneFeeCents(data.plan?.phoneNumberFeeCents || 500);
     }).catch(() => {});
-  }, []);
+  }, [canViewBilling]);
 
   const [brandForm, setBrandForm] = useState<BrandForm>({
     brandName: "",
@@ -535,26 +538,28 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <div className="rounded-md bg-info/10 border border-info/30 p-4 text-sm text-info">
-              <p className="font-medium">Pricing</p>
-              <p className="mt-1">
-                Each phone number costs <span className="font-bold">${(phoneFeeCents / 100).toFixed(2)}/month</span>.
-                The first month is charged immediately from your balance.
-              </p>
-              <div className="mt-2 flex items-center justify-between">
-                <span>
-                  {phoneForm.quantity} number{phoneForm.quantity !== 1 ? "s" : ""} &times; ${(phoneFeeCents / 100).toFixed(2)} = <span className="font-bold">${((phoneForm.quantity * phoneFeeCents) / 100).toFixed(2)}</span>
-                </span>
-                <span className={balanceCents >= phoneForm.quantity * phoneFeeCents ? "text-success" : "text-destructive font-medium"}>
-                  Balance: ${(balanceCents / 100).toFixed(2)}
-                </span>
-              </div>
-              {balanceCents < phoneForm.quantity * phoneFeeCents && (
-                <p className="mt-2 text-destructive font-medium">
-                  Insufficient balance. Add at least ${(((phoneForm.quantity * phoneFeeCents) - balanceCents) / 100).toFixed(2)} to proceed.
+            {canViewBilling && (
+              <div className="rounded-md bg-info/10 border border-info/30 p-4 text-sm text-info">
+                <p className="font-medium">Pricing</p>
+                <p className="mt-1">
+                  Each phone number costs <span className="font-bold">${(phoneFeeCents / 100).toFixed(2)}/month</span>.
+                  The first month is charged immediately from your balance.
                 </p>
-              )}
-            </div>
+                <div className="mt-2 flex items-center justify-between">
+                  <span>
+                    {phoneForm.quantity} number{phoneForm.quantity !== 1 ? "s" : ""} &times; ${(phoneFeeCents / 100).toFixed(2)} = <span className="font-bold">${((phoneForm.quantity * phoneFeeCents) / 100).toFixed(2)}</span>
+                  </span>
+                  <span className={balanceCents >= phoneForm.quantity * phoneFeeCents ? "text-success" : "text-destructive font-medium"}>
+                    Balance: ${(balanceCents / 100).toFixed(2)}
+                  </span>
+                </div>
+                {balanceCents < phoneForm.quantity * phoneFeeCents && (
+                  <p className="mt-2 text-destructive font-medium">
+                    Insufficient balance. Add at least ${(((phoneForm.quantity * phoneFeeCents) - balanceCents) / 100).toFixed(2)} to proceed.
+                  </p>
+                )}
+              </div>
+            )}
           </CardContent>
           <CardFooter className="justify-between">
             <Button variant="outline" onClick={() => setStep(1)}>
@@ -636,10 +641,14 @@ export default function RegisterPage() {
                 <dd>{phoneForm.quantity}</dd>
                 <dt className="text-muted-foreground">Area Code</dt>
                 <dd>{phoneForm.areaCode || "Any available"}</dd>
-                <dt className="text-muted-foreground">Monthly Cost</dt>
-                <dd className="font-medium">${((phoneForm.quantity * phoneFeeCents) / 100).toFixed(2)}/month</dd>
-                <dt className="text-muted-foreground">Charged Today</dt>
-                <dd className="font-medium">${((phoneForm.quantity * phoneFeeCents) / 100).toFixed(2)}</dd>
+                {canViewBilling && (
+                  <>
+                    <dt className="text-muted-foreground">Monthly Cost</dt>
+                    <dd className="font-medium">${((phoneForm.quantity * phoneFeeCents) / 100).toFixed(2)}/month</dd>
+                    <dt className="text-muted-foreground">Charged Today</dt>
+                    <dd className="font-medium">${((phoneForm.quantity * phoneFeeCents) / 100).toFixed(2)}</dd>
+                  </>
+                )}
               </dl>
             </div>
 
@@ -651,12 +660,16 @@ export default function RegisterPage() {
                 <li>
                   You can send test messages while waiting for approval
                 </li>
-                <li>
-                  Phone numbers cost ${(phoneFeeCents / 100).toFixed(2)}/month each, charged from your prepaid balance
-                </li>
-                <li>
-                  Your current balance: <span className="font-medium">${(balanceCents / 100).toFixed(2)}</span>
-                </li>
+                {canViewBilling && (
+                  <>
+                    <li>
+                      Phone numbers cost ${(phoneFeeCents / 100).toFixed(2)}/month each, charged from your prepaid balance
+                    </li>
+                    <li>
+                      Your current balance: <span className="font-medium">${(balanceCents / 100).toFixed(2)}</span>
+                    </li>
+                  </>
+                )}
               </ul>
             </div>
           </CardContent>
