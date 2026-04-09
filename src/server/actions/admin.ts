@@ -160,7 +160,8 @@ export async function reactivateOrgAction(orgId: string) {
  * Add prepaid credits to an org's balance.
  */
 export async function addCreditsAction(orgId: string, amountCents: number) {
-  await requireSuperAdmin();
+  const session = await requireSuperAdmin();
+  const adminUserId = session.user?.id ?? "unknown";
 
   z.string().uuid().parse(orgId);
   z.number().int().positive().parse(amountCents);
@@ -171,21 +172,19 @@ export async function addCreditsAction(orgId: string, amountCents: number) {
 
   await addCredits(orgId, amountCents);
 
-  // Audit trail: record manual credit adjustment in AddOnPurchase.
-  // Note: UsageLedger requires a foreign key to Message (messageId is
-  // non-optional and @unique), so it cannot be used for admin adjustments
-  // that have no associated message. AddOnPurchase is the appropriate
-  // table for recording credit additions.
+  // M-12: Audit trail with admin user ID for accountability.
+  // AddOnPurchase records the credit addition; metadata tracks who did it.
   await db.addOnPurchase.create({
     data: {
       orgId,
       messageCount: 0,
       priceInCents: amountCents,
       status: "completed",
+      metadata: { adminUserId, type: "admin_credit_adjustment", timestamp: new Date().toISOString() },
     },
   });
 
-  console.info(`[ADMIN] Added ${amountCents}¢ credits to org ${orgId}`);
+  console.info(`[ADMIN] User ${adminUserId} added ${amountCents}¢ credits to org ${orgId}`);
   return { success: true };
 }
 

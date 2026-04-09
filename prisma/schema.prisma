@@ -782,6 +782,7 @@ model AddOnPurchase {
   priceInCents    Int
   stripePaymentId String?
   status          String   @default("pending") // pending, completed, failed
+  metadata        Json?    /// Audit metadata: adminUserId, type, timestamp for manual adjustments
   createdAt       DateTime @default(now())
 
   // Relations

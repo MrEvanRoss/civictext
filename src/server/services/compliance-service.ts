@@ -247,6 +247,11 @@ export function ensureOptOutInstructions(messageBody: string): string {
 
 /**
  * Approximate timezone from US phone area code.
+ *
+ * LIMITATION (L-5): Area codes can span multiple timezones (e.g., Indiana,
+ * parts of Texas). This provides a best-effort approximation. For higher
+ * accuracy, consider allowing per-contact timezone overrides in the future.
+ * Falls back to America/New_York when the area code is unrecognized.
  */
 function getTimezoneFromPhone(phone: string): string {
   // Extract area code from E.164 (+1XXXXXXXXXX)
