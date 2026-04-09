@@ -12,6 +12,7 @@ import {
   archiveOrgAction,
   reactivateOrgAction,
   addCreditsAction,
+  removeCreditsAction,
   updateOrgRatesAction,
   updateAllowedCampaignTypesAction,
   getOrgCampaignsAction,
@@ -237,6 +238,9 @@ export default function AdminOrgDetailPage() {
   const [newPasswordInput, setNewPasswordInput] = useState("");
   const [addAmount, setAddAmount] = useState("");
   const [addingCredits, setAddingCredits] = useState(false);
+  const [creditMode, setCreditMode] = useState<"add" | "remove">("add");
+  const [showRemoveCreditsDialog, setShowRemoveCreditsDialog] = useState(false);
+  const [removingCredits, setRemovingCredits] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
   const [addingUser, setAddingUser] = useState(false);
   const [userForm, setUserForm] = useState({
@@ -504,12 +508,38 @@ export default function AdminOrgDetailPage() {
     setAddingCredits(true);
     try {
       await addCreditsAction(orgId, Math.round(dollars * 100));
+      toast.success(`Added $${dollars.toFixed(2)} in credits`);
       setAddAmount("");
       await loadOrg();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "An error occurred");
+      toast.error(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setAddingCredits(false);
+    }
+  }
+
+  async function handleRemoveCredits() {
+    const dollars = parseFloat(addAmount);
+    if (!dollars || dollars <= 0) {
+      alert("Enter a valid dollar amount");
+      return;
+    }
+    setShowRemoveCreditsDialog(true);
+  }
+
+  async function confirmRemoveCredits() {
+    const dollars = parseFloat(addAmount);
+    setShowRemoveCreditsDialog(false);
+    setRemovingCredits(true);
+    try {
+      await removeCreditsAction(orgId, Math.round(dollars * 100));
+      toast.success(`Removed $${dollars.toFixed(2)} in credits`);
+      setAddAmount("");
+      await loadOrg();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove credits");
+    } finally {
+      setRemovingCredits(false);
     }
   }
 
@@ -816,7 +846,24 @@ export default function AdminOrgDetailPage() {
               </div>
             </div>
             <div className="border-t pt-3">
-              <p className="text-sm font-medium mb-2">Add Credits</p>
+              <div className="flex items-center gap-2 mb-2">
+                <Button
+                  variant={creditMode === "add" ? "default" : "outline"}
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => { setCreditMode("add"); setAddAmount(""); }}
+                >
+                  Add Credits
+                </Button>
+                <Button
+                  variant={creditMode === "remove" ? "destructive" : "outline"}
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => { setCreditMode("remove"); setAddAmount(""); }}
+                >
+                  Remove Credits
+                </Button>
+              </div>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
@@ -826,21 +873,29 @@ export default function AdminOrgDetailPage() {
                     value={addAmount}
                     onChange={(e) => setAddAmount(e.target.value)}
                     placeholder="5.00"
-                    min="5"
-                    className="pl-7"
+                    min="0.01"
+                    className={`pl-7 ${creditMode === "remove" ? "border-destructive/50" : ""}`}
                   />
                 </div>
-                <Button size="sm" onClick={handleAddCredits} disabled={addingCredits}>
-                  {addingCredits ? "Adding..." : "Add Credits"}
-                </Button>
-              </div>
-              <div className="flex gap-2 mt-2">
-                {[25, 50, 100, 500].map((amt) => (
-                  <Button key={amt} variant="outline" size="sm" onClick={() => setAddAmount(amt.toString())} className="text-xs">
-                    ${amt}
+                {creditMode === "add" ? (
+                  <Button size="sm" onClick={handleAddCredits} disabled={addingCredits}>
+                    {addingCredits ? "Adding..." : "Add"}
                   </Button>
-                ))}
+                ) : (
+                  <Button variant="destructive" size="sm" onClick={handleRemoveCredits} disabled={removingCredits}>
+                    {removingCredits ? "Removing..." : "Remove"}
+                  </Button>
+                )}
               </div>
+              {creditMode === "add" && (
+                <div className="flex gap-2 mt-2">
+                  {[25, 50, 100, 500].map((amt) => (
+                    <Button key={amt} variant="outline" size="sm" onClick={() => setAddAmount(amt.toString())} className="text-xs">
+                      ${amt}
+                    </Button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -1425,6 +1480,26 @@ export default function AdminOrgDetailPage() {
               disabled={newPasswordInput.length < 12}
             >
               Reset Password
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showRemoveCreditsDialog} onOpenChange={setShowRemoveCreditsDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Credits</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove <strong>${parseFloat(addAmount || "0").toFixed(2)}</strong> from {org?.name}&apos;s balance? This will reduce their available credits immediately.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmRemoveCredits}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remove Credits
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -3,7 +3,7 @@
 import { requireSuperAdmin } from "./auth";
 import { db } from "@/lib/db";
 import { redis } from "@/lib/redis";
-import { syncBalanceToRedis, addCredits } from "@/server/services/quota-service";
+import { syncBalanceToRedis, addCredits, removeCredits } from "@/server/services/quota-service";
 import { MIN_TRANSACTION_CENTS } from "@/lib/constants";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -223,6 +223,32 @@ export async function addCreditsAction(orgId: string, amountCents: number) {
   });
 
   console.info(`[ADMIN] User ${adminUserId} added ${amountCents}¢ credits to org ${orgId}`);
+  return { success: true };
+}
+
+/**
+ * Remove prepaid credits from an org's balance.
+ */
+export async function removeCreditsAction(orgId: string, amountCents: number) {
+  const session = await requireSuperAdmin();
+  const adminUserId = session.user?.id ?? "unknown";
+
+  z.string().uuid().parse(orgId);
+  z.number().int().positive().parse(amountCents);
+
+  await removeCredits(orgId, amountCents);
+
+  await db.addOnPurchase.create({
+    data: {
+      orgId,
+      messageCount: 0,
+      priceInCents: -amountCents,
+      status: "completed",
+      metadata: { adminUserId, type: "admin_credit_removal", timestamp: new Date().toISOString() },
+    },
+  });
+
+  console.info(`[ADMIN] User ${adminUserId} removed ${amountCents}¢ credits from org ${orgId}`);
   return { success: true };
 }
 

@@ -127,6 +127,24 @@ export async function addCredits(orgId: string, amountCents: number): Promise<vo
   await redis.incrby(balanceKey, amountCents);
 }
 
+export async function removeCredits(orgId: string, amountCents: number): Promise<void> {
+  const balanceKey = `org:${orgId}:balance`;
+
+  await db.$transaction(async (tx) => {
+    const plan = await tx.messagingPlan.findUnique({ where: { orgId }, select: { balanceCents: true } });
+    if (!plan) throw new Error("No messaging plan found for this organization");
+    if (plan.balanceCents < amountCents) {
+      throw new Error(`Cannot remove $${(amountCents / 100).toFixed(2)} — current balance is only $${(plan.balanceCents / 100).toFixed(2)}`);
+    }
+    await tx.messagingPlan.update({
+      where: { orgId },
+      data: { balanceCents: { decrement: amountCents } },
+    });
+  });
+
+  await redis.decrby(balanceKey, amountCents);
+}
+
 /**
  * DB fallback for balance check — uses SELECT FOR UPDATE within a
  * serializable transaction to prevent concurrent overdraw.
