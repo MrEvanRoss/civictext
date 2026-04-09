@@ -8,7 +8,7 @@ import { requireOrg } from "./auth";
  */
 export async function listInterestListsAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   return db.interestList.findMany({
     where: { orgId },
@@ -24,7 +24,7 @@ export async function listInterestListsAction() {
  */
 export async function getInterestListAction(listId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   return db.interestList.findFirst({
     where: { id: listId, orgId },
@@ -58,7 +58,7 @@ export async function createInterestListAction(input: {
   welcomeMessage?: string;
 }) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const keyword = input.keyword.toUpperCase().trim();
 
@@ -103,7 +103,7 @@ export async function updateInterestListAction(
   }
 ) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const existing = await db.interestList.findFirst({
     where: { id: listId, orgId },
@@ -126,7 +126,7 @@ export async function updateInterestListAction(
  */
 export async function deleteInterestListAction(listId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const existing = await db.interestList.findFirst({
     where: { id: listId, orgId },
@@ -141,7 +141,7 @@ export async function deleteInterestListAction(listId: string) {
  */
 export async function addMemberAction(listId: string, contactId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const list = await db.interestList.findFirst({
     where: { id: listId, orgId },
@@ -181,7 +181,7 @@ export async function addMemberAction(listId: string, contactId: string) {
  */
 export async function removeMemberAction(listId: string, contactId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const list = await db.interestList.findFirst({
     where: { id: listId, orgId },
@@ -207,7 +207,7 @@ export async function removeMemberAction(listId: string, contactId: string) {
  */
 export async function bulkAddMembersAction(listId: string, contactIds: string[]) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const list = await db.interestList.findFirst({
     where: { id: listId, orgId },
@@ -257,7 +257,7 @@ export async function bulkAddMembersAction(listId: string, contactIds: string[])
  */
 export async function getContactInterestListsAction(contactId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   return db.interestListMember.findMany({
     where: {

@@ -45,7 +45,7 @@ const messageQueue = new Queue("messages", { connection });
  */
 export async function getAllowedCampaignTypesAction(): Promise<string[]> {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const org = await db.organization.findUnique({
     where: { id: orgId },
@@ -57,28 +57,28 @@ export async function getAllowedCampaignTypesAction(): Promise<string[]> {
 
 export async function listCampaignsAction(filter: Partial<CampaignFilter>) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   const validated = campaignFilterSchema.parse(filter);
   return listCampaigns(orgId, validated);
 }
 
 export async function getCampaignAction(campaignId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   return getCampaign(orgId, campaignId);
 }
 
 export async function getCampaignStatsAction(campaignId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   return getCampaignStats(orgId, campaignId);
 }
 
 export async function createCampaignAction(input: CreateCampaignInput) {
   await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
-  const userId = (session.user as any).id;
+  const orgId = session.user.orgId;
+  const userId = session.user.id;
   const validated = createCampaignSchema.parse(input);
   return createCampaign(orgId, userId, validated);
 }
@@ -86,7 +86,7 @@ export async function createCampaignAction(input: CreateCampaignInput) {
 export async function updateCampaignAction(input: UpdateCampaignInput) {
   await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   const validated = updateCampaignSchema.parse(input);
   return updateCampaign(orgId, validated);
 }
@@ -97,7 +97,7 @@ export async function changeCampaignStatusAction(
 ) {
   await requirePermission(PERMISSIONS.CAMPAIGN_SEND);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   z.string().uuid().parse(campaignId);
   const validatedStatus = campaignStatusSchema.parse(newStatus);
@@ -108,8 +108,8 @@ export async function changeCampaignStatusAction(
 export async function duplicateCampaignAction(campaignId: string) {
   await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
-  const userId = (session.user as any).id;
+  const orgId = session.user.orgId;
+  const userId = session.user.id;
   return duplicateCampaign(orgId, campaignId, userId);
 }
 
@@ -119,7 +119,7 @@ export async function duplicateCampaignAction(campaignId: string) {
 export async function exportCampaignAction(campaignId: string) {
   await requirePermission(PERMISSIONS.DATA_EXPORT);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const campaign = await getCampaign(orgId, campaignId);
   if (!campaign) throw new Error("Campaign not found");
@@ -181,7 +181,7 @@ export async function exportCampaignAction(campaignId: string) {
  */
 export async function getCampaignLinkStatsAction(campaignId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const { getCampaignLinkStats } = await import(
     "@/server/services/link-tracking-service"
@@ -217,7 +217,7 @@ export async function sendTestMessageAction(data: {
 }) {
   await requirePermission(PERMISSIONS.CAMPAIGN_SEND);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const validated = sendTestMessageSchema.parse(data);
 
@@ -287,7 +287,7 @@ export async function sendTestMessageAction(data: {
  */
 export async function getScheduledCampaignsAction(month?: number, year?: number) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   // Get org timezone
   const org = await db.organization.findUnique({
@@ -337,7 +337,7 @@ export async function getScheduledCampaignsAction(month?: number, year?: number)
 export async function rescheduleCampaignAction(campaignId: string, newDate: string) {
   await requirePermission(PERMISSIONS.CAMPAIGN_SEND);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   z.string().uuid().parse(campaignId);
   const parsedDate = new Date(newDate);
@@ -366,7 +366,7 @@ export async function rescheduleCampaignAction(campaignId: string, newDate: stri
 export async function cancelScheduledCampaignAction(campaignId: string) {
   await requirePermission(PERMISSIONS.CAMPAIGN_SEND);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   z.string().uuid().parse(campaignId);
 
@@ -392,7 +392,7 @@ export async function cancelScheduledCampaignAction(campaignId: string) {
 export async function sendNowAction(campaignId: string) {
   await requirePermission(PERMISSIONS.CAMPAIGN_SEND);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   z.string().uuid().parse(campaignId);
 

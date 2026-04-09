@@ -21,6 +21,16 @@ import {
   exportContactsAction,
 } from "@/server/actions/contacts";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Users, Plus, Upload, Search, Filter, ChevronLeft, ChevronRight, Download, Tag, Trash2, X } from "lucide-react";
 
 interface Contact {
@@ -56,6 +66,9 @@ export default function ContactsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
 
   const loadContacts = useCallback(async () => {
     setLoading(true);
@@ -87,16 +100,36 @@ export default function ContactsPage() {
     return () => clearTimeout(timeout);
   }, [search, loadContacts]);
 
-  async function handleDelete(id: string) {
-    if (!confirm("Are you sure you want to delete this contact? This cannot be undone.")) return;
-    setDeletingId(id);
+  function handleDelete(id: string) {
+    setPendingDeleteId(id);
+    setShowDeleteDialog(true);
+  }
+
+  async function confirmDelete() {
+    if (!pendingDeleteId) return;
+    const idToDelete = pendingDeleteId;
+    setShowDeleteDialog(false);
+    setDeletingId(idToDelete);
+
+    // Save previous state for rollback
+    const previousData = data;
+
+    // Optimistic update — remove the contact from the list immediately
+    setData(prev => prev ? {
+      ...prev,
+      contacts: prev.contacts.filter(c => c.id !== idToDelete),
+      total: prev.total - 1,
+    } : null);
+
     try {
-      await deleteContactAction(id);
-      loadContacts();
+      await deleteContactAction(idToDelete);
     } catch (err: unknown) {
+      // Rollback on failure
+      setData(previousData);
       toast.error(err instanceof Error ? err.message : "Failed to delete contact");
     } finally {
       setDeletingId(null);
+      setPendingDeleteId(null);
     }
   }
 
@@ -117,15 +150,35 @@ export default function ContactsPage() {
     }
   }
 
-  async function handleBulkDelete() {
+  function handleBulkDelete() {
     if (selected.size === 0) return;
-    if (!confirm(`Delete ${selected.size} contacts? This cannot be undone.`)) return;
+    setShowBulkDeleteDialog(true);
+  }
+
+  async function confirmBulkDelete() {
+    setShowBulkDeleteDialog(false);
     setBulkDeleting(true);
+
+    const idsToDelete = Array.from(selected);
+
+    // Save previous state for rollback
+    const previousData = data;
+    const previousSelected = new Set(selected);
+
+    // Optimistic update — remove selected contacts from the list immediately
+    setData(prev => prev ? {
+      ...prev,
+      contacts: prev.contacts.filter(c => !selected.has(c.id)),
+      total: prev.total - idsToDelete.length,
+    } : null);
+    setSelected(new Set());
+
     try {
-      await bulkDeleteContactsAction(Array.from(selected));
-      setSelected(new Set());
-      loadContacts();
+      await bulkDeleteContactsAction(idsToDelete);
     } catch (err: unknown) {
+      // Rollback on failure
+      setData(previousData);
+      setSelected(previousSelected);
       toast.error(err instanceof Error ? err.message : "Failed to delete contacts");
     } finally {
       setBulkDeleting(false);
@@ -439,6 +492,36 @@ export default function ContactsPage() {
           )}
         </>
       )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete contact?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this contact? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selected.size} contacts?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete {selected.size} contacts? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { OPT_OUT_KEYWORDS, OPT_IN_KEYWORDS } from "@/lib/constants";
 
 export async function listAutoReplyRulesAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   return db.autoReplyRule.findMany({
     where: { orgId },
@@ -24,7 +24,7 @@ export async function createAutoReplyRuleAction(input: {
 }) {
   await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   if (!input.name.trim()) throw new Error("Name is required");
   if (input.keywords.length === 0) throw new Error("At least one keyword is required");
@@ -75,7 +75,7 @@ export async function updateAutoReplyRuleAction(
 ) {
   await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const rule = await db.autoReplyRule.findFirst({
     where: { id: ruleId, orgId },
@@ -108,7 +108,7 @@ export async function updateAutoReplyRuleAction(
 export async function deleteAutoReplyRuleAction(ruleId: string) {
   await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   await db.autoReplyRule.deleteMany({
     where: { id: ruleId, orgId },

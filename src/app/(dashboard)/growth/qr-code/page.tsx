@@ -49,7 +49,7 @@ export default function QRCodePage() {
         if (info.phoneNumber) {
           setPhoneNumber(info.phoneNumber);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         toast.error("Failed to load organization info");
       } finally {
         setLoading(false);

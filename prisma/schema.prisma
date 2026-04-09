@@ -165,6 +165,28 @@ enum FlowExecutionStatus {
 // ============================================================
 // CORE: Organization & Users
 // ============================================================
+//
+// M-6: Organization Cascade Audit
+// ─────────────────────────────────────────────────────────────
+// When an Organization is deleted, the following cascade behavior applies:
+//
+// CASCADE (deleted with org):
+//   User, Contact, ContactNote, ConsentAuditLog, Campaign, DripStep,
+//   Segment, Conversation, ConversationNote, WebhookEndpoint,
+//   TrackedLink, PhoneNumber, AutoReplyRule, BrandRegistration,
+//   CampaignRegistration, MessagingPlan, UsageLedger, AddOnPurchase,
+//   BillingAlert, InterestList, ImportJob, ApiKey, P2PAssignment,
+//   Subcommunity, Survey, ContentFilter, Flow, MessageBundle
+//
+// RESTRICT (blocks org deletion if records exist):
+//   Message — Messages must be archived/deleted before removing an org.
+//             This is intentional: messages are the audit trail and
+//             revenue-critical records. Deleting an org with active
+//             message history requires explicit cleanup first.
+//
+// SET NULL (nullifies the FK):
+//   ConsentAuditLog.contactId — preserves audit trail after contact deletion
+// ─────────────────────────────────────────────────────────────
 
 model Organization {
   id                       String    @id @default(uuid())
@@ -337,7 +359,11 @@ model Contact {
   surveyResponses  SurveyResponse[]
   flowExecutions   FlowExecution[]
 
-  @@unique([orgId, phone])
+  // M-7: Unique constraint moved to a partial index in SQL migration
+  // so that soft-deleted contacts (deletedAt IS NOT NULL) don't block
+  // re-import of the same phone number. See migration:
+  // 20260408_m7_contact_soft_delete_unique
+  @@index([orgId, phone])
   @@index([orgId, optInStatus])
   @@index([orgId, createdAt])
   @@index([tags], type: Gin)
@@ -933,7 +959,7 @@ model P2PAssignment {
 model Subcommunity {
   id            String                  @id @default(uuid())
   orgId         String
-  org           Organization            @relation(fields: [orgId], references: [id])
+  org           Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
   name          String
   description   String?
   imageUrl      String?
@@ -980,7 +1006,7 @@ model PlatformSetting {
 model Survey {
   id          String           @id @default(uuid())
   orgId       String
-  org         Organization     @relation(fields: [orgId], references: [id])
+  org         Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
   campaignId  String?
   campaign    Campaign?        @relation(fields: [campaignId], references: [id])
   name        String
@@ -1018,7 +1044,7 @@ model SurveyResponse {
 model ContentFilter {
   id        String              @id @default(uuid())
   orgId     String
-  org       Organization        @relation(fields: [orgId], references: [id])
+  org       Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
   phrase    String
   action    ContentFilterAction  @default(HIDE)
   isActive  Boolean             @default(true)
@@ -1035,7 +1061,7 @@ model ContentFilter {
 model Flow {
   id            String       @id @default(uuid())
   orgId         String
-  org           Organization @relation(fields: [orgId], references: [id])
+  org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   name          String
   description   String?
   status        FlowStatus   @default(DRAFT)
@@ -1094,7 +1120,7 @@ model FlowExecution {
 model MessageBundle {
   id              String    @id @default(uuid())
   orgId           String
-  org             Organization @relation(fields: [orgId], references: [id])
+  org             Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   bundleName      String
   messageCount    Int
   pricePerMessage Float

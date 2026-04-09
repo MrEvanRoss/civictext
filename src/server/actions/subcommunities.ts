@@ -8,7 +8,7 @@ import { requireOrg } from "./auth";
 // ---------------------------------------------------------------------------
 export async function listSubcommunitiesAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   return db.subcommunity.findMany({
     where: { orgId },
@@ -24,7 +24,7 @@ export async function listSubcommunitiesAction() {
 // ---------------------------------------------------------------------------
 export async function getSubcommunityAction(id: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const subcommunity = await db.subcommunity.findFirst({
     where: { id, orgId },
@@ -47,7 +47,7 @@ export async function createSubcommunityAction(data: {
   isPublic?: boolean;
 }) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const name = data.name.trim();
   if (!name) throw new Error("Name is required");
@@ -109,7 +109,7 @@ export async function updateSubcommunityAction(
   }
 ) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const existing = await db.subcommunity.findFirst({
     where: { id, orgId },
@@ -170,7 +170,7 @@ export async function updateSubcommunityAction(
 // ---------------------------------------------------------------------------
 export async function deleteSubcommunityAction(id: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const existing = await db.subcommunity.findFirst({
     where: { id, orgId },
@@ -194,7 +194,7 @@ export async function getSubcommunityMembersAction(
   }
 ) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   // Verify subcommunity belongs to org
   const subcommunity = await db.subcommunity.findFirst({
@@ -272,7 +272,7 @@ export async function addMembersAction(
   contactIds: string[]
 ) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const subcommunity = await db.subcommunity.findFirst({
     where: { id: subcommunityId, orgId },
@@ -324,7 +324,7 @@ export async function removeMemberAction(
   contactId: string
 ) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const subcommunity = await db.subcommunity.findFirst({
     where: { id: subcommunityId, orgId },
@@ -391,7 +391,7 @@ export async function searchContactsForSubcommunityAction(
   search: string
 ) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const query = search.trim();
   if (!query) return [];

@@ -140,20 +140,38 @@ export async function POST(request: Request) {
     }
 
     // === REGULAR INBOUND MESSAGE ===
-    // Find or create contact
+    // Find or create contact (M-7: prefer active contacts, restore soft-deleted)
     let contact = await db.contact.findFirst({
-      where: { orgId, phone: from },
+      where: { orgId, phone: from, deletedAt: null },
     });
 
     if (!contact) {
-      contact = await db.contact.create({
-        data: {
-          orgId,
-          phone: from,
-          optInStatus: "PENDING",
-          optInSource: "inbound_text",
-        },
+      // M-7: Check for a soft-deleted contact and restore it
+      const softDeleted = await db.contact.findFirst({
+        where: { orgId, phone: from, deletedAt: { not: null } },
+        orderBy: { deletedAt: "desc" },
       });
+
+      if (softDeleted) {
+        contact = await db.contact.update({
+          where: { id: softDeleted.id },
+          data: {
+            deletedAt: null,
+            optInStatus: "PENDING",
+            optInSource: "inbound_text",
+            optOutTimestamp: null,
+          },
+        });
+      } else {
+        contact = await db.contact.create({
+          data: {
+            orgId,
+            phone: from,
+            optInStatus: "PENDING",
+            optInSource: "inbound_text",
+          },
+        });
+      }
     }
 
     // Create inbound message record

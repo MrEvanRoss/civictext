@@ -155,8 +155,8 @@ export default function SegmentsPage() {
       setConditions([{ field: "optInStatus", operator: "equals", value: "OPTED_IN" }]);
       setPreviewCount(null);
       loadSegments();
-    } catch (err: any) {
-      alert(err.message || "Failed to create segment");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to create segment");
     } finally {
       setSaving(false);
     }

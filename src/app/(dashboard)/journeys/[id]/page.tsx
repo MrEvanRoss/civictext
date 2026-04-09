@@ -23,6 +23,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft,
   MessageSquare,
   Clock,
@@ -291,6 +301,11 @@ export default function FlowEditorPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showStatusDialog, setShowStatusDialog] = useState(false);
+  const [pendingFlowStatus, setPendingFlowStatus] = useState<FlowStatus | null>(null);
+  const [pendingFlowStatusMessage, setPendingFlowStatusMessage] = useState("");
+  const [showDeleteStepDialog, setShowDeleteStepDialog] = useState(false);
+  const [pendingDeleteStepId, setPendingDeleteStepId] = useState<string | null>(null);
 
   // UI state
   const [activeTab, setActiveTab] = useState("edit");
@@ -317,8 +332,8 @@ export default function FlowEditorPage() {
       }
       setFlow(data as any);
       setNameValue(data.name);
-    } catch (err: any) {
-      setError(err.message || "Failed to load journey");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load journey");
     } finally {
       setLoading(false);
     }
@@ -354,28 +369,47 @@ export default function FlowEditorPage() {
       await updateFlowAction(flow.id, { name: nameValue.trim() });
       setFlow({ ...flow, name: nameValue.trim() });
       setEditingName(false);
-    } catch (err: any) {
-      setError(err.message || "Failed to update name");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to update name");
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleStatusChange(newStatus: FlowStatus) {
+  function handleStatusChange(newStatus: FlowStatus) {
     if (!flow) return;
     const confirmMessages: Record<string, string> = {
       ACTIVE: "Activate this flow? It will start processing triggers.",
       PAUSED: "Pause this flow? Active executions will be paused.",
       DRAFT: "Move this flow back to Draft?",
     };
-    if (confirmMessages[newStatus] && !confirm(confirmMessages[newStatus])) return;
 
+    if (confirmMessages[newStatus]) {
+      setPendingFlowStatus(newStatus);
+      setPendingFlowStatusMessage(confirmMessages[newStatus]);
+      setShowStatusDialog(true);
+      return;
+    }
+
+    executeFlowStatusChange(newStatus);
+  }
+
+  async function confirmFlowStatusChange() {
+    if (!pendingFlowStatus || !flow) return;
+    setShowStatusDialog(false);
+    await executeFlowStatusChange(pendingFlowStatus);
+    setPendingFlowStatus(null);
+    setPendingFlowStatusMessage("");
+  }
+
+  async function executeFlowStatusChange(newStatus: FlowStatus) {
+    if (!flow) return;
     setSaving(true);
     try {
       await updateFlowStatusAction(flow.id, newStatus);
       await loadFlow();
-    } catch (err: any) {
-      setError(err.message || "Failed to change status");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to change status");
     } finally {
       setSaving(false);
     }
@@ -397,8 +431,8 @@ export default function FlowEditorPage() {
       await loadFlow();
       setSelectedStepId(newStep.id);
       setInsertAtPosition(null);
-    } catch (err: any) {
-      setError(err.message || "Failed to add step");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to add step");
     } finally {
       setSaving(false);
     }
@@ -410,26 +444,33 @@ export default function FlowEditorPage() {
     try {
       await updateFlowStepAction(selectedStepId, { config: stepConfig });
       await loadFlow();
-    } catch (err: any) {
-      setError(err.message || "Failed to save step");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to save step");
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleDeleteStep(stepId: string) {
-    if (!confirm("Delete this step?")) return;
+  function handleDeleteStep(stepId: string) {
+    setPendingDeleteStepId(stepId);
+    setShowDeleteStepDialog(true);
+  }
+
+  async function confirmDeleteStep() {
+    if (!pendingDeleteStepId) return;
+    setShowDeleteStepDialog(false);
     setSaving(true);
     try {
-      await deleteFlowStepAction(stepId);
-      if (selectedStepId === stepId) {
+      await deleteFlowStepAction(pendingDeleteStepId);
+      if (selectedStepId === pendingDeleteStepId) {
         setSelectedStepId(null);
       }
       await loadFlow();
-    } catch (err: any) {
-      setError(err.message || "Failed to delete step");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to delete step");
     } finally {
       setSaving(false);
+      setPendingDeleteStepId(null);
     }
   }
 
@@ -637,6 +678,36 @@ export default function FlowEditorPage() {
       ) : (
         <AnalyticsTab flow={flow} />
       )}
+
+      <AlertDialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change flow status?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingFlowStatusMessage}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmFlowStatusChange}>Confirm</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteStepDialog} onOpenChange={setShowDeleteStepDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete step?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete this step?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteStep}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

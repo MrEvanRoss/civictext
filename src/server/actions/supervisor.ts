@@ -11,7 +11,7 @@ import IORedis from "ioredis";
 export async function getSupervisorDashboardAction() {
   await requirePermission(PERMISSIONS.USERS_MANAGE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());

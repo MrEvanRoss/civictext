@@ -1,4 +1,45 @@
 import type { NextAuthConfig } from "next-auth";
+import type { UserRole } from "@prisma/client";
+import { cookies } from "next/headers";
+
+/**
+ * Validate impersonation cookie structure and expiry (edge-safe, no DB).
+ * Full admin privilege re-verification happens server-side in requireOrg().
+ */
+async function validateImpersonationCookie(): Promise<boolean> {
+  try {
+    const cookieStore = await cookies();
+    const cookie = cookieStore.get("civictext_impersonate");
+    if (!cookie?.value) return true; // No cookie → nothing to validate
+
+    const state = JSON.parse(cookie.value);
+
+    // Structural validation
+    if (!state.adminId || !state.targetOrgId || !state.targetUserId || !state.startedAt) {
+      cookieStore.delete("civictext_impersonate");
+      return false;
+    }
+
+    // Enforce 2-hour TTL (defense-in-depth alongside cookie maxAge)
+    const startedAt = new Date(state.startedAt).getTime();
+    const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+    if (Date.now() - startedAt > TWO_HOURS_MS) {
+      cookieStore.delete("civictext_impersonate");
+      return false;
+    }
+
+    return true;
+  } catch {
+    // Malformed cookie — clear it
+    try {
+      const cookieStore = await cookies();
+      cookieStore.delete("civictext_impersonate");
+    } catch {
+      // Edge runtime may not support cookie deletion in all contexts
+    }
+    return false;
+  }
+}
 
 /**
  * Edge-safe auth config (no database adapter).
@@ -13,22 +54,22 @@ export const authConfig: NextAuthConfig = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id as string;
-        token.orgId = (user as any).orgId;
-        token.role = (user as any).role;
-        token.isSuperAdmin = (user as any).isSuperAdmin;
+        token.orgId = user.orgId;
+        token.role = user.role;
+        token.isSuperAdmin = user.isSuperAdmin;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.id;
-        (session.user as any).orgId = token.orgId;
-        (session.user as any).role = token.role;
-        (session.user as any).isSuperAdmin = token.isSuperAdmin;
+        session.user.id = token.id;
+        session.user.orgId = token.orgId;
+        session.user.role = token.role as UserRole;
+        session.user.isSuperAdmin = token.isSuperAdmin;
       }
       return session;
     },
-    authorized({ auth, request: { nextUrl } }) {
+    async authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const isAuthPage =
         nextUrl.pathname.startsWith("/login") ||
@@ -72,6 +113,11 @@ export const authConfig: NextAuthConfig = {
         if (!isSuperAdmin) {
           return Response.redirect(new URL("/dashboard", nextUrl));
         }
+      }
+
+      // M-2: Validate impersonation cookie structure/expiry on every request
+      if (isLoggedIn && (isDashboard || isAdmin)) {
+        await validateImpersonationCookie();
       }
 
       return true;

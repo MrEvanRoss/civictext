@@ -10,7 +10,7 @@ import { Prisma } from "@prisma/client";
 
 export async function getDashboardAnalyticsAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -110,7 +110,7 @@ interface DateRange {
  */
 export async function getDashboardInsightsAction(dateRange: DateRange) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   const { start, end } = dateRange;
 
   const [
@@ -200,7 +200,7 @@ export async function getMessageTrendAction(
   granularity: "day" | "week"
 ) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   const { start, end } = dateRange;
 
   const truncFn = granularity === "week" ? "week" : "day";
@@ -255,7 +255,7 @@ export async function getMessageTrendAction(
  */
 export async function getMemberGrowthAction(dateRange: DateRange) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   const { start, end } = dateRange;
 
   const [newMemberRows, optOutRows] = await Promise.all([
@@ -327,7 +327,7 @@ export async function getMemberGrowthAction(dateRange: DateRange) {
  */
 export async function getCampaignComparisonAction(dateRange: DateRange) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   const { start, end } = dateRange;
 
   const campaigns = await db.campaign.findMany({
@@ -363,7 +363,7 @@ export async function getCampaignComparisonAction(dateRange: DateRange) {
  */
 export async function getBestSendingTimesAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   // Get outbound messages grouped by day-of-week and hour
   const outboundRows = await db.$queryRaw<
@@ -454,7 +454,7 @@ export async function getBestSendingTimesAction() {
  */
 export async function getTopCampaignsAction(dateRange: DateRange) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   const { start, end } = dateRange;
 
   const campaigns = await db.campaign.findMany({

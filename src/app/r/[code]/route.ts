@@ -7,9 +7,9 @@ import { NextResponse } from "next/server";
  */
 export async function GET(
   request: Request,
-  { params }: { params: { code: string } }
+  { params }: { params: Promise<{ code: string }> }
 ) {
-  const { code } = params;
+  const { code } = await params;
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0] || undefined;
   const userAgent = request.headers.get("user-agent") || undefined;
 

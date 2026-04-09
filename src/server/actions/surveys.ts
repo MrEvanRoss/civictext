@@ -12,7 +12,7 @@ export async function listSurveysAction(opts?: {
   status?: string;
 }) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const page = opts?.page ?? 1;
   const pageSize = opts?.pageSize ?? 50;
@@ -45,7 +45,7 @@ export async function listSurveysAction(opts?: {
  */
 export async function getSurveyAction(surveyId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const survey = await db.survey.findFirst({
     where: { id: surveyId, orgId },
@@ -71,7 +71,7 @@ export async function createSurveyAction(data: {
   campaignId?: string;
 }) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   if (!data.name.trim()) throw new Error("Name is required");
   if (!data.question.trim()) throw new Error("Question is required");
@@ -113,7 +113,7 @@ export async function updateSurveyAction(
   }
 ) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const existing = await db.survey.findFirst({
     where: { id: surveyId, orgId },
@@ -147,7 +147,7 @@ export async function updateSurveyAction(
  */
 export async function deleteSurveyAction(surveyId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const existing = await db.survey.findFirst({
     where: { id: surveyId, orgId },
@@ -162,7 +162,7 @@ export async function deleteSurveyAction(surveyId: string) {
  */
 export async function getSurveyResultsAction(surveyId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const survey = await db.survey.findFirst({
     where: { id: surveyId, orgId },
@@ -227,7 +227,7 @@ export async function getSurveyResultsAction(surveyId: string) {
  */
 export async function exportSurveyResultsAction(surveyId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const survey = await db.survey.findFirst({
     where: { id: surveyId, orgId },
@@ -274,7 +274,7 @@ export async function exportSurveyResultsAction(surveyId: string) {
  */
 export async function closeSurveyAction(surveyId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const existing = await db.survey.findFirst({
     where: { id: surveyId, orgId },
@@ -292,7 +292,7 @@ export async function closeSurveyAction(surveyId: string) {
  */
 export async function listCampaignsForSurveyAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   return db.campaign.findMany({
     where: { orgId },

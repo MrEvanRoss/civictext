@@ -34,8 +34,8 @@ export async function createTrackedLink(
         shortCode,
         shortUrl: `${baseUrl}/r/${shortCode}`,
       };
-    } catch (err: any) {
-      if (err.code === "P2002") continue; // Unique constraint, retry
+    } catch (err: unknown) {
+      if (err instanceof Error && "code" in err && (err as { code: string }).code === "P2002") continue; // Unique constraint, retry
       throw err;
     }
   }

@@ -302,8 +302,8 @@ export default function NewCampaignPage() {
       }
 
       router.push(`/campaigns/${campaign.id}`);
-    } catch (err: any) {
-      setError(err.message || "Failed to save draft");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to save draft");
     } finally {
       setLoading(false);
     }
@@ -356,8 +356,8 @@ export default function NewCampaignPage() {
       }
 
       router.push(`/campaigns/${campaign.id}`);
-    } catch (err: any) {
-      setError(err.message || "Failed to create campaign");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to create campaign");
     } finally {
       setLoading(false);
     }
@@ -382,8 +382,8 @@ export default function NewCampaignPage() {
         setShowTestModal(false);
         setTestPhone("");
       }, 3000);
-    } catch (err: any) {
-      setTestResult({ error: err.message || "Failed to send test message" });
+    } catch (err: unknown) {
+      setTestResult({ error: err instanceof Error ? err.message : "Failed to send test message" });
     } finally {
       setTestSending(false);
     }

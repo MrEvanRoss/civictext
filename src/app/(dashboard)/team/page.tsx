@@ -19,6 +19,16 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Users, Plus, X, Trash2, UserPlus } from "lucide-react";
 
 const ROLE_DESCRIPTIONS: Record<string, string> = {
@@ -33,6 +43,9 @@ export default function TeamPage() {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [showRemoveDialog, setShowRemoveDialog] = useState(false);
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
+  const [pendingRemoveName, setPendingRemoveName] = useState<string>("");
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -71,8 +84,8 @@ export default function TeamPage() {
       setForm({ name: "", email: "", password: "", role: "SENDER" });
       toast.success("Team member added successfully");
       await loadMembers();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to add team member");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to add team member");
     } finally {
       setAdding(false);
     }
@@ -83,21 +96,29 @@ export default function TeamPage() {
       await updateTeamMemberRoleAction(userId, newRole);
       toast.success("Role updated successfully");
       await loadMembers();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update role");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update role");
     }
   }
 
-  async function handleRemove(userId: string, name: string) {
-    if (!confirm(`Remove ${name} from the team? They will lose access immediately.`)) {
-      return;
-    }
+  function handleRemove(userId: string, name: string) {
+    setPendingRemoveId(userId);
+    setPendingRemoveName(name);
+    setShowRemoveDialog(true);
+  }
+
+  async function confirmRemove() {
+    if (!pendingRemoveId) return;
+    setShowRemoveDialog(false);
     try {
-      await removeTeamMemberAction(userId);
-      toast.success(`${name} has been removed from the team`);
+      await removeTeamMemberAction(pendingRemoveId);
+      toast.success(`${pendingRemoveName} has been removed from the team`);
       await loadMembers();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to remove team member");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove team member");
+    } finally {
+      setPendingRemoveId(null);
+      setPendingRemoveName("");
     }
   }
 
@@ -283,6 +304,21 @@ export default function TeamPage() {
           ))}
         </div>
       )}
+
+      <AlertDialog open={showRemoveDialog} onOpenChange={setShowRemoveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove team member?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove {pendingRemoveName} from the team? They will lose access immediately.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRemove}>Remove</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

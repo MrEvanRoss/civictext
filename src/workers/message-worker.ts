@@ -635,15 +635,15 @@ billingQueue.add(
 
 // Error handling
 messageWorker.on("failed", (job, err) => {
-  console.error(`Message job ${job?.id} failed:`, err.message);
+  console.error(`Message job ${job?.id} failed:`, err instanceof Error ? err.message : err);
 });
 
 campaignWorker.on("failed", (job, err) => {
-  console.error(`Campaign job ${job?.id} failed:`, err.message);
+  console.error(`Campaign job ${job?.id} failed:`, err instanceof Error ? err.message : err);
 });
 
 billingWorker.on("failed", (job, err) => {
-  console.error(`Billing job ${job?.id} failed:`, err.message);
+  console.error(`Billing job ${job?.id} failed:`, err instanceof Error ? err.message : err);
 });
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

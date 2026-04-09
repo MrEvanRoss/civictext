@@ -103,8 +103,8 @@ function SecuritySettingsContent() {
       const status = await getTwoFactorStatusAction();
       setTwoFactorEnabled(status.enabled);
       setBackupCodesRemaining(status.backupCodesRemaining);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load security settings");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to load security settings");
     } finally {
       setLoading(false);
     }
@@ -117,8 +117,8 @@ function SecuritySettingsContent() {
       setSetupSecret(result.secret);
       setQrCodeUrl(result.qrCodeDataUrl);
       setSetupStep("scanning");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to start 2FA setup");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to start 2FA setup");
     }
   }
 
@@ -133,8 +133,8 @@ function SecuritySettingsContent() {
       setBackupCodesRemaining(result.backupCodes.length);
       setSetupStep("backup-codes");
       toast.success("Two-factor authentication enabled!");
-    } catch (err: any) {
-      toast.error(err.message || "Invalid code");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Invalid code");
     } finally {
       setVerifyLoading(false);
     }
@@ -161,8 +161,8 @@ function SecuritySettingsContent() {
       setShowDisableDialog(false);
       setDisablePassword("");
       toast.success("Two-factor authentication disabled");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to disable 2FA");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to disable 2FA");
     } finally {
       setDisableLoading(false);
     }
@@ -183,8 +183,8 @@ function SecuritySettingsContent() {
       setRegenPassword("");
       setSetupStep("backup-codes");
       toast.success("New backup codes generated");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to regenerate backup codes");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to regenerate backup codes");
     } finally {
       setRegenLoading(false);
     }

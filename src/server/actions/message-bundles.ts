@@ -44,7 +44,7 @@ export type BundleTier = keyof typeof BUNDLE_TIERS;
 
 export async function listBundlesAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const bundles = await db.messageBundle.findMany({
     where: { orgId },
@@ -60,7 +60,7 @@ export async function listBundlesAction() {
 
 export async function getActiveBundlesAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const now = new Date();
 
@@ -83,7 +83,7 @@ export async function getActiveBundlesAction() {
 
 export async function purchaseBundleAction(tier: BundleTier) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const tierDef = BUNDLE_TIERS[tier];
   if (!tierDef) {
@@ -150,7 +150,7 @@ export async function deductFromBundleAction(
 
 export async function getBundleSummaryAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const now = new Date();
 

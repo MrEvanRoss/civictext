@@ -96,8 +96,8 @@ export function MediaUpload({
           size: file.size,
         });
         onUpload(data.url);
-      } catch (err: any) {
-        setError(err.message || "Upload failed");
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Upload failed");
       } finally {
         setUploading(false);
       }

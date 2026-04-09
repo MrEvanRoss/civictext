@@ -92,8 +92,8 @@ export default function AdminMessagesPage() {
       a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
-    } catch (err: any) {
-      alert(err.message || "Failed to export messages");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to export messages");
     }
   }
 

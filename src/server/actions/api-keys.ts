@@ -23,7 +23,7 @@ export async function getAvailablePermissions() {
 export async function listApiKeysAction() {
   await requirePermission(PERMISSIONS.API_KEYS);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   return db.apiKey.findMany({
     where: { orgId },
@@ -49,8 +49,8 @@ export async function createApiKeyAction(input: {
 }) {
   await requirePermission(PERMISSIONS.API_KEYS);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
-  const userId = (session.user as any).id;
+  const orgId = session.user.orgId;
+  const userId = session.user.id;
 
   if (!input.name.trim()) throw new Error("Name is required");
   if (input.permissions.length === 0) throw new Error("Select at least one permission");
@@ -82,7 +82,7 @@ export async function createApiKeyAction(input: {
 export async function revokeApiKeyAction(apiKeyId: string) {
   await requirePermission(PERMISSIONS.API_KEYS);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   await db.apiKey.updateMany({
     where: { id: apiKeyId, orgId },
@@ -93,7 +93,7 @@ export async function revokeApiKeyAction(apiKeyId: string) {
 export async function deleteApiKeyAction(apiKeyId: string) {
   await requirePermission(PERMISSIONS.API_KEYS);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   await db.apiKey.deleteMany({
     where: { id: apiKeyId, orgId },

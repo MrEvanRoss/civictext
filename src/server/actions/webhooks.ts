@@ -27,7 +27,7 @@ const createWebhookSchema = z.object({
 export async function listWebhooksAction() {
   await requirePermission(PERMISSIONS.API_KEYS);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   return db.webhookEndpoint.findMany({
     where: { orgId },
@@ -41,7 +41,7 @@ export async function createWebhookAction(input: {
 }) {
   await requirePermission(PERMISSIONS.API_KEYS);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const validated = createWebhookSchema.parse(input);
 
@@ -60,7 +60,7 @@ export async function createWebhookAction(input: {
 export async function deleteWebhookAction(webhookId: string) {
   await requirePermission(PERMISSIONS.API_KEYS);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   await db.webhookEndpoint.deleteMany({
     where: { id: webhookId, orgId },
@@ -70,7 +70,7 @@ export async function deleteWebhookAction(webhookId: string) {
 export async function toggleWebhookAction(webhookId: string) {
   await requirePermission(PERMISSIONS.API_KEYS);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const endpoint = await db.webhookEndpoint.findFirst({
     where: { id: webhookId, orgId },

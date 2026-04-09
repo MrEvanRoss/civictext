@@ -354,8 +354,8 @@ export const flowWorker = new Worker<ExecuteStepJobData>(
           await job.log(`Unknown step type: ${step.type}`);
           break;
       }
-    } catch (err: any) {
-      await job.log(`Step execution error: ${err.message}`);
+    } catch (err: unknown) {
+      await job.log(`Step execution error: ${err instanceof Error ? err.message : String(err)}`);
       throw err; // Let BullMQ handle retries
     }
 
@@ -487,11 +487,11 @@ flowWorker.on("failed", (job, err) => {
         data: { status: "FAILED", completedAt: new Date() },
       })
       .catch((e) => {
-        console.error(`Failed to mark execution ${executionId} as FAILED:`, e.message);
+        console.error(`Failed to mark execution ${executionId} as FAILED:`, e instanceof Error ? e.message : e);
       });
-    console.error(`Flow job ${job.id} permanently failed after ${job.attemptsMade} attempts:`, err.message);
+    console.error(`Flow job ${job.id} permanently failed after ${job.attemptsMade} attempts:`, err instanceof Error ? err.message : err);
   } else {
-    console.error(`Flow job ${job?.id} failed (attempt ${job?.attemptsMade}):`, err.message);
+    console.error(`Flow job ${job?.id} failed (attempt ${job?.attemptsMade}):`, err instanceof Error ? err.message : err);
   }
 });
 

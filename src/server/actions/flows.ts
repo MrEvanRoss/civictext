@@ -78,7 +78,7 @@ const reorderStepSchema = z.array(
  */
 export async function listFlowsAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const flows = await db.flow.findMany({
     where: { orgId },
@@ -104,7 +104,7 @@ export async function listFlowsAction() {
  */
 export async function getFlowAction(flowId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   z.string().uuid().parse(flowId);
 
@@ -150,8 +150,8 @@ export async function createFlowAction(data: {
 }) {
   await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
-  const userId = (session.user as any).id;
+  const orgId = session.user.orgId;
+  const userId = session.user.id;
 
   const validated = createFlowSchema.parse(data);
 
@@ -183,7 +183,7 @@ export async function updateFlowAction(
 ) {
   await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   z.string().uuid().parse(flowId);
   const validated = updateFlowSchema.parse(data);
@@ -210,7 +210,7 @@ export async function updateFlowStatusAction(
 ) {
   await requirePermission(PERMISSIONS.CAMPAIGN_SEND);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   z.string().uuid().parse(flowId);
   z.enum(["DRAFT", "ACTIVE", "PAUSED", "ARCHIVED"]).parse(status);
@@ -244,8 +244,8 @@ export async function updateFlowStatusAction(
 export async function duplicateFlowAction(flowId: string) {
   await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
-  const userId = (session.user as any).id;
+  const orgId = session.user.orgId;
+  const userId = session.user.id;
 
   z.string().uuid().parse(flowId);
 
@@ -321,7 +321,7 @@ export async function duplicateFlowAction(flowId: string) {
 export async function deleteFlowAction(flowId: string) {
   await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   z.string().uuid().parse(flowId);
 
@@ -364,7 +364,7 @@ export async function createFlowStepAction(
 ) {
   await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   z.string().uuid().parse(flowId);
   const validated = createStepSchema.parse(stepData);
@@ -423,7 +423,7 @@ export async function updateFlowStepAction(
 ) {
   await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   z.string().uuid().parse(stepId);
   const validated = updateStepSchema.parse(stepData);
@@ -447,7 +447,7 @@ export async function updateFlowStepAction(
 export async function deleteFlowStepAction(stepId: string) {
   await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   z.string().uuid().parse(stepId);
 
@@ -479,7 +479,7 @@ export async function reorderFlowStepsAction(
 ) {
   await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   z.string().uuid().parse(flowId);
   const validated = reorderStepSchema.parse(stepOrder);
@@ -513,7 +513,7 @@ export async function reorderFlowStepsAction(
 export async function getFlowAnalyticsAction(flowId: string) {
   await requirePermission(PERMISSIONS.ANALYTICS_VIEW);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   z.string().uuid().parse(flowId);
 

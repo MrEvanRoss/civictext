@@ -89,6 +89,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
+    // M-7: Check for a soft-deleted contact with the same phone and restore it
+    const softDeleted = await db.contact.findFirst({
+      where: { orgId: org.id, phone, deletedAt: { not: null } },
+      orderBy: { deletedAt: "desc" },
+    });
+
+    if (softDeleted) {
+      await db.contact.update({
+        where: { id: softDeleted.id },
+        data: {
+          deletedAt: null,
+          firstName: validated.firstName || softDeleted.firstName,
+          lastName: validated.lastName || softDeleted.lastName,
+          optInStatus: "PENDING",
+          optInSource: "web_signup",
+          optInTimestamp: new Date(),
+          optOutTimestamp: null,
+          tags: Array.from(new Set([...(softDeleted.tags || []), "web-signup"])),
+        },
+      });
+      return NextResponse.json({ success: true });
+    }
+
     // Create new contact with PENDING status
     await db.contact.create({
       data: {

@@ -31,27 +31,27 @@ const bulkTagsSchema = z.array(z.string().min(1).max(100)).min(1).max(50);
 
 export async function listContactsAction(filter: Partial<ContactFilter>) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   const validated = contactFilterSchema.parse({ ...filter });
   return listContacts(orgId, validated);
 }
 
 export async function getContactAction(contactId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   return getContact(orgId, contactId);
 }
 
 export async function createContactAction(input: CreateContactInput) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   const validated = createContactSchema.parse(input);
   return createContact(orgId, validated);
 }
 
 export async function updateContactAction(input: UpdateContactInput) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   const validated = updateContactSchema.parse(input);
   return updateContact(orgId, validated);
 }
@@ -59,26 +59,26 @@ export async function updateContactAction(input: UpdateContactInput) {
 export async function deleteContactAction(contactId: string) {
   await requirePermission(PERMISSIONS.CONTACTS_DELETE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   await deleteContact(orgId, contactId);
   return { success: true };
 }
 
 export async function getOrgTagsAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   return getOrgTags(orgId);
 }
 
 export async function listSegmentsAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   return listSegments(orgId);
 }
 
 export async function createSegmentAction(input: CreateSegmentInput) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   const validated = createSegmentSchema.parse(input);
   return createSegment(orgId, validated);
 }
@@ -87,7 +87,7 @@ export async function evaluateSegmentCountAction(
   rules: CreateSegmentInput["rules"]
 ) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   return evaluateSegmentCount(orgId, rules);
 }
 
@@ -96,7 +96,7 @@ export async function evaluateSegmentCountAction(
  */
 export async function bulkAddTagsAction(contactIds: string[], tags: string[]) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const validatedIds = bulkContactIdsSchema.parse(contactIds);
   const validatedTags = bulkTagsSchema.parse(tags);
@@ -129,7 +129,7 @@ export async function bulkAddTagsAction(contactIds: string[], tags: string[]) {
  */
 export async function bulkRemoveTagsAction(contactIds: string[], tags: string[]) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const validatedIds = bulkContactIdsSchema.parse(contactIds);
   const validatedTags = bulkTagsSchema.parse(tags);
@@ -159,7 +159,7 @@ export async function bulkRemoveTagsAction(contactIds: string[], tags: string[])
 export async function bulkDeleteContactsAction(contactIds: string[]) {
   await requirePermission(PERMISSIONS.CONTACTS_DELETE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const validatedIds = bulkContactIdsSchema.parse(contactIds);
 
@@ -176,7 +176,7 @@ export async function bulkDeleteContactsAction(contactIds: string[]) {
  */
 export async function exportContactsAction(filter?: Partial<ContactFilter>) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const where: any = { orgId, deletedAt: null };
   if (filter?.search) {
@@ -243,7 +243,7 @@ export async function exportContactsAction(filter?: Partial<ContactFilter>) {
  */
 export async function getContactTimelineAction(contactId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const contact = await db.contact.findFirst({
     where: { id: contactId, orgId, deletedAt: null },
@@ -312,7 +312,7 @@ export async function getContactTimelineAction(contactId: string) {
  */
 export async function getContactNotesAction(contactId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   return db.contactNote.findMany({
     where: { contactId, orgId },
@@ -326,8 +326,8 @@ export async function getContactNotesAction(contactId: string) {
  */
 export async function addContactNoteAction(contactId: string, body: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
-  const userId = (session.user as any).id;
+  const orgId = session.user.orgId;
+  const userId = session.user.id;
 
   if (!body.trim()) throw new Error("Note body is required");
 
@@ -352,7 +352,7 @@ export async function addContactNoteAction(contactId: string, body: string) {
  */
 export async function deleteContactNoteAction(noteId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   await db.contactNote.deleteMany({
     where: { id: noteId, orgId },

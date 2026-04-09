@@ -183,21 +183,21 @@ export default function CampaignsPage() {
 
           <Card>
             <CardContent className="p-0">
-              {loading ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/50">
-                        <th scope="col" className="text-left py-3 px-4 font-medium">Name</th>
-                        <th scope="col" className="text-left py-3 px-4 font-medium">Type</th>
-                        <th scope="col" className="text-left py-3 px-4 font-medium">Status</th>
-                        <th scope="col" className="text-left py-3 px-4 font-medium">Audience</th>
-                        <th scope="col" className="text-left py-3 px-4 font-medium">Sent</th>
-                        <th scope="col" className="text-left py-3 px-4 font-medium">Delivered</th>
-                        <th scope="col" className="text-left py-3 px-4 font-medium">Created</th>
-                        <th scope="col" className="text-right py-3 px-4 font-medium">Actions</th>
-                      </tr>
-                    </thead>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th scope="col" className="text-left py-3 px-4 font-medium">Name</th>
+                      <th scope="col" className="text-left py-3 px-4 font-medium">Type</th>
+                      <th scope="col" className="text-left py-3 px-4 font-medium">Status</th>
+                      <th scope="col" className="text-left py-3 px-4 font-medium">Audience</th>
+                      <th scope="col" className="text-left py-3 px-4 font-medium">Sent</th>
+                      <th scope="col" className="text-left py-3 px-4 font-medium">Delivered</th>
+                      <th scope="col" className="text-left py-3 px-4 font-medium">Created</th>
+                      <th scope="col" className="text-right py-3 px-4 font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  {loading ? (
                     <tbody>
                       {Array.from({ length: 5 }).map((_, i) => (
                         <tr key={i} className="border-b last:border-0">
@@ -212,23 +212,7 @@ export default function CampaignsPage() {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/50">
-                        <th scope="col" className="text-left py-3 px-4 font-medium">Name</th>
-                        <th scope="col" className="text-left py-3 px-4 font-medium">Type</th>
-                        <th scope="col" className="text-left py-3 px-4 font-medium">Status</th>
-                        <th scope="col" className="text-left py-3 px-4 font-medium">Audience</th>
-                        <th scope="col" className="text-left py-3 px-4 font-medium">Sent</th>
-                        <th scope="col" className="text-left py-3 px-4 font-medium">Delivered</th>
-                        <th scope="col" className="text-left py-3 px-4 font-medium">Created</th>
-                        <th scope="col" className="text-right py-3 px-4 font-medium">Actions</th>
-                      </tr>
-                    </thead>
+                  ) : (
                     <tbody>
                       {data?.campaigns.map((campaign: CampaignSummary) => (
                         <tr
@@ -300,9 +284,9 @@ export default function CampaignsPage() {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
-                </div>
-              )}
+                  )}
+                </table>
+              </div>
             </CardContent>
           </Card>
 

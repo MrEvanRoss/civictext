@@ -275,8 +275,8 @@ export default function InboxPage() {
       setReplyMediaUrl("");
       await loadThread(selectedId);
       await loadConversations();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to send reply");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to send reply");
     } finally {
       setSending(false);
     }
@@ -298,8 +298,8 @@ export default function InboxPage() {
       const { csv, filename } = await exportConversationAction(selectedId);
       downloadCsv(csv, filename);
       toast.success("Conversation exported");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to export");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to export");
     }
   }
 
@@ -310,8 +310,8 @@ export default function InboxPage() {
       await loadThread(selectedId);
       await loadConversations();
       toast.success("Conversation closed");
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "An error occurred");
     }
   }
 
@@ -322,8 +322,8 @@ export default function InboxPage() {
       await loadThread(selectedId);
       await loadConversations();
       toast.success("Conversation reopened");
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "An error occurred");
     }
   }
 
@@ -332,8 +332,8 @@ export default function InboxPage() {
       const { csv, filename } = await exportAllConversationsAction();
       downloadCsv(csv, filename);
       toast.success("All conversations exported");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to export");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to export");
     }
   }
 
@@ -344,8 +344,8 @@ export default function InboxPage() {
       setNoteText("");
       await loadThread(selectedId);
       toast.success("Note added");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to add note");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to add note");
     }
   }
 
@@ -356,8 +356,8 @@ export default function InboxPage() {
       setContactNoteText("");
       await loadThread(selectedId!);
       toast.success("Contact note added");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to add note");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to add note");
     }
   }
 
@@ -370,8 +370,8 @@ export default function InboxPage() {
       await loadThread(selectedId);
       await loadConversations();
       toast.success("Conversation escalated");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to escalate");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to escalate");
     }
   }
 
@@ -382,8 +382,8 @@ export default function InboxPage() {
       await loadThread(selectedId);
       await loadConversations();
       toast.success("Escalation resolved");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to resolve");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to resolve");
     }
   }
 
@@ -399,8 +399,8 @@ export default function InboxPage() {
       await tagConversationAction(selectedId, [...currentTags, newTag]);
       setResponseTagInput("");
       await loadThread(selectedId);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to tag");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to tag");
     }
   }
 
@@ -410,8 +410,8 @@ export default function InboxPage() {
     try {
       await tagConversationAction(selectedId, currentTags.filter((t: string) => t !== tag));
       await loadThread(selectedId);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to remove tag");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove tag");
     }
   }
 
@@ -421,8 +421,8 @@ export default function InboxPage() {
       await assignConversationAction(selectedId, userId);
       await loadThread(selectedId);
       await loadConversations();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to assign");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to assign");
     }
   }
 
@@ -977,8 +977,8 @@ function ContactSidebarContent({
       setShowContactTagInput(false);
       toast.success(`Tag "${tag}" added`);
       onContactUpdated?.();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to add tag");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to add tag");
     } finally {
       setAddingTag(false);
     }
@@ -992,8 +992,8 @@ function ContactSidebarContent({
       setShowOptOutConfirm(false);
       toast.success("Contact opted out");
       onContactUpdated?.();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to opt out contact");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to opt out contact");
     } finally {
       setOptingOut(false);
     }

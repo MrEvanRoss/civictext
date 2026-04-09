@@ -478,7 +478,7 @@ export async function getOrgConsentLogsAction(orgId: string, opts?: { page?: num
  */
 export async function startImpersonationAction(orgId: string) {
   const session = await requireSuperAdmin();
-  const adminUserId = (session.user as any).id;
+  const adminUserId = session.user.id;
 
   // Verify the org exists
   const org = await db.organization.findUnique({

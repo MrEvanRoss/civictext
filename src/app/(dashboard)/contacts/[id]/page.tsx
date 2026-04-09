@@ -34,17 +34,64 @@ import {
   removeMemberAction,
 } from "@/server/actions/interest-lists";
 import { quickSendAction } from "@/server/actions/inbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ArrowLeft, Save, Trash2, Send, StickyNote, ShieldCheck, ArrowDownLeft, ArrowUpRight, Hash, Plus, X } from "lucide-react";
+
+interface ContactMessage {
+  id: string;
+  body: string;
+  direction: "INBOUND" | "OUTBOUND" | string;
+  status: string | null;
+  createdAt: Date | string;
+}
+
+interface ContactDetail {
+  id: string;
+  phone: string;
+  prefix: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  suffix: string | null;
+  email: string | null;
+  dateOfBirth: Date | string | null;
+  street: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  precinct: string | null;
+  tags: string[];
+  optInStatus: string;
+  optInSource: string | null;
+  optInTimestamp: Date | string | null;
+  optOutTimestamp: Date | string | null;
+  lastMessageAt: Date | string | null;
+  createdAt: Date | string;
+  messages: ContactMessage[];
+}
 
 export default function ContactDetailPage() {
   const params = useParams();
   const router = useRouter();
   const contactId = params.id as string;
 
-  const [contact, setContact] = useState<any>(null);
+  const [contact, setContact] = useState<ContactDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [showDeleteNoteDialog, setShowDeleteNoteDialog] = useState(false);
+  const [pendingDeleteNoteId, setPendingDeleteNoteId] = useState<string | null>(null);
+  const [showRemoveListDialog, setShowRemoveListDialog] = useState(false);
+  const [pendingRemoveListId, setPendingRemoveListId] = useState<string | null>(null);
+  const [showDeleteContactDialog, setShowDeleteContactDialog] = useState(false);
 
   const [form, setForm] = useState({
     prefix: "",
@@ -148,13 +195,21 @@ export default function ContactDetailPage() {
     }
   }
 
-  async function handleDeleteNote(noteId: string) {
-    if (!confirm("Delete this note?")) return;
+  function handleDeleteNote(noteId: string) {
+    setPendingDeleteNoteId(noteId);
+    setShowDeleteNoteDialog(true);
+  }
+
+  async function confirmDeleteNote() {
+    if (!pendingDeleteNoteId) return;
+    setShowDeleteNoteDialog(false);
     try {
-      await deleteContactNoteAction(noteId);
+      await deleteContactNoteAction(pendingDeleteNoteId);
       await loadNotes();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to delete note");
+    } finally {
+      setPendingDeleteNoteId(null);
     }
   }
 
@@ -170,13 +225,21 @@ export default function ContactDetailPage() {
     }
   }
 
-  async function handleRemoveFromList(listId: string) {
-    if (!confirm("Remove contact from this interest list?")) return;
+  function handleRemoveFromList(listId: string) {
+    setPendingRemoveListId(listId);
+    setShowRemoveListDialog(true);
+  }
+
+  async function confirmRemoveFromList() {
+    if (!pendingRemoveListId) return;
+    setShowRemoveListDialog(false);
     try {
-      await removeMemberAction(listId, contactId);
+      await removeMemberAction(pendingRemoveListId, contactId);
       await loadInterestLists();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to remove from list");
+    } finally {
+      setPendingRemoveListId(null);
     }
   }
 
@@ -203,8 +266,8 @@ export default function ContactDetailPage() {
         tags: data.tags.join(", "),
         optInStatus: data.optInStatus,
       });
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -241,8 +304,8 @@ export default function ContactDetailPage() {
         optInStatus: form.optInStatus as any,
       });
       await loadContact();
-    } catch (err: any) {
-      setError(err.message || "Failed to update contact");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to update contact");
     } finally {
       setSaving(false);
     }
@@ -267,20 +330,24 @@ export default function ContactDetailPage() {
         clearTimeout(sendSuccessTimeoutRef.current);
       }
       sendSuccessTimeoutRef.current = setTimeout(() => setSendSuccess(""), 3000);
-    } catch (err: any) {
-      setError(err.message || "Failed to send message");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to send message");
     } finally {
       setSendingMessage(false);
     }
   }
 
-  async function handleDelete() {
-    if (!confirm("Permanently delete this contact? Message history will be anonymized.")) return;
+  function handleDelete() {
+    setShowDeleteContactDialog(true);
+  }
+
+  async function confirmDeleteContact() {
+    setShowDeleteContactDialog(false);
     try {
       await deleteContactAction(contactId);
       router.push("/contacts");
-    } catch (err: any) {
-      setError(err.message || "Failed to delete contact");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to delete contact");
     }
   }
 
@@ -797,6 +864,51 @@ export default function ContactDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={showDeleteNoteDialog} onOpenChange={setShowDeleteNoteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete note?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete this note?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteNote}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showRemoveListDialog} onOpenChange={setShowRemoveListDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove from interest list?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove contact from this interest list?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRemoveFromList}>Remove</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteContactDialog} onOpenChange={setShowDeleteContactDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete contact?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Permanently delete this contact? Message history will be anonymized.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteContact}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

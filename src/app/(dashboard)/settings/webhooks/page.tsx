@@ -20,6 +20,16 @@ import {
   toggleWebhookAction,
 } from "@/server/actions/webhooks";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Plus,
   Trash2,
   Webhook,
@@ -59,6 +69,9 @@ export default function WebhooksPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
   // Create form
   const [url, setUrl] = useState("");
   const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
@@ -88,8 +101,8 @@ export default function WebhooksPage() {
     try {
       const data = await listWebhooksAction();
       setWebhooks(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -145,8 +158,8 @@ export default function WebhooksPage() {
       setShowCreate(false);
       setSuccess("Webhook endpoint created successfully.");
       await loadWebhooks();
-    } catch (err: any) {
-      setError(err.message || "Failed to create webhook");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to create webhook");
     } finally {
       setCreating(false);
     }
@@ -158,21 +171,28 @@ export default function WebhooksPage() {
       await toggleWebhookAction(webhookId);
       setSuccess("Webhook status updated.");
       await loadWebhooks();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     }
   }
 
-  async function handleDelete(webhookId: string) {
-    if (!confirm("Delete this webhook endpoint? This cannot be undone."))
-      return;
+  function handleDelete(webhookId: string) {
+    setPendingDeleteId(webhookId);
+    setShowDeleteDialog(true);
+  }
+
+  async function confirmDelete() {
+    if (!pendingDeleteId) return;
+    setShowDeleteDialog(false);
     setError("");
     try {
-      await deleteWebhookAction(webhookId);
+      await deleteWebhookAction(pendingDeleteId);
       setSuccess("Webhook endpoint deleted.");
       await loadWebhooks();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setPendingDeleteId(null);
     }
   }
 
@@ -484,6 +504,21 @@ export default function WebhooksPage() {
           ))}
         </div>
       )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete webhook?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete this webhook endpoint? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

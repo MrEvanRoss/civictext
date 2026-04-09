@@ -38,7 +38,7 @@ export type OrgSettings = z.infer<typeof orgSettingsSchema>;
 
 export async function getOrgSettingsAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const org = await db.organization.findUniqueOrThrow({
     where: { id: orgId },
@@ -71,7 +71,7 @@ export async function getOrgSettingsAction() {
 
   // Current user info
   const user = await db.user.findUnique({
-    where: { id: (session.user as any).id },
+    where: { id: session.user.id },
     select: { name: true, email: true },
   });
 
@@ -90,7 +90,7 @@ export async function getOrgSettingsAction() {
 
 export async function getOrgBrandingAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const org = await db.organization.findUniqueOrThrow({
     where: { id: orgId },
@@ -109,7 +109,7 @@ export async function getOrgBrandingAction() {
 
 export async function updateOrgLogoAction(logoUrl: string | null) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   await db.organization.update({
     where: { id: orgId },
@@ -125,7 +125,7 @@ export async function updateOrgLogoAction(logoUrl: string | null) {
 
 export async function updateOrgSettingsAction(settings: OrgSettings) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const validated = orgSettingsSchema.parse(settings);
 

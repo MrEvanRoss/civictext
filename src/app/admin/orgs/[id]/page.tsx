@@ -29,6 +29,16 @@ import { NativeSelect } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft,
   Building2,
   Users,
@@ -54,15 +64,167 @@ import {
 
 type Tab = "overview" | "campaigns" | "contacts" | "interest-lists" | "templates" | "webhooks" | "auto-reply" | "consent";
 
+interface OrgUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  lastLoginAt: Date | null;
+  twoFactorEnabled: boolean;
+}
+
+interface OrgMessagingPlan {
+  balanceCents: number;
+  totalSpentCents: number;
+  smsRateCents: number;
+  mmsRateCents: number;
+  phoneNumberFeeCents: number;
+}
+
+interface OrgPhoneNumber {
+  id: string;
+  phoneNumber: string;
+  status: string;
+}
+
+interface OrgBrandRegistration {
+  status: string;
+  createdAt: Date;
+}
+
+interface OrgCampaignRegistration {
+  status: string;
+  createdAt: Date;
+}
+
+interface OrgDetailData {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  allowedCampaignTypes: string[];
+  users: OrgUser[];
+  messagingPlan: OrgMessagingPlan | null;
+  twilioSubaccount: { accountSid: string; messagingServiceSid: string | null } | null;
+  brandRegistrations: OrgBrandRegistration[];
+  campaignRegistrations: OrgCampaignRegistration[];
+  phoneNumbers: OrgPhoneNumber[];
+  _count: { contacts: number; campaigns: number; messages: number };
+  stats: {
+    messageCount: number;
+    deliveredCount: number;
+    deliveryRate: string;
+    optOutCount: number;
+  };
+}
+
+interface OrgCampaign {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  messageBody: string;
+  totalRecipients: number;
+  sentCount: number;
+  deliveredCount: number;
+  failedCount: number;
+  responseCount: number;
+  optOutCount: number;
+  scheduledAt: Date | null;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  createdAt: Date;
+  createdBy: { name: string } | null;
+}
+
+interface OrgContact {
+  id: string;
+  phone: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  tags: string[];
+  optInStatus: string;
+  lastMessageAt: Date | null;
+  createdAt: Date;
+}
+
+interface OrgContactsPage {
+  contacts: OrgContact[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+interface OrgInterestList {
+  id: string;
+  name: string;
+  keyword: string;
+  description: string | null;
+  memberCount: number;
+  isActive: boolean;
+  createdAt: Date;
+}
+
+interface OrgTemplate {
+  id: string;
+  name: string;
+  category: string;
+  body: string;
+  usageCount: number;
+  createdAt: Date;
+}
+
+interface OrgWebhook {
+  id: string;
+  url: string;
+  events: string[];
+  isActive: boolean;
+  failCount: number;
+  lastError: string | null;
+  createdAt: Date;
+}
+
+interface OrgAutoReplyRule {
+  id: string;
+  name: string;
+  keywords: string[];
+  replyBody: string;
+  isActive: boolean;
+  priority: number;
+}
+
+interface ConsentLogEntry {
+  id: string;
+  orgId: string;
+  createdAt: Date;
+  contactId: string | null;
+  action: string;
+  source: string;
+  metadata: unknown;
+  contact: { phone: string; firstName: string | null; lastName: string | null } | null;
+}
+
+interface OrgConsentLogsPage {
+  logs: ConsentLogEntry[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
 export default function AdminOrgDetailPage() {
   const params = useParams();
   const router = useRouter();
   const orgId = params.id as string;
 
-  const [org, setOrg] = useState<any>(null);
+  const [org, setOrg] = useState<OrgDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [inactiveReason, setInactiveReason] = useState("");
   const [showInactive, setShowInactive] = useState(false);
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [showReset2FADialog, setShowReset2FADialog] = useState(false);
+  const [pending2FAUserId, setPending2FAUserId] = useState<string | null>(null);
+  const [pending2FAUserName, setPending2FAUserName] = useState<string>("");
   const [addAmount, setAddAmount] = useState("");
   const [addingCredits, setAddingCredits] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
@@ -78,15 +240,15 @@ export default function AdminOrgDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
 
   // Tab data
-  const [campaigns, setCampaigns] = useState<any[]>([]);
-  const [contacts, setContacts] = useState<any>(null);
+  const [campaigns, setCampaigns] = useState<OrgCampaign[]>([]);
+  const [contacts, setContacts] = useState<OrgContactsPage | null>(null);
   const [contactSearch, setContactSearch] = useState("");
   const [contactPage, setContactPage] = useState(1);
-  const [interestLists, setInterestLists] = useState<any[]>([]);
-  const [templates, setTemplates] = useState<any[]>([]);
-  const [webhooks, setWebhooks] = useState<any[]>([]);
-  const [autoReplyRules, setAutoReplyRules] = useState<any[]>([]);
-  const [consentLogs, setConsentLogs] = useState<any>(null);
+  const [interestLists, setInterestLists] = useState<OrgInterestList[]>([]);
+  const [templates, setTemplates] = useState<OrgTemplate[]>([]);
+  const [webhooks, setWebhooks] = useState<OrgWebhook[]>([]);
+  const [autoReplyRules, setAutoReplyRules] = useState<OrgAutoReplyRule[]>([]);
+  const [consentLogs, setConsentLogs] = useState<OrgConsentLogsPage | null>(null);
   const [consentPage, setConsentPage] = useState(1);
   const [tabLoading, setTabLoading] = useState(false);
 
@@ -133,8 +295,8 @@ export default function AdminOrgDetailPage() {
       await updateOrgRatesAction(orgId, rateForm);
       setEditingRates(false);
       await loadOrg();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setSavingRates(false);
     }
@@ -155,8 +317,8 @@ export default function AdminOrgDetailPage() {
     try {
       await updateAllowedCampaignTypesAction(orgId, updated);
       await loadOrg();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setSavingTypes(false);
     }
@@ -217,18 +379,37 @@ export default function AdminOrgDetailPage() {
       setInactiveReason("");
       setShowInactive(false);
       await loadOrg();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "An error occurred");
     }
   }
 
-  async function handleArchive() {
-    if (!confirm("Archive this organization? It will be hidden from active views but all data will be preserved.")) return;
+  function handleArchive() {
+    setShowArchiveDialog(true);
+  }
+
+  async function confirmArchive() {
+    setShowArchiveDialog(false);
     try {
       await archiveOrgAction(orgId);
       await loadOrg();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "An error occurred");
+    }
+  }
+
+  async function confirmReset2FA() {
+    if (!pending2FAUserId) return;
+    setShowReset2FADialog(false);
+    try {
+      await resetUser2FAAction(pending2FAUserId);
+      toast.success(`2FA reset for ${pending2FAUserName}`);
+      loadOrg();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to reset 2FA");
+    } finally {
+      setPending2FAUserId(null);
+      setPending2FAUserName("");
     }
   }
 
@@ -236,8 +417,8 @@ export default function AdminOrgDetailPage() {
     try {
       await approveOrgAction(orgId);
       await loadOrg();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "An error occurred");
     }
   }
 
@@ -245,8 +426,8 @@ export default function AdminOrgDetailPage() {
     try {
       await reactivateOrgAction(orgId);
       await loadOrg();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "An error occurred");
     }
   }
 
@@ -265,8 +446,8 @@ export default function AdminOrgDetailPage() {
       setShowAddUser(false);
       setUserForm({ name: "", email: "", password: "", role: "SENDER" });
       await loadOrg();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setAddingUser(false);
     }
@@ -283,8 +464,8 @@ export default function AdminOrgDetailPage() {
       await addCreditsAction(orgId, Math.round(dollars * 100));
       setAddAmount("");
       await loadOrg();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setAddingCredits(false);
     }
@@ -306,8 +487,8 @@ export default function AdminOrgDetailPage() {
       );
       // Redirect to a special impersonation login endpoint
       window.location.href = `/api/admin/impersonate?userId=${result.targetUserId}&orgId=${result.targetOrgId}`;
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "An error occurred");
     }
   }
 
@@ -763,15 +944,10 @@ export default function AdminOrgDetailPage() {
                           variant="ghost"
                           size="sm"
                           className="text-xs text-destructive hover:text-destructive"
-                          onClick={async () => {
-                            if (!confirm(`Reset 2FA for ${user.name || user.email}? They will need to set it up again.`)) return;
-                            try {
-                              await resetUser2FAAction(user.id);
-                              toast.success(`2FA reset for ${user.name || user.email}`);
-                              loadOrg();
-                            } catch (err: any) {
-                              toast.error(err.message || "Failed to reset 2FA");
-                            }
+                          onClick={() => {
+                            setPending2FAUserId(user.id);
+                            setPending2FAUserName(user.name || user.email);
+                            setShowReset2FADialog(true);
                           }}
                         >
                           Reset 2FA
@@ -1117,6 +1293,36 @@ export default function AdminOrgDetailPage() {
           )}
         </div>
       )}
+
+      <AlertDialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive organization?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Archive this organization? It will be hidden from active views but all data will be preserved.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmArchive}>Archive</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showReset2FADialog} onOpenChange={setShowReset2FADialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset 2FA?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Reset 2FA for {pending2FAUserName}? They will need to set it up again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmReset2FA}>Reset 2FA</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

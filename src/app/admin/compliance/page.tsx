@@ -5,8 +5,46 @@ import { Badge } from "@/components/ui/badge";
 import { getComplianceOverviewAction } from "@/server/actions/admin";
 import { Shield, AlertTriangle, Radio, CheckCircle } from "lucide-react";
 
+interface ComplianceCampaign {
+  id: string;
+  name: string;
+  orgId: string;
+  sentCount: number;
+  optOutCount: number;
+  deliveredCount: number;
+  failedCount: number;
+  orgName: string;
+  optOutRate: string;
+}
+
+interface FailureCampaign {
+  id: string;
+  name: string;
+  orgId: string;
+  sentCount: number;
+  optOutCount: number;
+  deliveredCount: number;
+  failedCount: number;
+  orgName: string;
+  failureRate: string;
+}
+
+interface DlcStatus {
+  pendingBrands: number;
+  approvedBrands: number;
+  rejectedBrands: number;
+  pendingCampaigns: number;
+  approvedCampaigns: number;
+}
+
+interface ComplianceOverviewData {
+  highOptOutCampaigns: ComplianceCampaign[];
+  highFailureOrgs: FailureCampaign[];
+  dlcStatus: DlcStatus;
+}
+
 export default function AdminCompliancePage() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<ComplianceOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -104,7 +142,7 @@ export default function AdminCompliancePage() {
                 </tr>
               </thead>
               <tbody>
-                {data.highOptOutCampaigns.map((c: any) => (
+                {data.highOptOutCampaigns.map((c) => (
                   <tr key={c.id} className="border-t">
                     <td className="p-2">{c.name}</td>
                     <td className="p-2 text-muted-foreground">{c.orgName}</td>
@@ -150,7 +188,7 @@ export default function AdminCompliancePage() {
                 </tr>
               </thead>
               <tbody>
-                {data.highFailureOrgs.map((c: any) => (
+                {data.highFailureOrgs.map((c) => (
                   <tr key={c.id} className="border-t">
                     <td className="p-2">{c.name}</td>
                     <td className="p-2 text-muted-foreground">{c.orgName}</td>

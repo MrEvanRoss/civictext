@@ -59,8 +59,8 @@ export default function ActivationTextPage() {
       await updateWelcomeMessageAction(message);
       setOriginalMessage(message);
       toast.success("Welcome message saved");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setSaving(false);
     }

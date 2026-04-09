@@ -240,7 +240,8 @@ export async function changeCampaignStatus(
   if (!updated) throw new Error("Campaign not found after update");
 
   // When transitioning to SENDING, queue the campaign expansion
-  if (newStatus === "SENDING") {
+  // P2P campaigns skip expansion — agents send individually via assignContactsToAgents
+  if (newStatus === "SENDING" && updated.type !== "P2P") {
     await campaignQueue.add("expand", {
       orgId,
       campaignId,

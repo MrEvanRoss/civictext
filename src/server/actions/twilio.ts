@@ -19,13 +19,13 @@ import { db } from "@/lib/db";
 
 export async function getRegistrationStatusAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   return getRegistrationStatus(orgId);
 }
 
 export async function provisionSubaccountAction() {
   const session = await requireRole("ADMIN");
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const org = await db.organization.findUnique({ where: { id: orgId } });
   if (!org) throw new Error("Organization not found");
@@ -35,7 +35,7 @@ export async function provisionSubaccountAction() {
 
 export async function createMessagingServiceAction() {
   const session = await requireRole("ADMIN");
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const org = await db.organization.findUnique({ where: { id: orgId } });
   if (!org) throw new Error("Organization not found");
@@ -60,7 +60,7 @@ export async function registerBrandAction(formData: {
   contactPhone: string;
 }) {
   const session = await requireRole("ADMIN");
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const validated = brandRegistrationSchema.parse(formData);
   return registerBrand(orgId, validated);
@@ -74,7 +74,7 @@ export async function registerCampaignAction(formData: {
   messageFlow: string;
 }) {
   const session = await requireRole("ADMIN");
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const validated = campaignRegistrationSchema.parse(formData);
   return registerCampaign(orgId, validated);
@@ -85,7 +85,7 @@ export async function provisionPhoneNumbersAction(formData: {
   quantity?: number;
 }) {
   const session = await requireRole("ADMIN");
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const validated = provisionNumberSchema.parse(formData);
   return provisionPhoneNumbers(orgId, validated);
@@ -93,7 +93,7 @@ export async function provisionPhoneNumbersAction(formData: {
 
 export async function releasePhoneNumberAction(phoneNumberId: string) {
   const session = await requireRole("ADMIN");
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   await releasePhoneNumber(orgId, phoneNumberId);
   return { success: true };

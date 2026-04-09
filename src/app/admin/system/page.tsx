@@ -6,8 +6,17 @@ import { Badge } from "@/components/ui/badge";
 import { getSystemHealthAction } from "@/server/actions/admin";
 import { Activity, Database, HardDrive, RefreshCw, Server } from "lucide-react";
 
+interface SystemHealthData {
+  redis: { status: string; memory: string };
+  database: { status: string; orgCount: number };
+  queues: { depth: number; failedJobs: number };
+  uptime: number;
+  nodeVersion: string;
+  environment: string;
+}
+
 export default function AdminSystemPage() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<SystemHealthData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

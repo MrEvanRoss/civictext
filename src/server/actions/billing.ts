@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 
 export async function getBillingOverviewAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const [plan, balance, addOns, activePhoneNumbers] = await Promise.all([
     db.messagingPlan.findUnique({ where: { orgId } }),
@@ -33,7 +33,7 @@ export async function getBillingOverviewAction() {
 
 export async function getUsageLedgerAction(opts?: { page?: number }) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   const page = opts?.page || 1;
   const pageSize = 50;
 

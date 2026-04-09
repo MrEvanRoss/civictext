@@ -27,7 +27,7 @@ const adminAddUserSchema = z.object({
  */
 export async function listTeamMembersAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const users = await db.user.findMany({
     where: { orgId },
@@ -56,8 +56,8 @@ export async function addTeamMemberAction(data: {
 }) {
   await requirePermission(PERMISSIONS.USERS_MANAGE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
-  const callerRole = (session.user as any).role as string;
+  const orgId = session.user.orgId;
+  const callerRole = session.user.role as string;
 
   const validated = addTeamMemberSchema.parse(data);
 
@@ -95,9 +95,9 @@ export async function addTeamMemberAction(data: {
 export async function updateTeamMemberRoleAction(userId: string, newRole: string) {
   await requirePermission(PERMISSIONS.USERS_MANAGE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
-  const callerRole = (session.user as any).role as string;
-  const callerId = (session.user as any).id;
+  const orgId = session.user.orgId;
+  const callerRole = session.user.role as string;
+  const callerId = session.user.id;
 
   z.string().uuid().parse(userId);
   const validatedRole = z.enum(["ADMIN", "MANAGER", "SENDER", "VIEWER"]).parse(newRole);
@@ -140,9 +140,9 @@ export async function updateTeamMemberRoleAction(userId: string, newRole: string
 export async function removeTeamMemberAction(userId: string) {
   await requirePermission(PERMISSIONS.USERS_MANAGE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
-  const callerId = (session.user as any).id;
-  const callerRole = (session.user as any).role as string;
+  const orgId = session.user.orgId;
+  const callerId = session.user.id;
+  const callerRole = session.user.role as string;
 
   if (userId === callerId) {
     throw new Error("You cannot remove yourself");

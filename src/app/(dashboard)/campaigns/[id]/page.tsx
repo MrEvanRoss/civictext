@@ -19,6 +19,16 @@ import {
   getCampaignLinkStatsAction,
 } from "@/server/actions/campaigns";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft,
   Play,
   Pause,
@@ -49,13 +59,53 @@ const TYPE_LABELS: Record<string, string> = {
   AUTO_REPLY: "Auto-Reply",
 };
 
+interface CampaignDripStep {
+  id: string;
+  messageBody: string;
+  delayMinutes: number;
+  triggerKeyword?: string | null;
+}
+
+interface CampaignAutoReplyRule {
+  id: string;
+  keywords: string[];
+  replyBody: string;
+  isActive: boolean;
+}
+
+interface CampaignDetail {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  messageBody: string;
+  mediaUrl: string | null;
+  sentCount: number;
+  deliveredCount: number;
+  failedCount: number;
+  responseCount: number;
+  optOutCount: number;
+  totalRecipients: number;
+  createdAt: Date | string;
+  scheduledAt: Date | string | null;
+  startedAt: Date | string | null;
+  completedAt: Date | string | null;
+  segment: { name: string } | null;
+  createdBy: { name: string } | null;
+  dripSteps: CampaignDripStep[];
+  autoReplyRules?: CampaignAutoReplyRule[];
+}
+
 export default function CampaignDetailPage() {
   const params = useParams();
   const router = useRouter();
   const campaignId = params.id as string;
-  const [campaign, setCampaign] = useState<any>(null);
+  const [campaign, setCampaign] = useState<CampaignDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showStatusDialog, setShowStatusDialog] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+  const [pendingStatusMessage, setPendingStatusMessage] = useState("");
   const [linkStats, setLinkStats] = useState<{
     links: { id: string; originalUrl: string; shortCode: string; clickCount: number; createdAt: string }[];
     totalClicks: number;
@@ -154,20 +204,37 @@ export default function CampaignDetailPage() {
     return { label, detail };
   }
 
-  async function handleStatusChange(newStatus: string) {
+  function handleStatusChange(newStatus: string) {
     const confirmMessages: Record<string, string> = {
       SENDING: "Start sending this campaign?",
       PAUSED: "Pause this campaign? Unsent messages will remain in the queue.",
       CANCELLED: "Cancel this campaign? Unsent messages will be discarded. This cannot be undone.",
     };
 
-    if (confirmMessages[newStatus] && !confirm(confirmMessages[newStatus])) return;
+    if (confirmMessages[newStatus]) {
+      setPendingStatus(newStatus);
+      setPendingStatusMessage(confirmMessages[newStatus]);
+      setShowStatusDialog(true);
+      return;
+    }
 
+    executeStatusChange(newStatus);
+  }
+
+  async function confirmStatusChange() {
+    if (!pendingStatus) return;
+    setShowStatusDialog(false);
+    await executeStatusChange(pendingStatus);
+    setPendingStatus(null);
+    setPendingStatusMessage("");
+  }
+
+  async function executeStatusChange(newStatus: string) {
     try {
       await changeCampaignStatusAction(campaignId, newStatus);
       await loadCampaign();
-    } catch (err: any) {
-      setError(err.message || "Failed to change status");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to change status");
     }
   }
 
@@ -175,8 +242,8 @@ export default function CampaignDetailPage() {
     try {
       const dup = await duplicateCampaignAction(campaignId);
       router.push(`/campaigns/${dup.id}`);
-    } catch (err: any) {
-      setError(err.message || "Failed to duplicate");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to duplicate");
     }
   }
 
@@ -289,8 +356,8 @@ export default function CampaignDetailPage() {
                   a.download = filename;
                   a.click();
                   URL.revokeObjectURL(url);
-                } catch (err: any) {
-                  setError(err.message || "Failed to export");
+                } catch (err: unknown) {
+                  setError(err instanceof Error ? err.message : "Failed to export");
                 }
               }}
             >
@@ -504,14 +571,14 @@ export default function CampaignDetailPage() {
         )}
 
         {/* Auto-Reply Rules */}
-        {campaign.autoReplyRules?.length > 0 && (
+        {(campaign.autoReplyRules?.length ?? 0) > 0 && (
           <Card className="md:col-span-2">
             <CardHeader>
               <CardTitle>Auto-Reply Rules</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {campaign.autoReplyRules.map((rule: any) => (
+                {campaign.autoReplyRules!.map((rule: any) => (
                   <div key={rule.id} className="flex items-start gap-4 p-3 bg-muted rounded-lg">
                     <div className="flex-1">
                       <div className="flex flex-wrap gap-1 mb-1">
@@ -535,6 +602,21 @@ export default function CampaignDetailPage() {
           </Card>
         )}
       </div>
+
+      <AlertDialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change campaign status?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingStatusMessage}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmStatusChange}>Confirm</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

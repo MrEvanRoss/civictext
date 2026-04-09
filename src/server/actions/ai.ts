@@ -33,7 +33,7 @@ export async function generateMessageAction(
   maxLength: number
 ) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   if (!prompt || prompt.trim().length === 0) {
     throw new Error("Please describe what you want to say.");
@@ -53,7 +53,7 @@ export async function generateMessageAction(
  */
 export async function suggestRepliesAction(conversationId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   if (!conversationId) {
     throw new Error("Conversation ID is required.");
@@ -107,7 +107,7 @@ export async function improveMessageAction(
   instruction: string
 ) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   if (!message || message.trim().length === 0) {
     throw new Error("Message is required.");

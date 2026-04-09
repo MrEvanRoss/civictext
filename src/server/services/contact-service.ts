@@ -72,16 +72,58 @@ export async function getContact(orgId: string, contactId: string) {
 
 /**
  * Create a new contact.
+ * M-7: If a soft-deleted contact exists with the same phone, restore it
+ * instead of creating a new row (avoids partial-index conflicts and
+ * preserves the original contact's message history).
  */
 export async function createContact(orgId: string, input: CreateContactInput) {
   const phone = normalizePhone(input.phone);
 
-  // Check for duplicate (ignore soft-deleted contacts)
+  // Check for duplicate among active contacts
   const existing = await db.contact.findFirst({
     where: { orgId, phone, deletedAt: null },
   });
   if (existing) {
     throw new Error(`Contact with phone ${phone} already exists`);
+  }
+
+  // M-7: Check for a soft-deleted contact with the same phone and restore it
+  const softDeleted = await db.contact.findFirst({
+    where: { orgId, phone, deletedAt: { not: null } },
+    orderBy: { deletedAt: "desc" },
+  });
+
+  if (softDeleted) {
+    const contact = await db.contact.update({
+      where: { id: softDeleted.id },
+      data: {
+        deletedAt: null,
+        firstName: input.firstName,
+        lastName: input.lastName,
+        email: input.email || null,
+        tags: input.tags,
+        customFields: (input.customFields || {}) as any,
+        optInStatus: input.optInStatus,
+        optInSource: input.optInSource || "manual",
+        optInTimestamp: input.optInStatus === "OPTED_IN" ? new Date() : null,
+        optOutTimestamp: null,
+      },
+    });
+
+    // Audit log for consent
+    if (input.optInStatus === "OPTED_IN") {
+      await db.consentAuditLog.create({
+        data: {
+          orgId,
+          contactId: contact.id,
+          action: "OPTED_IN",
+          source: input.optInSource || "manual",
+          metadata: { method: "manual_create", restored: true },
+        },
+      });
+    }
+
+    return contact;
   }
 
   const contact = await db.contact.create({

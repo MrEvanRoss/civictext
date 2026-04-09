@@ -26,6 +26,16 @@ import {
   addMemberAction,
 } from "@/server/actions/interest-lists";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Plus,
   Users,
   Hash,
@@ -38,11 +48,37 @@ import {
   PowerOff,
 } from "lucide-react";
 
+interface InterestListMemberContact {
+  id: string;
+  phone: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  optInStatus: string;
+}
+
+interface InterestListMember {
+  id: string;
+  source: string;
+  joinedAt: Date;
+  contact: InterestListMemberContact;
+}
+
+interface InterestListDetail {
+  id: string;
+  name: string;
+  keyword: string;
+  description: string | null;
+  welcomeMessage: string | null;
+  isActive: boolean;
+  members: InterestListMember[];
+}
+
 export default function InterestListsPage() {
   const [lists, setLists] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [selectedList, setSelectedList] = useState<any>(null);
+  const [selectedList, setSelectedList] = useState<InterestListDetail | null>(null);
   const [, setDetailLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -52,6 +88,10 @@ export default function InterestListsPage() {
   const [description, setDescription] = useState("");
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [creating, setCreating] = useState(false);
+
+  // Delete confirm
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   // Add member
   const [addContactId, setAddContactId] = useState("");
@@ -66,8 +106,8 @@ export default function InterestListsPage() {
     try {
       const data = await listInterestListsAction();
       setLists(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -78,8 +118,8 @@ export default function InterestListsPage() {
     try {
       const data = await getInterestListAction(listId);
       setSelectedList(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setDetailLoading(false);
     }
@@ -102,8 +142,8 @@ export default function InterestListsPage() {
       setShowCreate(false);
       toast.success("Interest list created successfully");
       await loadLists();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to create interest list");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to create interest list");
     } finally {
       setCreating(false);
     }
@@ -117,20 +157,28 @@ export default function InterestListsPage() {
       if (selectedList?.id === listId) {
         await loadDetail(listId);
       }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update list");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update list");
     }
   }
 
-  async function handleDelete(listId: string) {
-    if (!confirm("Delete this interest list? Members will be removed but contacts will remain.")) return;
+  function handleDelete(listId: string) {
+    setPendingDeleteId(listId);
+    setShowDeleteDialog(true);
+  }
+
+  async function confirmDelete() {
+    if (!pendingDeleteId) return;
+    setShowDeleteDialog(false);
     try {
-      await deleteInterestListAction(listId);
-      if (selectedList?.id === listId) setSelectedList(null);
+      await deleteInterestListAction(pendingDeleteId);
+      if (selectedList?.id === pendingDeleteId) setSelectedList(null);
       toast.success("Interest list deleted");
       await loadLists();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete interest list");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete interest list");
+    } finally {
+      setPendingDeleteId(null);
     }
   }
 
@@ -141,8 +189,8 @@ export default function InterestListsPage() {
       toast.success("Member removed");
       await loadDetail(selectedList.id);
       await loadLists();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to remove member");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove member");
     }
   }
 
@@ -156,8 +204,8 @@ export default function InterestListsPage() {
       toast.success("Member added successfully");
       await loadDetail(selectedList.id);
       await loadLists();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to add member");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to add member");
     } finally {
       setAdding(false);
     }
@@ -555,6 +603,21 @@ export default function InterestListsPage() {
           ))}
         </div>
       )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete interest list?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete this interest list? Members will be removed but contacts will remain.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -23,6 +23,16 @@ import {
 import { countSegments } from "@/lib/sms-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Plus, Search, FileText, Trash2, Copy } from "lucide-react";
 
 const CATEGORIES = [
@@ -39,6 +49,8 @@ export default function TemplatesPage() {
   const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [category, setCategory] = useState("all");
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
@@ -57,8 +69,8 @@ export default function TemplatesPage() {
         search: search || undefined,
       });
       setTemplates(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -83,21 +95,29 @@ export default function TemplatesPage() {
       setShowCreate(false);
       toast.success("Template created successfully");
       await loadTemplates();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to create template");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to create template");
     } finally {
       setCreating(false);
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this template?")) return;
+  function handleDelete(id: string) {
+    setPendingDeleteId(id);
+    setShowDeleteDialog(true);
+  }
+
+  async function confirmDelete() {
+    if (!pendingDeleteId) return;
+    setShowDeleteDialog(false);
     try {
-      await deleteTemplateAction(id);
+      await deleteTemplateAction(pendingDeleteId);
       toast.success("Template deleted");
       await loadTemplates();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete template");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete template");
+    } finally {
+      setPendingDeleteId(null);
     }
   }
 
@@ -307,6 +327,21 @@ export default function TemplatesPage() {
           ))}
         </div>
       )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete template?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete this template?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

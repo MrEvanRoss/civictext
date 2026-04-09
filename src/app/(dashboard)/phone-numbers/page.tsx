@@ -18,6 +18,16 @@ import {
   releasePhoneNumberAction,
 } from "@/server/actions/twilio";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Phone,
   Plus,
   Shield,
@@ -58,6 +68,8 @@ export default function PhoneNumbersPage() {
   const [status, setStatus] = useState<RegistrationStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showReleaseDialog, setShowReleaseDialog] = useState(false);
+  const [pendingReleaseId, setPendingReleaseId] = useState<string | null>(null);
 
   useEffect(() => {
     loadStatus();
@@ -67,24 +79,29 @@ export default function PhoneNumbersPage() {
     try {
       const data = await getRegistrationStatusAction();
       setStatus(data);
-    } catch (err: any) {
-      setError(err.message || "Failed to load registration status");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load registration status");
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleRelease(phoneNumberId: string) {
-    if (!confirm("Are you sure you want to release this phone number? This cannot be undone.")) {
-      return;
-    }
+  function handleRelease(phoneNumberId: string) {
+    setPendingReleaseId(phoneNumberId);
+    setShowReleaseDialog(true);
+  }
 
+  async function confirmRelease() {
+    if (!pendingReleaseId) return;
+    setShowReleaseDialog(false);
     try {
-      await releasePhoneNumberAction(phoneNumberId);
+      await releasePhoneNumberAction(pendingReleaseId);
       toast.success("Phone number released successfully");
       await loadStatus();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to release phone number");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to release phone number");
+    } finally {
+      setPendingReleaseId(null);
     }
   }
 
@@ -412,6 +429,21 @@ export default function PhoneNumbersPage() {
           )}
         </>
       )}
+
+      <AlertDialog open={showReleaseDialog} onOpenChange={setShowReleaseDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Release phone number?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to release this phone number? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRelease}>Release</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -121,13 +121,38 @@ export default function SettingsPage() {
   return (
     <Suspense
       fallback={
-        <div className="space-y-6">
+        <div className="space-y-6 animate-fade-in">
+          {/* Header */}
           <div>
             <Skeleton className="h-9 w-48 mb-2" />
             <Skeleton className="h-5 w-72" />
           </div>
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-64 w-full" />
+          {/* Tab bar */}
+          <div className="border-b overflow-x-auto">
+            <nav className="-mb-px flex gap-1 min-w-max">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="inline-flex items-center gap-1.5 px-3 py-2.5">
+                  <Skeleton className="h-4 w-4" />
+                  <Skeleton className="h-4 w-16 hidden sm:block" />
+                </div>
+              ))}
+            </nav>
+          </div>
+          {/* Tab content cards */}
+          <div className="min-h-[400px]">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <Card key={i} className={i > 0 ? "mt-6" : ""}>
+                <CardHeader>
+                  <Skeleton className="h-6 w-36 mb-1" />
+                  <Skeleton className="h-4 w-56" />
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       }
     >

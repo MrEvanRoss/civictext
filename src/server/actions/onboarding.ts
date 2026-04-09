@@ -15,7 +15,7 @@ export interface OnboardingStatus {
 
 export async function getOnboardingStatusAction(): Promise<OnboardingStatus> {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const [subaccount, brand, phoneNumber, contactCount, campaignCount] =
     await Promise.all([
@@ -48,7 +48,7 @@ export async function getOnboardingStatusAction(): Promise<OnboardingStatus> {
 
 export async function getDashboardStatsAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);

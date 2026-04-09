@@ -27,6 +27,16 @@ import {
   listCampaignsForSurveyAction,
 } from "@/server/actions/surveys";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Plus,
   ClipboardList,
   Trash2,
@@ -56,6 +66,10 @@ export default function SurveysPage() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [error, setError] = useState("");
+  const [showCloseDialog, setShowCloseDialog] = useState(false);
+  const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   // Create form state
   const [name, setName] = useState("");
@@ -74,8 +88,8 @@ export default function SurveysPage() {
     try {
       const data = await listSurveysAction();
       setSurveys(data.surveys);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -157,33 +171,48 @@ export default function SurveysPage() {
       setShowCreate(false);
       toast.success("Survey created successfully");
       await loadSurveys();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to create survey");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to create survey");
     } finally {
       setCreating(false);
     }
   }
 
-  async function handleClose(surveyId: string) {
-    if (!confirm("Close this survey? No more responses will be accepted.")) return;
+  function handleClose(surveyId: string) {
+    setPendingCloseId(surveyId);
+    setShowCloseDialog(true);
+  }
+
+  async function confirmClose() {
+    if (!pendingCloseId) return;
+    setShowCloseDialog(false);
     try {
-      await closeSurveyAction(surveyId);
+      await closeSurveyAction(pendingCloseId);
       toast.success("Survey closed");
       await loadSurveys();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to close survey");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to close survey");
+    } finally {
+      setPendingCloseId(null);
     }
   }
 
-  async function handleDelete(surveyId: string) {
-    if (!confirm("Delete this survey and all its responses? This cannot be undone."))
-      return;
+  function handleDelete(surveyId: string) {
+    setPendingDeleteId(surveyId);
+    setShowDeleteDialog(true);
+  }
+
+  async function confirmDelete() {
+    if (!pendingDeleteId) return;
+    setShowDeleteDialog(false);
     try {
-      await deleteSurveyAction(surveyId);
+      await deleteSurveyAction(pendingDeleteId);
       toast.success("Survey deleted");
       await loadSurveys();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete survey");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete survey");
+    } finally {
+      setPendingDeleteId(null);
     }
   }
 
@@ -499,6 +528,36 @@ export default function SurveysPage() {
           ))}
         </div>
       )}
+
+      <AlertDialog open={showCloseDialog} onOpenChange={setShowCloseDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Close survey?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Close this survey? No more responses will be accepted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmClose}>Close Survey</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete survey?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete this survey and all its responses? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

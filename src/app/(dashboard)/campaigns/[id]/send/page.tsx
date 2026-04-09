@@ -140,8 +140,8 @@ export default function P2PSendPage() {
         const history = await getContactHistoryAction(first.contact.id);
         setContactHistory(history);
       }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load assignments");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to load assignments");
     } finally {
       setLoading(false);
     }
@@ -263,9 +263,10 @@ export default function P2PSendPage() {
         // Replenish prefetch buffer
         prefetchNext();
       })
-      .catch((err: any) => {
-        toast.error(`Failed to send to ${contactName}: ${err.message}`);
-        addToRetryList(assignmentId, contactName, err.message || "Unknown error");
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        toast.error(`Failed to send to ${contactName}: ${msg}`);
+        addToRetryList(assignmentId, contactName, msg);
       });
   }
 
@@ -279,8 +280,8 @@ export default function P2PSendPage() {
       setShowSkipInput(false);
       setSkipReason("");
       await advanceToNext();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to skip");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to skip");
     }
   }
 
@@ -409,8 +410,8 @@ export default function P2PSendPage() {
                         } else {
                           toast.error("Could not reload assignment");
                         }
-                      } catch (err: any) {
-                        toast.error(err.message || "Failed to retry");
+                      } catch (err: unknown) {
+                        toast.error(err instanceof Error ? err.message : "Failed to retry");
                       }
                     }}
                   >

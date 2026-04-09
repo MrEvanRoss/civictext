@@ -32,8 +32,8 @@ export async function listConversationsAction(opts?: {
   page?: number;
 }) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
-  const userId = (session.user as any).id;
+  const orgId = session.user.orgId;
+  const userId = session.user.id;
   const page = opts?.page || 1;
   const pageSize = 30;
 
@@ -65,7 +65,7 @@ export async function listConversationsAction(opts?: {
 
 export async function getConversationMessagesAction(conversationId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const conversation = await db.conversation.findFirst({
     where: { id: conversationId, orgId },
@@ -105,7 +105,7 @@ export async function getConversationMessagesAction(conversationId: string) {
 
 export async function sendReplyAction(conversationId: string, body: string, mediaUrl?: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   z.string().uuid().parse(conversationId);
   const validated = sendReplySchema.parse({ body, mediaUrl });
@@ -162,7 +162,7 @@ export async function quickSendAction(data: {
 }) {
   await requirePermission(PERMISSIONS.CAMPAIGN_SEND);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const validated = quickSendSchema.parse(data);
 
@@ -220,8 +220,8 @@ export async function quickSendAction(data: {
  */
 export async function addContactNoteAction(contactId: string, body: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
-  const userId = (session.user as any).id;
+  const orgId = session.user.orgId;
+  const userId = session.user.id;
 
   z.string().uuid().parse(contactId);
   const validatedBody = noteSchema.parse({ body }).body;
@@ -244,7 +244,7 @@ export async function addContactNoteAction(contactId: string, body: string) {
 
 export async function exportConversationAction(conversationId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const conversation = await db.conversation.findFirst({
     where: { id: conversationId, orgId },
@@ -327,7 +327,7 @@ export async function exportConversationAction(conversationId: string) {
 
 export async function exportAllConversationsAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const conversations = await db.conversation.findMany({
     where: { orgId },
@@ -383,8 +383,8 @@ export async function exportAllConversationsAction() {
 
 export async function addNoteAction(conversationId: string, body: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
-  const userId = (session.user as any).id;
+  const orgId = session.user.orgId;
+  const userId = session.user.id;
 
   z.string().uuid().parse(conversationId);
   const validatedBody = noteSchema.parse({ body }).body;
@@ -413,8 +413,8 @@ export async function escalateConversationAction(
   reason: string
 ) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
-  const userId = (session.user as any).id;
+  const orgId = session.user.orgId;
+  const userId = session.user.id;
 
   const conversation = await db.conversation.findFirst({
     where: { id: conversationId, orgId },
@@ -468,7 +468,7 @@ export async function tagConversationAction(
   tags: string[]
 ) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const conversation = await db.conversation.findFirst({
     where: { id: conversationId, orgId },
@@ -502,7 +502,7 @@ export async function assignConversationAction(
 export async function autoAssignConversationsAction() {
   await requirePermission(PERMISSIONS.USERS_MANAGE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   // Get active senders/agents
   const agents = await db.user.findMany({
@@ -559,7 +559,7 @@ export async function autoAssignConversationsAction() {
 export async function sendDoubleOptInAction(contactId: string) {
   await requirePermission(PERMISSIONS.CAMPAIGN_SEND);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const contact = await db.contact.findFirst({
     where: { id: contactId, orgId },
@@ -610,7 +610,7 @@ export async function sendDoubleOptInAction(contactId: string) {
       contactId,
       action: "CONSENT_UPDATED",
       source: "double_opt_in_sent",
-      metadata: { initiatedBy: (session.user as any).id },
+      metadata: { initiatedBy: session.user.id },
     },
   });
 
@@ -622,7 +622,7 @@ export async function sendDoubleOptInAction(contactId: string) {
  */
 export async function getTeamMembersAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   return db.user.findMany({
     where: { orgId },
@@ -636,7 +636,7 @@ export async function getTeamMembersAction() {
  */
 export async function listQuickRepliesAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   return db.quickReplyTemplate.findMany({
     where: { orgId },
@@ -649,7 +649,7 @@ export async function listQuickRepliesAction() {
  */
 export async function createQuickReplyAction(name: string, body: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   if (!name.trim() || !body.trim()) throw new Error("Name and body are required");
 
@@ -663,7 +663,7 @@ export async function createQuickReplyAction(name: string, body: string) {
  */
 export async function deleteQuickReplyAction(templateId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   await db.quickReplyTemplate.deleteMany({
     where: { id: templateId, orgId },

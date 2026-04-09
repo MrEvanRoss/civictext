@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { db } from "./db";
 import { authConfig } from "./auth.config";
 import { verifyTOTPCode, verifyBackupCode } from "./two-factor";
+import type { UserRole } from "@prisma/client";
 
 export const {
   handlers,
@@ -103,18 +104,18 @@ export const {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id as string;
-        token.orgId = (user as any).orgId;
-        token.role = (user as any).role;
-        token.isSuperAdmin = (user as any).isSuperAdmin;
+        token.orgId = user.orgId;
+        token.role = user.role;
+        token.isSuperAdmin = user.isSuperAdmin;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.id;
-        (session.user as any).orgId = token.orgId;
-        (session.user as any).role = token.role;
-        (session.user as any).isSuperAdmin = token.isSuperAdmin;
+        session.user.id = token.id;
+        session.user.orgId = token.orgId;
+        session.user.role = token.role as UserRole;
+        session.user.isSuperAdmin = token.isSuperAdmin;
       }
       return session;
     },

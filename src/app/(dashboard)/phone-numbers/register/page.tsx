@@ -187,8 +187,8 @@ export default function RegisterPage() {
       // Note: Campaign registration requires brand approval first,
       // so we save the intent and register once brand is approved
       router.push("/phone-numbers?registered=true");
-    } catch (err: any) {
-      setError(err.message || "Registration failed. Please try again.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }

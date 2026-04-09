@@ -99,17 +99,23 @@ export async function requireAuth() {
  */
 export async function requireOrg() {
   const session = await requireAuth();
-  const impersonation = (session.user as any).isSuperAdmin ? await getImpersonationState() : null;
+  const impersonation = session.user.isSuperAdmin ? await getImpersonationState() : null;
 
   if (impersonation) {
-    // Override the orgId for the duration of this request
-    (session.user as any).orgId = impersonation.targetOrgId;
-    (session.user as any).role = impersonation.targetRole || "OWNER";
-    (session.user as any)._impersonating = true;
-    (session.user as any)._adminId = impersonation.adminId;
+    // Override the orgId for the duration of this request.
+    // Use a typed assertion — these runtime-only fields are added during
+    // impersonation and declared in src/types/next-auth.d.ts.
+    const user = session.user as typeof session.user & {
+      _impersonating: boolean;
+      _adminId: string;
+    };
+    user.orgId = impersonation.targetOrgId;
+    user.role = impersonation.targetRole || "OWNER";
+    user._impersonating = true;
+    user._adminId = impersonation.adminId;
   }
 
-  const tenantDb = getTenantDb((session.user as any).orgId);
+  const tenantDb = getTenantDb(session.user.orgId);
   return { session, tenantDb };
 }
 
@@ -118,7 +124,7 @@ export async function requireOrg() {
  */
 export async function getImpersonationInfo() {
   const session = await auth();
-  if (!session?.user || !(session.user as any).isSuperAdmin) return null;
+  if (!session?.user || !session.user.isSuperAdmin) return null;
 
   const state = await getImpersonationState();
   if (!state) return null;
@@ -136,7 +142,7 @@ export async function getImpersonationInfo() {
  */
 export async function requireRole(minRole: UserRole) {
   const session = await requireAuth();
-  const userRoleIndex = ROLE_HIERARCHY.indexOf((session.user as any).role);
+  const userRoleIndex = ROLE_HIERARCHY.indexOf(session.user.role);
   const requiredRoleIndex = ROLE_HIERARCHY.indexOf(minRole);
 
   if (userRoleIndex < requiredRoleIndex) {
@@ -151,7 +157,7 @@ export async function requireRole(minRole: UserRole) {
  */
 export async function requirePermission(permission: Permission) {
   const session = await requireAuth();
-  const userPermissions = ROLE_PERMISSIONS[(session.user as any).role] || [];
+  const userPermissions = ROLE_PERMISSIONS[session.user.role] || [];
 
   if (!userPermissions.includes(permission)) {
     throw new Error(`Missing permission: ${permission}`);
@@ -165,7 +171,7 @@ export async function requirePermission(permission: Permission) {
  */
 export async function requireSuperAdmin() {
   const session = await requireAuth();
-  if (!(session.user as any).isSuperAdmin) {
+  if (!session.user.isSuperAdmin) {
     redirect("/dashboard");
   }
   return session;

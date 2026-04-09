@@ -20,6 +20,16 @@ import {
   deleteApiKeyAction,
 } from "@/server/actions/api-keys";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Plus,
   Trash2,
   KeyRound,
@@ -62,6 +72,10 @@ export default function ApiKeysPage() {
   const [name, setName] = useState("");
   const [selectedPerms, setSelectedPerms] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
+  const [showRevokeDialog, setShowRevokeDialog] = useState(false);
+  const [pendingRevokeId, setPendingRevokeId] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState(false);
@@ -85,8 +99,8 @@ export default function ApiKeysPage() {
     try {
       const data = await listApiKeysAction();
       setKeys(data as any);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -116,32 +130,48 @@ export default function ApiKeysPage() {
       setShowCreate(false);
       setSuccess("API key created. Copy it now — it won't be shown again.");
       await loadKeys();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setCreating(false);
     }
   }
 
-  async function handleRevoke(keyId: string) {
-    if (!confirm("Revoke this API key? It will immediately stop working.")) return;
+  function handleRevoke(keyId: string) {
+    setPendingRevokeId(keyId);
+    setShowRevokeDialog(true);
+  }
+
+  async function confirmRevoke() {
+    if (!pendingRevokeId) return;
+    setShowRevokeDialog(false);
     try {
-      await revokeApiKeyAction(keyId);
+      await revokeApiKeyAction(pendingRevokeId);
       setSuccess("API key revoked.");
       await loadKeys();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setPendingRevokeId(null);
     }
   }
 
-  async function handleDelete(keyId: string) {
-    if (!confirm("Permanently delete this API key?")) return;
+  function handleDelete(keyId: string) {
+    setPendingDeleteId(keyId);
+    setShowDeleteDialog(true);
+  }
+
+  async function confirmDelete() {
+    if (!pendingDeleteId) return;
+    setShowDeleteDialog(false);
     try {
-      await deleteApiKeyAction(keyId);
+      await deleteApiKeyAction(pendingDeleteId);
       setSuccess("API key deleted.");
       await loadKeys();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setPendingDeleteId(null);
     }
   }
 
@@ -328,6 +358,36 @@ export default function ApiKeysPage() {
           ))}
         </div>
       )}
+
+      <AlertDialog open={showRevokeDialog} onOpenChange={setShowRevokeDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke API key?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Revoke this API key? It will immediately stop working.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRevoke}>Revoke</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete API key?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Permanently delete this API key?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

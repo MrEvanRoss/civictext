@@ -92,8 +92,8 @@ export default function AdminSettingsPage() {
     try {
       await updateAdminSettingsAction(settings);
       toast.success("Settings saved successfully");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save settings");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to save settings");
     } finally {
       setSaving(false);
     }

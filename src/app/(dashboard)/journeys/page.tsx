@@ -193,8 +193,8 @@ export default function FlowsPage() {
     try {
       const data = await listFlowsAction();
       setFlows(data as any);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load journeys");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to load journeys");
     } finally {
       setLoading(false);
     }
@@ -242,8 +242,8 @@ export default function FlowsPage() {
       setShowCreate(false);
       toast.success("Journey created successfully");
       await loadFlows();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to create journey");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to create journey");
     } finally {
       setCreating(false);
     }
@@ -272,8 +272,8 @@ export default function FlowsPage() {
           await updateFlowStatusAction(flowId, newStatus);
           toast.success(`Journey ${labels[newStatus]}d`);
           await loadFlows();
-        } catch (err: any) {
-          toast.error(err.message || `Failed to ${labels[newStatus]} journey`);
+        } catch (err: unknown) {
+          toast.error(err instanceof Error ? err.message : `Failed to ${labels[newStatus]} journey`);
         }
       },
     });
@@ -291,8 +291,8 @@ export default function FlowsPage() {
           await deleteFlowAction(flowId);
           toast.success("Journey deleted");
           await loadFlows();
-        } catch (err: any) {
-          toast.error(err.message || "Failed to delete journey");
+        } catch (err: unknown) {
+          toast.error(err instanceof Error ? err.message : "Failed to delete journey");
         }
       },
     });
@@ -303,8 +303,8 @@ export default function FlowsPage() {
       await duplicateFlowAction(flowId);
       toast.success("Journey duplicated");
       await loadFlows();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to duplicate journey");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to duplicate journey");
     }
   }
 

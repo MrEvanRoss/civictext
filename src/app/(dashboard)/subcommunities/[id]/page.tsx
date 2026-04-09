@@ -35,6 +35,16 @@ import {
   searchContactsForSubcommunityAction,
 } from "@/server/actions/subcommunities";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft,
   Users,
   Pencil,
@@ -69,14 +79,27 @@ function getSubcommunityColor(name: string): string {
   return SUBCOMMUNITY_COLORS[Math.abs(hash) % SUBCOMMUNITY_COLORS.length];
 }
 
+interface SubcommunityDetail {
+  id: string;
+  name: string;
+  description: string | null;
+  joinKeyword: string | null;
+  isPublic: boolean;
+  memberCount?: number;
+  _count?: { members: number };
+}
+
 export default function SubcommunityDetailPage() {
   const params = useParams();
   const router = useRouter();
   const subcommunityId = params.id as string;
 
   // Subcommunity data
-  const [subcommunity, setSubcommunity] = useState<any>(null);
+  const [subcommunity, setSubcommunity] = useState<SubcommunityDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showRemoveMemberDialog, setShowRemoveMemberDialog] = useState(false);
+  const [pendingRemoveContactId, setPendingRemoveContactId] = useState<string | null>(null);
 
   // Members
   const [members, setMembers] = useState<any[]>([]);
@@ -110,8 +133,8 @@ export default function SubcommunityDetailPage() {
     try {
       const data = await getSubcommunityAction(subcommunityId);
       setSubcommunity(data);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load interest list");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to load interest list");
       router.push("/subcommunities");
     } finally {
       setLoading(false);
@@ -134,8 +157,8 @@ export default function SubcommunityDetailPage() {
         setMembersTotal(result.total);
         setMembersPage(result.page);
         setMembersTotalPages(result.totalPages);
-      } catch (err: any) {
-        toast.error(err.message || "Failed to load members");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to load members");
       } finally {
         setMembersLoading(false);
       }
@@ -181,8 +204,8 @@ export default function SubcommunityDetailPage() {
       setShowEdit(false);
       toast.success("Interest list updated");
       await loadSubcommunity();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update interest list");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update interest list");
     } finally {
       setSaving(false);
     }
@@ -191,34 +214,41 @@ export default function SubcommunityDetailPage() {
   // ---------------------------------------------------------------------------
   // Delete handler
   // ---------------------------------------------------------------------------
-  async function handleDelete() {
-    if (
-      !confirm(
-        "Delete this interest list? All members will be removed but contacts will remain."
-      )
-    )
-      return;
+  function handleDelete() {
+    setShowDeleteDialog(true);
+  }
+
+  async function confirmDelete() {
+    setShowDeleteDialog(false);
     try {
       await deleteSubcommunityAction(subcommunityId);
       toast.success("Interest list deleted");
       router.push("/subcommunities");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete interest list");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete interest list");
     }
   }
 
   // ---------------------------------------------------------------------------
   // Remove member handler
   // ---------------------------------------------------------------------------
-  async function handleRemoveMember(contactId: string) {
-    if (!confirm("Remove this member from this interest list?")) return;
+  function handleRemoveMember(contactId: string) {
+    setPendingRemoveContactId(contactId);
+    setShowRemoveMemberDialog(true);
+  }
+
+  async function confirmRemoveMember() {
+    if (!pendingRemoveContactId) return;
+    setShowRemoveMemberDialog(false);
     try {
-      await removeMemberAction(subcommunityId, contactId);
+      await removeMemberAction(subcommunityId, pendingRemoveContactId);
       toast.success("Member removed");
       await loadMembers(membersPage, searchQuery);
       await loadSubcommunity();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to remove member");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove member");
+    } finally {
+      setPendingRemoveContactId(null);
     }
   }
 
@@ -238,8 +268,8 @@ export default function SubcommunityDetailPage() {
         query
       );
       setContactResults(results);
-    } catch (err: any) {
-      toast.error(err.message || "Search failed");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Search failed");
     } finally {
       setSearchingContacts(false);
     }
@@ -274,8 +304,8 @@ export default function SubcommunityDetailPage() {
       setContactResults([]);
       await loadMembers(membersPage, searchQuery);
       await loadSubcommunity();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to add members");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to add members");
     } finally {
       setAddingMembers(false);
     }
@@ -690,6 +720,36 @@ export default function SubcommunityDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete interest list?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete this interest list? All members will be removed but contacts will remain.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showRemoveMemberDialog} onOpenChange={setShowRemoveMemberDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove member?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove this member from this interest list?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRemoveMember}>Remove</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

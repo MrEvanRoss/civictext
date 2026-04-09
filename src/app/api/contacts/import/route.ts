@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
   if (!orgId) {
     return NextResponse.json({ error: "No organization" }, { status: 400 });
   }
@@ -105,12 +105,64 @@ export async function POST(request: Request) {
 
     if (contactsToCreate.length > 0) {
       try {
-        const result = await db.contact.createMany({
-          data: contactsToCreate,
-          skipDuplicates: true,
+        // M-7: Restore soft-deleted contacts instead of skipping them.
+        // Collect phones for this batch and check for soft-deleted rows.
+        const batchPhones = contactsToCreate.map((c: any) => c.phone as string);
+        const softDeletedContacts = await db.contact.findMany({
+          where: { orgId, phone: { in: batchPhones }, deletedAt: { not: null } },
+          select: { id: true, phone: true },
         });
-        success += result.count;
-        duplicates += contactsToCreate.length - result.count;
+        const softDeletedByPhone = new Map(
+          softDeletedContacts.map((c) => [c.phone, c.id])
+        );
+
+        // Separate into restores vs new creates
+        const toRestore: any[] = [];
+        const toCreate: any[] = [];
+        for (const contact of contactsToCreate) {
+          const deletedId = softDeletedByPhone.get(contact.phone);
+          if (deletedId) {
+            toRestore.push({ id: deletedId, data: contact });
+            softDeletedByPhone.delete(contact.phone); // only restore once per phone
+          } else {
+            toCreate.push(contact);
+          }
+        }
+
+        // Restore soft-deleted contacts
+        for (const { id, data } of toRestore) {
+          try {
+            await db.contact.update({
+              where: { id },
+              data: {
+                deletedAt: null,
+                firstName: data.firstName,
+                lastName: data.lastName,
+                email: data.email,
+                tags: data.tags,
+                optInStatus: data.optInStatus,
+                optInSource: data.optInSource,
+                optInTimestamp: data.optInTimestamp,
+                optOutTimestamp: null,
+                customFields: data.customFields,
+              },
+            });
+            success++;
+          } catch (restoreErr) {
+            errors++;
+            console.error("Restore soft-deleted contact error:", restoreErr);
+          }
+        }
+
+        // Create genuinely new contacts
+        if (toCreate.length > 0) {
+          const result = await db.contact.createMany({
+            data: toCreate,
+            skipDuplicates: true,
+          });
+          success += result.count;
+          duplicates += toCreate.length - result.count;
+        }
       } catch (err) {
         errors += contactsToCreate.length;
         console.error("Batch import error:", err);

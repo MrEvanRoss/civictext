@@ -142,7 +142,7 @@ export async function GET(request: Request) {
         },
       }
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
     // Timeout or network error — return empty metadata
     return NextResponse.json(
       {

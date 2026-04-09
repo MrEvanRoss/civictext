@@ -36,14 +36,65 @@ import {
 // ---------------------------------------------------------------------------
 const STANDARD_RATE = 0.04;
 
+interface MessagingPlan {
+  id: string;
+  orgId: string;
+  balanceCents: number;
+  smsRateCents: number;
+  mmsRateCents: number;
+  totalSpentCents: number;
+  stripeCustomerId: string | null;
+  phoneNumberFeeCents: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface AddOnPurchase {
+  id: string;
+  messageCount: number;
+  priceInCents: number;
+  createdAt: Date;
+}
+
+interface BalanceInfo {
+  balanceCents: number;
+  balanceDollars: string;
+}
+
+interface BillingOverview {
+  plan: MessagingPlan | null;
+  balance: BalanceInfo;
+  addOns: AddOnPurchase[];
+  activePhoneNumbers: number;
+  monthlyPhoneCostCents: number;
+}
+
+interface MessageBundle {
+  id: string;
+  bundleName: string;
+  messageCount: number;
+  remaining: number;
+  totalPrice: number;
+  purchasedAt: Date;
+  expiresAt: Date | null;
+}
+
+interface BundleSummary {
+  totalRemaining: number;
+  totalSpent: number;
+  totalMessagesPurchased: number;
+  savings: number;
+  activeBundleCount: number;
+}
+
 export default function BillingPage() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<BillingOverview | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Bundle state
-  const [activeBundles, setActiveBundles] = useState<any[]>([]);
-  const [allBundles, setAllBundles] = useState<any[]>([]);
-  const [bundleSummary, setBundleSummary] = useState<any>(null);
+  const [activeBundles, setActiveBundles] = useState<MessageBundle[]>([]);
+  const [allBundles, setAllBundles] = useState<MessageBundle[]>([]);
+  const [bundleSummary, setBundleSummary] = useState<BundleSummary | null>(null);
   const [purchasing, setPurchasing] = useState<BundleTier | null>(null);
 
   useEffect(() => {
@@ -268,14 +319,14 @@ export default function BillingPage() {
           </Card>
 
           {/* Recent Purchases */}
-          {data?.addOns?.length > 0 && (
+          {(data?.addOns?.length ?? 0) > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle>Recent Purchases</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {data.addOns.map((addon: any) => (
+                  {data!.addOns.map((addon: AddOnPurchase) => (
                     <div
                       key={addon.id}
                       className="flex items-center justify-between py-2 border-b last:border-0 text-sm"

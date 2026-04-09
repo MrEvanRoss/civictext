@@ -67,8 +67,8 @@ export default function SubcommunitiesPage() {
     try {
       const data = await listSubcommunitiesAction();
       setSubcommunities(data);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load interest lists");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to load interest lists");
     } finally {
       setLoading(false);
     }
@@ -90,8 +90,8 @@ export default function SubcommunitiesPage() {
       setShowCreate(false);
       toast.success("Interest list created successfully");
       await loadSubcommunities();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to create interest list");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to create interest list");
     } finally {
       setCreating(false);
     }

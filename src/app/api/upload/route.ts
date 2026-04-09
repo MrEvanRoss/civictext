@@ -95,7 +95,7 @@ export async function POST(request: Request) {
       size: file.size,
       type: file.type,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Upload error:", err);
     return NextResponse.json(
       { error: "Upload failed" },

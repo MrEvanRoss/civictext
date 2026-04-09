@@ -20,6 +20,16 @@ import {
   updateAutoReplyRuleAction,
   deleteAutoReplyRuleAction,
 } from "@/server/actions/auto-reply";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Plus, Trash2, MessageSquareReply, X, Power, PowerOff } from "lucide-react";
 
 interface AutoReplyRule {
@@ -40,6 +50,9 @@ export default function AutoReplyPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
   // Create form
   const [name, setName] = useState("");
   const [keywordInput, setKeywordInput] = useState("");
@@ -57,8 +70,8 @@ export default function AutoReplyPage() {
     try {
       const data = await listAutoReplyRulesAction();
       setRules(data as any);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -95,8 +108,8 @@ export default function AutoReplyPage() {
       setPriority(0);
       setShowCreate(false);
       await loadRules();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setCreating(false);
     }
@@ -107,19 +120,27 @@ export default function AutoReplyPage() {
       await updateAutoReplyRuleAction(ruleId, { isActive: !currentActive });
       setSuccess(`Rule ${currentActive ? "disabled" : "enabled"}.`);
       await loadRules();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     }
   }
 
-  async function handleDelete(ruleId: string) {
-    if (!confirm("Delete this auto-reply rule?")) return;
+  function handleDelete(ruleId: string) {
+    setPendingDeleteId(ruleId);
+    setShowDeleteDialog(true);
+  }
+
+  async function confirmDelete() {
+    if (!pendingDeleteId) return;
+    setShowDeleteDialog(false);
     try {
-      await deleteAutoReplyRuleAction(ruleId);
+      await deleteAutoReplyRuleAction(pendingDeleteId);
       setSuccess("Rule deleted.");
       await loadRules();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setPendingDeleteId(null);
     }
   }
 
@@ -305,6 +326,21 @@ export default function AutoReplyPage() {
           ))}
         </div>
       )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete auto-reply rule?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete this auto-reply rule?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

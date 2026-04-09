@@ -28,8 +28,65 @@ import {
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
+interface AgentMetric {
+  id: string;
+  name: string;
+  role: string;
+  lastLoginAt: Date | null;
+  openConversations: number;
+  todayNotes: number;
+  isOnline: boolean;
+}
+
+interface EscalatedConversation {
+  id: string;
+  escalatedReason: string | null;
+  escalatedAt: Date | null;
+  contact: {
+    phone: string;
+    firstName: string | null;
+    lastName: string | null;
+  } | null;
+  assignedTo: {
+    name: string;
+  } | null;
+}
+
+interface P2PCampaignAgent {
+  agentId: string;
+  agentName: string;
+  sent: number;
+  pending: number;
+  skipped: number;
+  lastSentAt: Date | null;
+}
+
+interface P2PCampaign {
+  id: string;
+  name: string;
+  status: string;
+  sentCount: number;
+  totalRecipients: number;
+  startedAt: Date | null;
+  agents: P2PCampaignAgent[];
+}
+
+interface SupervisorDashboardData {
+  escalatedCount: number;
+  openCount: number;
+  unassignedCount: number;
+  totalAgents: number;
+  agentMetrics: AgentMetric[];
+  escalatedConversations: EscalatedConversation[];
+  todayMessages: number;
+  weekMessages: number;
+  todayOptOuts: number;
+  p2pCampaigns: P2PCampaign[];
+  flaggedAgentIds: string[];
+}
+
 export default function SupervisorPage() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<SupervisorDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -42,8 +99,8 @@ export default function SupervisorPage() {
     try {
       const result = await getSupervisorDashboardAction();
       setData(result);
-    } catch (err: any) {
-      setError(err.message || "Failed to load supervisor dashboard");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load supervisor dashboard");
     } finally {
       setLoading(false);
     }
@@ -54,8 +111,8 @@ export default function SupervisorPage() {
       const result = await autoAssignConversationsAction();
       toast.success(`Auto-assigned ${result.assigned} conversations.`);
       await loadDashboard();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to auto-assign");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to auto-assign");
     }
   }
 

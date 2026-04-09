@@ -10,7 +10,7 @@ import type { ContentFilterAction } from "@prisma/client";
 // ---------------------------------------------------------------------------
 export async function listContentFiltersAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   return db.contentFilter.findMany({
     where: { orgId },
@@ -27,7 +27,7 @@ export async function createContentFilterAction(
 ) {
   await requirePermission(PERMISSIONS.ORG_SETTINGS);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const trimmed = phrase.trim().toLowerCase();
   if (!trimmed) throw new Error("Phrase is required");
@@ -60,7 +60,7 @@ export async function updateContentFilterAction(
 ) {
   await requirePermission(PERMISSIONS.ORG_SETTINGS);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const filter = await db.contentFilter.findFirst({
     where: { id, orgId },
@@ -96,7 +96,7 @@ export async function updateContentFilterAction(
 export async function deleteContentFilterAction(id: string) {
   await requirePermission(PERMISSIONS.ORG_SETTINGS);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   await db.contentFilter.deleteMany({
     where: { id, orgId },
@@ -109,7 +109,7 @@ export async function deleteContentFilterAction(id: string) {
 export async function toggleContentFilterAction(id: string) {
   await requirePermission(PERMISSIONS.ORG_SETTINGS);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const filter = await db.contentFilter.findFirst({
     where: { id, orgId },
@@ -131,7 +131,7 @@ export async function bulkImportContentFiltersAction(
 ) {
   await requirePermission(PERMISSIONS.ORG_SETTINGS);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   // Normalize and deduplicate
   const unique = Array.from(

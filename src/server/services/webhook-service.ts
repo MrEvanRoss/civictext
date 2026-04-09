@@ -104,7 +104,7 @@ async function deliverWebhook(
             where: { id: endpoint.id },
             data: {
               failCount: { increment: 1 },
-              lastError: err.message,
+              lastError: err instanceof Error ? err.message : "Unknown error",
             },
           });
         });

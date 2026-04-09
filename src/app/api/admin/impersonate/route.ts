@@ -12,12 +12,12 @@ import { rateLimit } from "@/lib/rate-limit";
  */
 export async function GET(request: Request) {
   const session = await auth();
-  if (!session?.user || !(session.user as any).isSuperAdmin) {
+  if (!session?.user || !session.user.isSuperAdmin) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
   // Rate limit: 5 impersonations per 5 minutes per admin user
-  const adminId = (session.user as any).id;
+  const adminId = session.user.id;
   const { allowed } = await rateLimit(`rl:impersonate:${adminId}`, 5, 300);
   if (!allowed) {
     return NextResponse.json(
@@ -57,8 +57,8 @@ export async function GET(request: Request) {
   // Store the impersonation state in a cookie
   const cookieStore = await cookies();
   cookieStore.set("civictext_impersonate", JSON.stringify({
-    adminId: (session.user as any).id,
-    adminOrgId: (session.user as any).orgId,
+    adminId: session.user.id,
+    adminOrgId: session.user.orgId,
     targetUserId: targetUser.id,
     targetOrgId: targetUser.orgId,
     targetRole: targetUser.role,

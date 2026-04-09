@@ -9,7 +9,7 @@ import { db } from "@/lib/db";
 
 export async function getGrowthInfoAction() {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const org = await db.organization.findUniqueOrThrow({
     where: { id: orgId },
@@ -42,7 +42,7 @@ export async function getGrowthInfoAction() {
 
 export async function updateWelcomeMessageAction(message: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   if (message.length > 1600) {
     throw new Error("Welcome message must be 1600 characters or fewer");

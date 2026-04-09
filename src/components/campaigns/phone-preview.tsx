@@ -514,8 +514,8 @@ function SendTestButton({ message, mediaUrl }: { message: string; mediaUrl?: str
         setOpen(false);
         setPhone("");
       }, 3000);
-    } catch (err: any) {
-      setResult({ error: err.message || "Failed to send" });
+    } catch (err: unknown) {
+      setResult({ error: err instanceof Error ? err.message : "Failed to send" });
     } finally {
       setSending(false);
     }

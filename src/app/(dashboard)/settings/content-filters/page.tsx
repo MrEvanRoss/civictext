@@ -29,6 +29,16 @@ import {
   toggleContentFilterAction,
   bulkImportContentFiltersAction,
 } from "@/server/actions/content-filters";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Plus, Trash2, Filter, Upload } from "lucide-react";
 
 type ContentFilterAction = "HIDE" | "FLAG" | "AUTO_REPLY" | "BLOCK";
@@ -61,6 +71,9 @@ export default function ContentFiltersPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
   // Add filter form
   const [phrase, setPhrase] = useState("");
   const [action, setAction] = useState<ContentFilterAction>("HIDE");
@@ -81,8 +94,8 @@ export default function ContentFiltersPage() {
     try {
       const data = await listContentFiltersAction();
       setFilters(data as any);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -99,8 +112,8 @@ export default function ContentFiltersPage() {
       setPhrase("");
       setAction("HIDE");
       await loadFilters();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setCreating(false);
     }
@@ -113,21 +126,29 @@ export default function ContentFiltersPage() {
       await toggleContentFilterAction(id);
       setSuccess("Filter updated.");
       await loadFilters();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this content filter?")) return;
+  function handleDelete(id: string) {
+    setPendingDeleteId(id);
+    setShowDeleteDialog(true);
+  }
+
+  async function confirmDelete() {
+    if (!pendingDeleteId) return;
+    setShowDeleteDialog(false);
     setError("");
     setSuccess("");
     try {
-      await deleteContentFilterAction(id);
+      await deleteContentFilterAction(pendingDeleteId);
       setSuccess("Filter deleted.");
       await loadFilters();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setPendingDeleteId(null);
     }
   }
 
@@ -153,8 +174,8 @@ export default function ContentFiltersPage() {
       setBulkPhrases("");
       setShowBulkImport(false);
       await loadFilters();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setImporting(false);
     }
@@ -388,6 +409,21 @@ export default function ContentFiltersPage() {
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete content filter?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete this content filter?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

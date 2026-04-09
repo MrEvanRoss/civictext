@@ -78,8 +78,8 @@ export default function AdminOrgsPage() {
         initialCreditsDollars: 0,
       });
       await loadOrgs();
-    } catch (err: any) {
-      alert(err.message || "Failed to create organization");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to create organization");
     } finally {
       setCreating(false);
     }

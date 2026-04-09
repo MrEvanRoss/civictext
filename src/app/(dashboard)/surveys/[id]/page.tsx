@@ -28,6 +28,16 @@ import {
   listCampaignsForSurveyAction,
 } from "@/server/actions/surveys";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft,
   Save,
   Download,
@@ -77,14 +87,56 @@ const CHART_COLORS = [
   "hsl(180, 50%, 45%)",
 ];
 
+interface SurveyDetail {
+  id: string;
+  name: string;
+  question: string;
+  type: string;
+  status: string;
+  options: string[] | unknown;
+  allowOther: boolean;
+  campaignId: string | null;
+  campaign: {
+    id: string;
+    name: string;
+    totalRecipients: number;
+  } | null;
+  _count: { responses: number };
+}
+
+interface SurveyAggregatedResult {
+  option: string;
+  count: number;
+  percentage: number;
+}
+
+interface SurveyRecentResponse {
+  contactName: string;
+  answer: string;
+  respondedAt: Date;
+}
+
+interface SurveyResults {
+  aggregated: SurveyAggregatedResult[];
+  totalResponses: number;
+  responseRate: number | null;
+  recentResponses: SurveyRecentResponse[];
+}
+
+interface CampaignOption {
+  id: string;
+  name: string;
+}
+
 export default function SurveyDetailPage() {
   const params = useParams();
   const router = useRouter();
   const surveyId = params.id as string;
 
-  const [survey, setSurvey] = useState<any>(null);
+  const [survey, setSurvey] = useState<SurveyDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showCloseDialog, setShowCloseDialog] = useState(false);
 
   // Edit form state
   const [name, setName] = useState("");
@@ -94,10 +146,10 @@ export default function SurveyDetailPage() {
   const [ratingMax, setRatingMax] = useState(5);
   const [allowOther, setAllowOther] = useState(false);
   const [campaignId, setCampaignId] = useState("");
-  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [campaigns, setCampaigns] = useState<CampaignOption[]>([]);
 
   // Results state
-  const [results, setResults] = useState<any>(null);
+  const [results, setResults] = useState<SurveyResults | null>(null);
   const [resultsLoading, setResultsLoading] = useState(false);
 
   const loadSurvey = useCallback(async () => {
@@ -123,8 +175,8 @@ export default function SurveyDetailPage() {
       } else {
         setOptions(opts);
       }
-    } catch (err: any) {
-      toast.error(err.message || "Survey not found");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Survey not found");
       router.push("/surveys");
     } finally {
       setLoading(false);
@@ -136,8 +188,8 @@ export default function SurveyDetailPage() {
     try {
       const data = await getSurveyResultsAction(surveyId);
       setResults(data);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load results");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to load results");
     } finally {
       setResultsLoading(false);
     }
@@ -201,21 +253,25 @@ export default function SurveyDetailPage() {
       });
       toast.success("Survey updated");
       await loadSurvey();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update survey");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update survey");
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleClose() {
-    if (!confirm("Close this survey? No more responses will be accepted.")) return;
+  function handleClose() {
+    setShowCloseDialog(true);
+  }
+
+  async function confirmClose() {
+    setShowCloseDialog(false);
     try {
       await closeSurveyAction(surveyId);
       toast.success("Survey closed");
       await loadSurvey();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to close survey");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to close survey");
     }
   }
 
@@ -230,8 +286,8 @@ export default function SurveyDetailPage() {
       a.click();
       URL.revokeObjectURL(url);
       toast.success("CSV exported");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to export");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to export");
     }
   }
 
@@ -240,8 +296,8 @@ export default function SurveyDetailPage() {
       await updateSurveyAction(surveyId, { status: "ACTIVE" });
       toast.success("Survey activated");
       await loadSurvey();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to activate survey");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to activate survey");
     }
   }
 
@@ -635,6 +691,21 @@ export default function SurveyDetailPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={showCloseDialog} onOpenChange={setShowCloseDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Close survey?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Close this survey? No more responses will be accepted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmClose}>Close Survey</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

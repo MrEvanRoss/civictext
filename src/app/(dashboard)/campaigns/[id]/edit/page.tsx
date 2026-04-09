@@ -72,6 +72,41 @@ const WIZARD_STEPS_P2P = [
   { title: "Schedule" },
 ];
 
+interface EditCampaignData {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  messageBody: string;
+  mediaUrl: string | null;
+  segmentId: string | null;
+  scheduledAt: Date | string | null;
+  interestListMode: string | null;
+  interestListIds: string[];
+  p2pReplyScript: string | null;
+}
+
+interface SegmentOption {
+  id: string;
+  name: string;
+  contactCount: number;
+}
+
+interface InterestListOption {
+  id: string;
+  name: string;
+  keyword: string;
+  isActive: boolean;
+  _count?: { members: number };
+  memberCount?: number;
+}
+
+interface TeamMemberOption {
+  id: string;
+  name: string;
+  role: string;
+}
+
 export default function EditCampaignPage() {
   const params = useParams();
   const router = useRouter();
@@ -81,12 +116,12 @@ export default function EditCampaignPage() {
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState(0);
   const [error, setError] = useState("");
-  const [campaign, setCampaign] = useState<any>(null);
+  const [campaign, setCampaign] = useState<EditCampaignData | null>(null);
 
   // Data
-  const [segments, setSegments] = useState<any[]>([]);
-  const [interestLists, setInterestLists] = useState<any[]>([]);
-  const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  const [segments, setSegments] = useState<SegmentOption[]>([]);
+  const [interestLists, setInterestLists] = useState<InterestListOption[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([]);
 
   // Form state
   const [name, setName] = useState("");
@@ -172,8 +207,8 @@ export default function EditCampaignPage() {
         const d = new Date(campaignData.scheduledAt);
         setScheduledAt(d.toISOString().slice(0, 16));
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to load campaign");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load campaign");
     } finally {
       setPageLoading(false);
     }
@@ -209,8 +244,8 @@ export default function EditCampaignPage() {
 
       toast.success("Campaign saved");
       router.push(`/campaigns/${campaignId}`);
-    } catch (err: any) {
-      setError(err.message || "Failed to save campaign");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to save campaign");
     } finally {
       setSaving(false);
     }
@@ -248,8 +283,8 @@ export default function EditCampaignPage() {
       }
 
       router.push(`/campaigns/${campaignId}`);
-    } catch (err: any) {
-      setError(err.message || "Failed to launch campaign");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to launch campaign");
     } finally {
       setSaving(false);
     }

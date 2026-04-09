@@ -12,8 +12,30 @@ import {
   BarChart3,
 } from "lucide-react";
 
+interface TopOrg {
+  orgId: string;
+  name: string;
+  status: string | undefined;
+  messageCount: number;
+}
+
+interface GlobalAnalyticsData {
+  totalOrgs: number;
+  activeOrgs: number;
+  inactiveOrgs: number;
+  archivedOrgs: number;
+  totalUsers: number;
+  totalContacts: number;
+  totalMessages: number;
+  deliveredMessages: number;
+  failedMessages: number;
+  deliveryRate: string;
+  totalCampaigns: number;
+  topOrgs: TopOrg[];
+}
+
 export default function AdminAnalyticsPage() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<GlobalAnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadAnalytics = useCallback(async () => {
@@ -160,7 +182,7 @@ export default function AdminAnalyticsPage() {
             <p className="text-sm text-muted-foreground">No messaging activity.</p>
           ) : (
             <div className="space-y-2">
-              {data.topOrgs.map((org: any, i: number) => (
+              {data.topOrgs.map((org, i) => (
                 <div key={org.orgId} className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground w-5">{i + 1}.</span>

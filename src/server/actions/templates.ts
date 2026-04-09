@@ -28,7 +28,7 @@ export async function listTemplatesAction(opts?: {
   search?: string;
 }) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const where: any = { orgId, isArchived: false };
   if (opts?.category && opts.category !== "all") {
@@ -60,8 +60,8 @@ export async function createTemplateAction(input: {
 }) {
   await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
-  const userId = (session.user as any).id;
+  const orgId = session.user.orgId;
+  const userId = session.user.id;
 
   const validated = createTemplateSchema.parse(input);
 
@@ -92,7 +92,7 @@ export async function updateTemplateAction(
 ) {
   await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   z.string().uuid().parse(templateId);
   const validated = updateTemplateSchema.parse(input);
@@ -118,7 +118,7 @@ export async function updateTemplateAction(
 export async function deleteTemplateAction(templateId: string) {
   await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   await db.messageTemplate.deleteMany({
     where: { id: templateId, orgId },
@@ -127,7 +127,7 @@ export async function deleteTemplateAction(templateId: string) {
 
 export async function useTemplateAction(templateId: string) {
   const { session } = await requireOrg();
-  const orgId = (session.user as any).orgId;
+  const orgId = session.user.orgId;
 
   const template = await db.messageTemplate.findFirst({
     where: { id: templateId, orgId },

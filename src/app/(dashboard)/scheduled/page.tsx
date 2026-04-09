@@ -360,7 +360,7 @@ export default function ScheduledPage() {
       const result = await getScheduledCampaignsAction(calMonth, calYear);
       setCampaigns(result.campaigns as unknown as ScheduledCampaign[]);
       setTimezone(result.timezone);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to load scheduled campaigns:", err);
       toast.error("Failed to load scheduled campaigns");
     } finally {
@@ -400,8 +400,8 @@ export default function ScheduledPage() {
       setRescheduleTarget(null);
       setRescheduleDate("");
       loadCampaigns();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to reschedule");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to reschedule");
     } finally {
       setRescheduling(false);
     }
@@ -415,8 +415,8 @@ export default function ScheduledPage() {
       toast.success("Campaign cancelled");
       setCancelTarget(null);
       loadCampaigns();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to cancel campaign");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to cancel campaign");
     } finally {
       setCancelling(false);
     }
@@ -430,8 +430,8 @@ export default function ScheduledPage() {
       toast.success("Campaign is now sending");
       setSendNowTarget(null);
       loadCampaigns();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to send campaign");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to send campaign");
     } finally {
       setSendingNow(false);
     }
