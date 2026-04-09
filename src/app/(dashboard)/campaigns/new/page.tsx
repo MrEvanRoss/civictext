@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -555,9 +556,9 @@ export default function NewCampaignPage() {
                     {segments.length === 0 && (
                       <div className="rounded-md bg-warning/10 border border-warning/30 p-4 text-sm text-warning">
                         No segments found. Create a segment in{" "}
-                        <a href="/contacts/segments" className="underline">
+                        <Link href="/contacts/segments" className="underline">
                           Contacts &gt; Segments
-                        </a>{" "}
+                        </Link>{" "}
                         first.
                       </div>
                     )}

@@ -186,7 +186,7 @@ export async function provisionPhoneNumbers(orgId: string, input: ProvisionNumbe
 
   for (let i = 0; i < quantity; i++) {
     // Search for available numbers
-    const searchParams: any = {
+    const searchParams: Record<string, unknown> = {
       limit: 1,
       smsEnabled: true,
       mmsEnabled: true,

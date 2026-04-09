@@ -426,6 +426,7 @@ async function expandCampaign(orgId: string, campaignId: string, job: Job) {
       throw new Error(`Segment ${campaign.segmentId} does not belong to org ${orgId}`);
     }
     // Segment-only targeting — apply segment filter rules and require opt-in
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const segmentWhere = buildSegmentWhere(orgId, campaign.segment.rules as any);
     const contacts = await db.contact.findMany({
       where: {

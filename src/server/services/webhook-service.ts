@@ -24,7 +24,7 @@ type WebhookEvent =
 export function dispatchWebhook(
   orgId: string,
   event: WebhookEvent,
-  payload: Record<string, any>
+  payload: Record<string, unknown>
 ) {
   // Defer dispatch so the caller's remaining DB writes can commit first.
   setTimeout(() => {
@@ -35,7 +35,7 @@ export function dispatchWebhook(
 async function deliverWebhook(
   orgId: string,
   event: WebhookEvent,
-  payload: Record<string, any>
+  payload: Record<string, unknown>
 ) {
   try {
     const endpoints = await db.webhookEndpoint.findMany({

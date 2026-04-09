@@ -85,6 +85,7 @@ export const flowWorker = new Worker<ExecuteStepJobData>(
 
     const orgId = execution.flow.orgId;
     const contact = execution.contact;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const config = step.config as Record<string, any>;
 
     // -----------------------------------------------------------------------
@@ -315,6 +316,7 @@ export const flowWorker = new Worker<ExecuteStepJobData>(
             "email", "street", "city", "state", "zip", "precinct",
           ];
 
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const updateData: Record<string, any> = {};
           for (const [key, value] of Object.entries(fields)) {
             if (allowedFields.includes(key)) {
@@ -338,6 +340,7 @@ export const flowWorker = new Worker<ExecuteStepJobData>(
         // WAIT_FOR_REPLY: Pause execution until contact replies
         // -------------------------------------------------------------------
         case "WAIT_FOR_REPLY": {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const executionData = (execution.data as Record<string, any>) || {};
           await db.flowExecution.update({
             where: { id: executionId },
@@ -412,6 +415,7 @@ async function getNextStep(flowId: string, currentPosition: number) {
 // Helper: Resolve delay in milliseconds from step config
 // ---------------------------------------------------------------------------
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function resolveDelayMs(config: Record<string, any>): number {
   if (config.delayMs) return Number(config.delayMs);
   if (config.delayMinutes) return Number(config.delayMinutes) * 60 * 1000;
@@ -424,10 +428,8 @@ function resolveDelayMs(config: Record<string, any>): number {
 // Helper: Evaluate a branch condition against a contact
 // ---------------------------------------------------------------------------
 
-function evaluateBranchCondition(
-  config: Record<string, any>,
-  contact: Record<string, any>
-): boolean {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function evaluateBranchCondition(config: Record<string, any>, contact: Record<string, any>): boolean {
   const { field, operator, value } = config;
 
   if (!field || !operator) return false;
@@ -495,7 +497,7 @@ flowWorker.on("failed", (job, err) => {
   }
 });
 
-flowWorker.on("completed", (job) => {
+flowWorker.on("completed", (_job) => {
   // Logged via job.log
 });
 
