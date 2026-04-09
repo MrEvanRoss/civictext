@@ -48,8 +48,8 @@ const pages = [
 
 const actions = [
   { id: "new-campaign", label: "Create Campaign", icon: Plus, href: "/campaigns/new", keywords: ["new", "start"] },
-  { id: "import-contacts", label: "Import Contacts", icon: Plus, href: "/contacts?import=true", keywords: ["csv", "upload"] },
-  { id: "new-template", label: "Create Template", icon: Plus, href: "/templates?new=true", keywords: ["quick reply"] },
+  { id: "import-contacts", label: "Import Contacts", icon: Plus, href: "/contacts", keywords: ["csv", "upload"] },
+  { id: "new-template", label: "Create Template", icon: Plus, href: "/templates", keywords: ["quick reply"] },
 ];
 
 export function CommandPalette() {

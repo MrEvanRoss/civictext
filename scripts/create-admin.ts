@@ -17,6 +17,12 @@ const email = process.argv[2];
 const password = process.argv[3];
 const name = process.argv[4] || "Super Admin";
 
+if (!process.env.DATABASE_URL) {
+  console.error("Error: DATABASE_URL environment variable is required.");
+  console.error("Set it in your .env file or export it before running this script.");
+  process.exit(1);
+}
+
 if (!email || !password) {
   console.error("Usage: npx tsx scripts/create-admin.ts <email> <password> [name]");
   console.error("Password must be at least 12 characters.");

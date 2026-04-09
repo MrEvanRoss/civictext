@@ -27,6 +27,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing file or mapping" }, { status: 400 });
   }
 
+  // M-10: Reject files over 25 MB to prevent memory exhaustion
+  const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
+  if (file.size > MAX_FILE_SIZE) {
+    return NextResponse.json(
+      { error: `File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum is 25 MB.` },
+      { status: 400 }
+    );
+  }
+
   let mapping;
   try {
     mapping = columnMappingSchema.parse(JSON.parse(mappingStr));

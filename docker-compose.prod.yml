@@ -27,9 +27,15 @@ services:
     restart: always
     ports:
       - "6379:6379"
-    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD}
+    command: >-
+      sh -c '
+        if [ -z "$$REDIS_PASSWORD" ]; then echo "ERROR: REDIS_PASSWORD not set" && exit 1; fi &&
+        redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --requirepass $$REDIS_PASSWORD
+      '
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5

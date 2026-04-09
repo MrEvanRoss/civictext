@@ -176,6 +176,37 @@ export async function exportCampaignAction(campaignId: string) {
 }
 
 /**
+ * Get link tracking stats for a campaign.
+ * Returns per-link click counts and overall CTR.
+ */
+export async function getCampaignLinkStatsAction(campaignId: string) {
+  const { session } = await requireOrg();
+  const orgId = (session.user as any).orgId;
+
+  const { getCampaignLinkStats } = await import(
+    "@/server/services/link-tracking-service"
+  );
+
+  const links = await getCampaignLinkStats(orgId, campaignId);
+
+  const totalClicks = links.reduce((sum, l) => sum + l.clickCount, 0);
+  const uniqueUrls = new Set(links.map((l) => l.originalUrl)).size;
+
+  return {
+    links: links.map((l) => ({
+      id: l.id,
+      originalUrl: l.originalUrl,
+      shortCode: l.shortCode,
+      clickCount: l.clickCount,
+      createdAt: l.createdAt.toISOString(),
+    })),
+    totalClicks,
+    totalLinks: links.length,
+    uniqueUrls,
+  };
+}
+
+/**
  * Send a test message to a specific phone number.
  * Uses balance just like a normal message.
  */

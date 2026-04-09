@@ -6,7 +6,7 @@ import type {
   UpdateCampaignInput,
   CampaignFilter,
 } from "@/lib/validators/campaigns";
-import type { Prisma } from "@prisma/client";
+import type { Prisma, CampaignStatus } from "@prisma/client";
 
 const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
   maxRetriesPerRequest: null,
@@ -189,12 +189,6 @@ export async function changeCampaignStatus(
   campaignId: string,
   newStatus: string
 ) {
-  const campaign = await db.campaign.findFirst({
-    where: { id: campaignId, orgId },
-  });
-
-  if (!campaign) throw new Error("Campaign not found");
-
   // State machine transitions
   const validTransitions: Record<string, string[]> = {
     DRAFT: ["SCHEDULED", "SENDING"],
@@ -205,26 +199,45 @@ export async function changeCampaignStatus(
     CANCELLED: [],
   };
 
-  const allowed = validTransitions[campaign.status] || [];
-  if (!allowed.includes(newStatus)) {
-    throw new Error(
-      `Cannot transition from ${campaign.status} to ${newStatus}`
-    );
-  }
+  // M-9: Atomic compare-and-swap — the WHERE includes the expected current
+  // status so another concurrent transition can't sneak in between read and write.
+  const data: Prisma.CampaignUpdateInput = { status: newStatus as CampaignStatus };
 
-  const data: Prisma.CampaignUpdateInput = { status: newStatus as any };
-
-  if (newStatus === "SENDING" && !campaign.startedAt) {
+  if (newStatus === "SENDING") {
     data.startedAt = new Date();
   }
   if (newStatus === "COMPLETED") {
     data.completedAt = new Date();
   }
 
-  const updated = await db.campaign.update({
-    where: { id: campaignId },
+  // Build an array of valid source statuses for this target
+  const validSources = Object.entries(validTransitions)
+    .filter(([, targets]) => targets.includes(newStatus))
+    .map(([source]) => source);
+
+  if (validSources.length === 0) {
+    throw new Error(`No valid transitions lead to ${newStatus}`);
+  }
+
+  const result = await db.campaign.updateMany({
+    where: {
+      id: campaignId,
+      orgId,
+      status: { in: validSources as CampaignStatus[] },
+    },
     data,
   });
+
+  if (result.count === 0) {
+    throw new Error(
+      `Cannot transition campaign to ${newStatus} — campaign not found or status has already changed`
+    );
+  }
+
+  const updated = await db.campaign.findFirst({
+    where: { id: campaignId, orgId },
+  });
+  if (!updated) throw new Error("Campaign not found after update");
 
   // When transitioning to SENDING, queue the campaign expansion
   if (newStatus === "SENDING") {

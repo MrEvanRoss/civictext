@@ -41,6 +41,9 @@ RUN npm ci --omit=dev
 # Copy Prisma schema
 COPY prisma ./prisma
 
+# H-21: Generate Prisma client in runtime stage to ensure it matches the runtime platform
+RUN npx prisma generate
+
 # Copy built app from builder
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public

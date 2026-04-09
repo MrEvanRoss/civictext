@@ -5,7 +5,7 @@ import { getImpersonationInfo } from "@/server/actions/auth";
 import { Shield, X } from "lucide-react";
 
 export function ImpersonationBanner() {
-  const [info, setInfo] = useState<any>(null);
+  const [info, setInfo] = useState<{ isImpersonating: boolean; orgName?: string } | null>(null);
 
   useEffect(() => {
     checkImpersonation();
@@ -28,13 +28,13 @@ export function ImpersonationBanner() {
         <Shield className="h-4 w-4" />
         <span>Admin view: You are viewing this account as a client.</span>
       </div>
-      <a
-        href="/api/admin/stop-impersonate"
+      <button
+        onClick={() => { window.location.href = "/api/admin/stop-impersonate"; }}
         className="flex items-center gap-1 bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors"
       >
         <X className="h-3 w-3" />
         Exit & Return to Admin
-      </a>
+      </button>
     </div>
   );
 }

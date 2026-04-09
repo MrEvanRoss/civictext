@@ -60,7 +60,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://civictext:civictext_test@localhost:5432/civictext_test?schema=public
           REDIS_URL: redis://localhost:6379
-          AUTH_SECRET: test-secret-key-for-ci
+          AUTH_SECRET: ${{ secrets.CI_AUTH_SECRET }}
           AUTH_URL: http://localhost:3000
           NEXT_PUBLIC_APP_URL: http://localhost:3000
 
@@ -146,15 +146,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull and test Docker image health
+      - name: Pull and verify Docker image starts
         run: |
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging
-          docker run --rm \
-            -e AUTH_SECRET=test-key \
+          docker run --rm -d --name health-check \
+            -e AUTH_SECRET=${{ secrets.CI_AUTH_SECRET }} \
             -e DATABASE_URL=postgresql://test@localhost/test \
             -e REDIS_URL=redis://localhost:6379 \
-            --entrypoint npm \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging run build
+            -p 3000:3000 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging
+          sleep 10
+          curl -f http://localhost:3000/api/health || exit 1
+          docker stop health-check
 
       - name: Run database migrations
         if: always()

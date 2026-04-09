@@ -25,9 +25,9 @@ WORKDIR /app
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init
 
-# Copy package files and install all deps (tsx is a devDep)
+# M-3: Install production deps + tsx only (tsx is needed to run TS workers)
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --omit=dev && npm install tsx
 
 # Copy Prisma schema and generated client
 COPY prisma ./prisma

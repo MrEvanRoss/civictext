@@ -60,6 +60,16 @@ async function enforceConsent(
     return { allowed: false, reason: "Contact not found", action: "block" };
   }
 
+  if (contact.optInStatus === "PENDING") {
+    // H-18: PENDING contacts are in a double-opt-in flow — only allow
+    // confirmation messages (handled upstream), block regular sends
+    return {
+      allowed: false,
+      reason: "Contact is PENDING double-opt-in confirmation — only opt-in confirmation messages allowed",
+      action: "block",
+    };
+  }
+
   if (contact.optInStatus !== "OPTED_IN") {
     return {
       allowed: false,

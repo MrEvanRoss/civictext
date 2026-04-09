@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
+import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,24 +89,32 @@ export default function ContactDetailPage() {
     };
   }, []);
 
+  // H-12: Mounted flag to prevent state updates after navigation
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
   const loadTimeline = useCallback(async () => {
     setTimelineLoading(true);
     try {
       const data = await getContactTimelineAction(contactId);
-      setTimeline(data);
+      if (mountedRef.current) setTimeline(data);
     } catch {
-      // Timeline is non-critical
+      // H-15: Show error instead of silent failure
+      if (mountedRef.current) toast.error("Failed to load timeline");
     } finally {
-      setTimelineLoading(false);
+      if (mountedRef.current) setTimelineLoading(false);
     }
   }, [contactId]);
 
   const loadNotes = useCallback(async () => {
     try {
       const data = await getContactNotesAction(contactId);
-      setNotes(data);
+      if (mountedRef.current) setNotes(data);
     } catch {
-      // Non-critical
+      if (mountedRef.current) toast.error("Failed to load notes");
     }
   }, [contactId]);
 
@@ -115,10 +124,12 @@ export default function ContactDetailPage() {
         getContactInterestListsAction(contactId),
         listInterestListsAction(),
       ]);
-      setMemberLists(memberData);
-      setAllLists(allData);
+      if (mountedRef.current) {
+        setMemberLists(memberData);
+        setAllLists(allData);
+      }
     } catch {
-      // Non-critical
+      if (mountedRef.current) toast.error("Failed to load interest lists");
     }
   }, [contactId]);
 
@@ -130,8 +141,8 @@ export default function ContactDetailPage() {
       setNewNote("");
       await loadNotes();
       await loadTimeline();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to add note");
     } finally {
       setAddingNote(false);
     }
@@ -142,8 +153,8 @@ export default function ContactDetailPage() {
     try {
       await deleteContactNoteAction(noteId);
       await loadNotes();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete note");
     }
   }
 
@@ -154,8 +165,8 @@ export default function ContactDetailPage() {
       setAddListId("");
       setShowAddList(false);
       await loadInterestLists();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to add to list");
     }
   }
 
@@ -164,8 +175,8 @@ export default function ContactDetailPage() {
     try {
       await removeMemberAction(listId, contactId);
       await loadInterestLists();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove from list");
     }
   }
 

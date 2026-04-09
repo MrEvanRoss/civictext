@@ -51,10 +51,12 @@ function insertAtCursor(textarea: HTMLTextAreaElement, text: string) {
     window.HTMLTextAreaElement.prototype,
     "value"
   )?.set;
+  // M-17: Safe setter with null check
+  const newValue = before + text + after;
   if (nativeSetter) {
-    nativeSetter.call(textarea, before + text + after);
+    nativeSetter.call(textarea, newValue);
   } else {
-    textarea.value = before + text + after;
+    textarea.value = newValue;
   }
   textarea.dispatchEvent(new Event("input", { bubbles: true }));
   textarea.selectionStart = textarea.selectionEnd = start + text.length;

@@ -55,6 +55,7 @@ export default function ContactsPage() {
   const [showBulkTag, setShowBulkTag] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const loadContacts = useCallback(async () => {
     setLoading(true);
@@ -92,8 +93,8 @@ export default function ContactsPage() {
     try {
       await deleteContactAction(id);
       loadContacts();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete contact");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete contact");
     } finally {
       setDeletingId(null);
     }
@@ -124,8 +125,8 @@ export default function ContactsPage() {
       await bulkDeleteContactsAction(Array.from(selected));
       setSelected(new Set());
       loadContacts();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete contacts");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete contacts");
     } finally {
       setBulkDeleting(false);
     }
@@ -140,12 +141,13 @@ export default function ContactsPage() {
       setShowBulkTag(false);
       setSelected(new Set());
       loadContacts();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to add tags");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to add tags");
     }
   }
 
   async function handleExport() {
+    setExporting(true);
     try {
       const result = await exportContactsAction({
         search: search || undefined,
@@ -158,8 +160,10 @@ export default function ContactsPage() {
       a.download = result.filename;
       a.click();
       URL.revokeObjectURL(url);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to export contacts");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to export contacts");
+    } finally {
+      setExporting(false);
     }
   }
 

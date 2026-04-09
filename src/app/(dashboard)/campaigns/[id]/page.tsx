@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import {
   changeCampaignStatusAction,
   duplicateCampaignAction,
   exportCampaignAction,
+  getCampaignLinkStatsAction,
 } from "@/server/actions/campaigns";
 import {
   ArrowLeft,
@@ -27,6 +28,9 @@ import {
   Download,
   Pencil,
   Clock,
+  MousePointerClick,
+  ExternalLink,
+  Link2,
 } from "lucide-react";
 
 const STATUS_VARIANTS: Record<string, "default" | "success" | "warning" | "destructive" | "secondary" | "outline"> = {
@@ -52,25 +56,49 @@ export default function CampaignDetailPage() {
   const [campaign, setCampaign] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [linkStats, setLinkStats] = useState<{
+    links: { id: string; originalUrl: string; shortCode: string; clickCount: number; createdAt: string }[];
+    totalClicks: number;
+    totalLinks: number;
+    uniqueUrls: number;
+  } | null>(null);
+
+  // M-19: Mounted flag to cancel state updates after unmount
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const loadCampaign = useCallback(async () => {
     try {
       const data = await getCampaignAction(campaignId);
+      if (!mountedRef.current) return;
       if (!data) {
         router.push("/campaigns");
         return;
       }
       setCampaign(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      if (mountedRef.current) setError(err instanceof Error ? err.message : "Failed to load campaign");
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [campaignId, router]);
 
+  const loadLinkStats = useCallback(async () => {
+    try {
+      const stats = await getCampaignLinkStatsAction(campaignId);
+      setLinkStats(stats);
+    } catch {
+      // Non-critical — silently fail
+    }
+  }, [campaignId]);
+
   useEffect(() => {
     loadCampaign();
-  }, [loadCampaign]);
+    loadLinkStats();
+  }, [loadCampaign, loadLinkStats]);
 
   // Auto-refresh every 10 seconds while actively sending
   const campaignStatus = campaign?.status;
@@ -280,12 +308,13 @@ export default function CampaignDetailPage() {
       )}
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
         {[
           { label: "Sent", value: campaign.sentCount || 0, color: "text-foreground" },
           { label: "Delivered", value: campaign.deliveredCount || 0, color: "text-success" },
           { label: "Failed", value: campaign.failedCount || 0, color: "text-destructive" },
           { label: "Responses", value: campaign.responseCount || 0, color: "text-info" },
+          { label: "Link Clicks", value: linkStats?.totalClicks ?? 0, color: "text-purple-500" },
           { label: "Delivery Rate", value: `${deliveryRate}%`, color: "text-foreground" },
         ].map((stat) => (
           <Card key={stat.label}>
@@ -374,6 +403,78 @@ export default function CampaignDetailPage() {
             </dl>
           </CardContent>
         </Card>
+
+        {/* Link Performance */}
+        {linkStats && linkStats.totalLinks > 0 && (
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <MousePointerClick className="h-5 w-5" />
+                  Link Performance
+                </CardTitle>
+                {(campaign.sentCount || 0) > 0 && (
+                  <Badge variant="outline" className="text-sm font-medium">
+                    {((linkStats.totalClicks / (campaign.sentCount || 1)) * 100).toFixed(1)}% CTR
+                  </Badge>
+                )}
+              </div>
+              <CardDescription>
+                {linkStats.totalClicks} total click{linkStats.totalClicks !== 1 ? "s" : ""} across {linkStats.uniqueUrls} link{linkStats.uniqueUrls !== 1 ? "s" : ""}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {/* Group links by original URL and sum clicks */}
+                {(() => {
+                  const urlMap = new Map<string, { clicks: number; shortCodes: string[] }>();
+                  linkStats.links.forEach((l) => {
+                    const existing = urlMap.get(l.originalUrl);
+                    if (existing) {
+                      existing.clicks += l.clickCount;
+                      existing.shortCodes.push(l.shortCode);
+                    } else {
+                      urlMap.set(l.originalUrl, { clicks: l.clickCount, shortCodes: [l.shortCode] });
+                    }
+                  });
+
+                  const sortedUrls = Array.from(urlMap.entries()).sort((a, b) => b[1].clicks - a[1].clicks);
+                  const maxClicks = sortedUrls[0]?.[1].clicks || 1;
+
+                  return sortedUrls.map(([url, data]) => (
+                    <div key={url} className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <Link2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-primary hover:underline truncate"
+                            title={url}
+                          >
+                            {url.replace(/^https?:\/\/(www\.)?/, "")}
+                          </a>
+                          <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
+                        </div>
+                        <span className="text-sm font-semibold tabular-nums shrink-0">
+                          {data.clicks} click{data.clicks !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      {/* Click bar */}
+                      <div className="h-2 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-purple-500 transition-all"
+                          style={{ width: `${Math.max((data.clicks / maxClicks) * 100, 2)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Drip Steps */}
         {campaign.dripSteps?.length > 0 && (

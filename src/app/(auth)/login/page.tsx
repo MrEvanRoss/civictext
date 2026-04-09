@@ -192,7 +192,7 @@ export default function LoginPage() {
     <Card>
       <CardHeader className="text-center">
         <div className="flex justify-center mb-2">
-          <Image src="/logo.png" alt="CivicText" width={180} height={180} priority />
+          <Image src="/logo.png" alt="CivicText Logo — Political Texting Platform" width={180} height={180} priority />
         </div>
         <CardDescription>Sign in to your account</CardDescription>
       </CardHeader>

@@ -187,6 +187,15 @@ export async function sendOne(
   mediaUrl?: string,
   sendLatencyMs?: number
 ) {
+  // M-14: Validate message length before proceeding
+  const MAX_MESSAGE_LENGTH = 1600; // Twilio max
+  if (!body || body.trim().length === 0) {
+    throw new Error("Message body cannot be empty");
+  }
+  if (body.length > MAX_MESSAGE_LENGTH) {
+    throw new Error(`Message too long (${body.length} chars). Maximum is ${MAX_MESSAGE_LENGTH}.`);
+  }
+
   // 0. Check if agent is flagged for suspicious send rate
   const flagged = await connection.get(`p2p:agent:${agentUserId}:flagged`);
   if (flagged) {
@@ -200,6 +209,11 @@ export async function sendOne(
   });
   if (!assignment) throw new Error("Assignment not found or not yours");
   if (assignment.status !== "PENDING") throw new Error("Assignment already processed");
+
+  // H-19: Verify contact belongs to the same org
+  if (assignment.contact.orgId !== orgId) {
+    throw new Error("Contact does not belong to this organization");
+  }
 
   // 2. Verify contact is still opted in
   if (assignment.contact.optInStatus !== "OPTED_IN") {

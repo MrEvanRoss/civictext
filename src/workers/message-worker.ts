@@ -85,8 +85,13 @@ export const messageWorker = new Worker<MessageJobData>(
     let trackedBody = renderedBody;
     try {
       trackedBody = await shortenLinksInMessage(orgId, renderedBody, campaignId);
-    } catch (err) {
-      await job.log(`Link shortening failed, using original URLs: ${err}`);
+    } catch (err: unknown) {
+      // H-20: If the failure is compliance-related (blocked URL), block the send
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (errMsg.toLowerCase().includes("blocked") || errMsg.toLowerCase().includes("compliance")) {
+        throw new Error(`Message blocked: link shortening compliance failure — ${errMsg}`);
+      }
+      await job.log(`Link shortening failed, using original URLs: ${errMsg}`);
     }
 
     // 4. Append political disclaimer if configured
@@ -250,6 +255,14 @@ export const campaignWorker = new Worker<CampaignJobData>(
 async function checkScheduledCampaigns(job: Job) {
   const now = new Date();
 
+  // M-11: Distributed lock to prevent overlapping runs
+  const lockKey = "lock:check-scheduled-campaigns";
+  const locked = await connection.set(lockKey, "1", "EX", 55, "NX");
+  if (!locked) {
+    await job.log("Another check-scheduled job is running, skipping.");
+    return { triggered: 0 };
+  }
+
   const dueCampaigns = await db.campaign.findMany({
     where: {
       status: "SCHEDULED",
@@ -311,6 +324,9 @@ campaignQueue.add(
     removeOnFail: { count: 10 },
   }
 );
+
+/** Hard cap on jobs per campaign to prevent queue exhaustion (C-4) */
+const MAX_CAMPAIGN_RECIPIENTS = 500_000;
 
 /**
  * Expand a campaign: resolve segment contacts and create message jobs.
@@ -405,6 +421,10 @@ async function expandCampaign(orgId: string, campaignId: string, job: Job) {
     await job.log(`Interest list EXCLUDE targeting: ${contactIds.size} contacts (excluded ${excludeSet.size} from ${campaign.interestListIds.length} list(s))`);
 
   } else if (campaign.segmentId && campaign.segment) {
+    // H-5: Verify segment belongs to the same org as the campaign
+    if (campaign.segment.orgId !== orgId) {
+      throw new Error(`Segment ${campaign.segmentId} does not belong to org ${orgId}`);
+    }
     // Segment-only targeting — apply segment filter rules and require opt-in
     const segmentWhere = buildSegmentWhere(orgId, campaign.segment.rules as any);
     const contacts = await db.contact.findMany({
@@ -428,6 +448,16 @@ async function expandCampaign(orgId: string, campaignId: string, job: Job) {
       data: { status: "COMPLETED", completedAt: new Date(), totalRecipients: 0 },
     });
     return { status: "completed", messageCount: 0 };
+  }
+
+  // C-4: Enforce hard cap to prevent queue exhaustion
+  if (contactIds.size > MAX_CAMPAIGN_RECIPIENTS) {
+    await job.log(`Campaign targets ${contactIds.size} contacts — exceeds cap of ${MAX_CAMPAIGN_RECIPIENTS}. Aborting.`);
+    await db.campaign.update({
+      where: { id: campaignId },
+      data: { status: "DRAFT" },
+    });
+    throw new Error(`Campaign exceeds maximum of ${MAX_CAMPAIGN_RECIPIENTS} recipients. Split into smaller campaigns.`);
   }
 
   // Fetch contact details for message jobs

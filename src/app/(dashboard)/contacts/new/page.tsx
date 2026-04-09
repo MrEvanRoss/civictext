@@ -32,10 +32,23 @@ export default function NewContactPage() {
     optInSource: "manual",
   });
 
+  // H-14: Phone number validation
+  function isValidPhone(phone: string): boolean {
+    const digits = phone.replace(/\D/g, "");
+    return digits.length >= 10 && digits.length <= 15;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSaving(true);
+    if (saving) return;
     setError("");
+
+    if (!isValidPhone(form.phone)) {
+      setError("Please enter a valid phone number (at least 10 digits).");
+      return;
+    }
+
+    setSaving(true);
 
     try {
       const contact = await createContactAction({
@@ -52,8 +65,8 @@ export default function NewContactPage() {
         optInSource: form.optInSource,
       });
       router.push(`/contacts/${contact.id}`);
-    } catch (err: any) {
-      setError(err.message || "Failed to create contact");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to create contact");
     } finally {
       setSaving(false);
     }

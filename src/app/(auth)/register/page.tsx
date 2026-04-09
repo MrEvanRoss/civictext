@@ -34,7 +34,28 @@ export default function RegisterPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return; // M-18: prevent double submit
     setError("");
+
+    // H-13: Client-side password validation
+    const pw = formData.password;
+    if (pw.length < 12) {
+      setError("Password must be at least 12 characters.");
+      return;
+    }
+    if (!/[A-Z]/.test(pw)) {
+      setError("Password must contain at least one uppercase letter.");
+      return;
+    }
+    if (!/[0-9]/.test(pw)) {
+      setError("Password must contain at least one number.");
+      return;
+    }
+    if (!/[^A-Za-z0-9]/.test(pw)) {
+      setError("Password must contain at least one special character.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -77,7 +98,7 @@ export default function RegisterPage() {
     <Card>
       <CardHeader className="text-center">
         <div className="flex justify-center mb-2">
-          <Image src="/logo.png" alt="CivicText" width={160} height={160} priority />
+          <Image src="/logo.png" alt="CivicText Logo — Political Texting Platform" width={160} height={160} priority />
         </div>
         <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
         <CardDescription>
