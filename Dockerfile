@@ -22,6 +22,13 @@ COPY prisma ./prisma
 RUN npm run db:generate
 
 # Build Next.js app
+# Provide dummy env vars so Next.js can collect page data during build.
+# Real values are injected at runtime via environment variables.
+ENV DATABASE_URL="postgresql://build:build@localhost:5432/build" \
+    REDIS_URL="redis://localhost:6379" \
+    AUTH_SECRET="build-time-placeholder" \
+    AUTH_URL="http://localhost:3000" \
+    NEXT_PUBLIC_APP_URL="http://localhost:3000"
 RUN npm run build
 
 # Runtime stage
@@ -32,21 +39,15 @@ WORKDIR /app
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init
 
-# Copy package files
-COPY package*.json ./
-
-# Install production dependencies only
-RUN npm ci --omit=dev
-
-# Copy Prisma schema
-COPY prisma ./prisma
-
-# H-21: Generate Prisma client in runtime stage to ensure it matches the runtime platform
-RUN npx prisma generate
-
-# Copy built app from builder
-COPY --from=builder /app/.next ./.next
+# Copy standalone output (includes node_modules and server.js)
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
+
+# Copy Prisma schema + generated client for runtime migrations
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -61,4 +62,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 
 ENTRYPOINT ["dumb-init", "--"]
 
-CMD ["npm", "start"]
+CMD ["node", "server.js"]
