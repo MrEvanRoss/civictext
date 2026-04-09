@@ -4,13 +4,27 @@ const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
 const TAG_LENGTH = 16;
 
+// H-13: Validate ENCRYPTION_KEY format at module load time (fail fast)
+let _cachedKey: Buffer | null = null;
+
 function getEncryptionKey(): Buffer {
+  if (_cachedKey) return _cachedKey;
+
   const key = process.env.ENCRYPTION_KEY;
   if (!key) {
-    throw new Error("ENCRYPTION_KEY environment variable is not set");
+    throw new Error(
+      "ENCRYPTION_KEY environment variable is not set. " +
+      "Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+    );
   }
-  // Key should be 32 bytes (64 hex characters)
-  return Buffer.from(key, "hex");
+  if (!/^[0-9a-fA-F]{64}$/.test(key)) {
+    throw new Error(
+      "ENCRYPTION_KEY must be exactly 64 hex characters (32 bytes). " +
+      `Got ${key.length} characters.`
+    );
+  }
+  _cachedKey = Buffer.from(key, "hex");
+  return _cachedKey;
 }
 
 /**

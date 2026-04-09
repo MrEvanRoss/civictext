@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { registerUser } from "@/server/actions/auth";
 import { rateLimitAuth } from "@/lib/rate-limit";
+import { validateApiCsrf } from "@/lib/csrf";
 import { z } from "zod";
 
 const registerSchema = z.object({
@@ -12,6 +13,10 @@ const registerSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    // C-4: CSRF origin validation
+    const csrfError = await validateApiCsrf(request);
+    if (csrfError) return csrfError;
+
     // Rate limit: 10 registration attempts per 15 minutes per IP
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     const { allowed, remaining } = await rateLimitAuth(ip);

@@ -188,6 +188,13 @@ export async function removeMemberAction(listId: string, contactId: string) {
   });
   if (!list) throw new Error("Interest list not found");
 
+  // C-6: Verify the contact belongs to the calling user's org
+  const contact = await db.contact.findFirst({
+    where: { id: contactId, orgId },
+    select: { id: true },
+  });
+  if (!contact) throw new Error("Contact not found");
+
   await db.interestListMember.deleteMany({
     where: { interestListId: listId, contactId },
   });
@@ -258,6 +265,13 @@ export async function bulkAddMembersAction(listId: string, contactIds: string[])
 export async function getContactInterestListsAction(contactId: string) {
   const { session } = await requireOrg();
   const orgId = session.user.orgId;
+
+  // C-6: Verify the contact belongs to the calling user's org
+  const contact = await db.contact.findFirst({
+    where: { id: contactId, orgId },
+    select: { id: true },
+  });
+  if (!contact) throw new Error("Contact not found");
 
   return db.interestListMember.findMany({
     where: {

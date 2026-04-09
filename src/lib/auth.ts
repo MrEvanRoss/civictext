@@ -92,6 +92,7 @@ export const {
           orgId: user.orgId,
           role: user.role,
           isSuperAdmin: user.isSuperAdmin,
+          passwordChangedAt: user.passwordChangedAt?.toISOString() || null,
         };
       },
     }),
@@ -101,16 +102,52 @@ export const {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id as string;
         token.orgId = user.orgId;
         token.role = user.role;
         token.isSuperAdmin = user.isSuperAdmin;
+        token.passwordChangedAt = user.passwordChangedAt
+          ? new Date(user.passwordChangedAt).getTime()
+          : null;
       }
+
+      // C-7: On every request, periodically verify the password hasn't been
+      // changed since the JWT was issued (check every 5 minutes to avoid
+      // excessive DB queries)
+      if (trigger !== "signIn" && token.id) {
+        const lastChecked = (token._pwCheckedAt as number) || 0;
+        const now = Date.now();
+        if (now - lastChecked > 5 * 60 * 1000) {
+          try {
+            const freshUser = await db.user.findUnique({
+              where: { id: token.id as string },
+              select: { passwordChangedAt: true },
+            });
+            if (freshUser?.passwordChangedAt) {
+              const changedAt = new Date(freshUser.passwordChangedAt).getTime();
+              const tokenPwTime = (token.passwordChangedAt as number) || 0;
+              if (changedAt > tokenPwTime) {
+                // Password was changed after this JWT was issued — force re-auth
+                return { ...token, invalidated: true };
+              }
+            }
+            token._pwCheckedAt = now;
+          } catch {
+            // DB unavailable — allow through (fail open for availability)
+          }
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
+      // C-7: If the token was invalidated, return empty session
+      if (token.invalidated) {
+        return { ...session, user: undefined as any };
+      }
+
       if (session.user) {
         session.user.id = token.id;
         session.user.orgId = token.orgId;

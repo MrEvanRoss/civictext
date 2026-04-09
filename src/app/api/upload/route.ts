@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
+import { validateApiCsrf } from "@/lib/csrf";
 
 const ALLOWED_IMAGE_TYPES = [
   "image/jpeg",
@@ -28,6 +29,9 @@ const EXTENSION_MAP: Record<string, string> = {
 };
 
 export async function POST(request: Request) {
+  const csrfError = await validateApiCsrf(request);
+  if (csrfError) return csrfError;
+
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

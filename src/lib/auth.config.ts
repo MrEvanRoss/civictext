@@ -90,7 +90,8 @@ export const authConfig: NextAuthConfig = {
         nextUrl.pathname.startsWith("/journeys") ||
         nextUrl.pathname.startsWith("/scheduled") ||
         nextUrl.pathname.startsWith("/supervisor") ||
-        nextUrl.pathname.startsWith("/interest-lists");
+        nextUrl.pathname.startsWith("/interest-lists") ||
+        nextUrl.pathname.startsWith("/polling-locations");
       const isAdmin = nextUrl.pathname.startsWith("/admin");
       const isWebhook = nextUrl.pathname.startsWith("/api/webhooks");
 

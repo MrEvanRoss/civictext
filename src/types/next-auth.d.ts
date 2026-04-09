@@ -7,6 +7,7 @@ declare module "next-auth" {
     orgId: string;
     role: UserRole;
     isSuperAdmin: boolean;
+    passwordChangedAt?: string | null;
   }
 
   interface Session {
@@ -27,5 +28,8 @@ declare module "next-auth/jwt" {
     orgId: string;
     role: UserRole;
     isSuperAdmin: boolean;
+    passwordChangedAt?: number | null;
+    _pwCheckedAt?: number;
+    invalidated?: boolean;
   }
 }

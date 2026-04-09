@@ -253,6 +253,7 @@ model User {
   role          UserRole  @default(SENDER)
   isSuperAdmin  Boolean   @default(false)
   lastLoginAt   DateTime?
+  passwordChangedAt DateTime?  // C-7: Track password changes for session invalidation
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

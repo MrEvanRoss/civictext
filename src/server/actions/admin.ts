@@ -625,9 +625,13 @@ export async function resetUserPasswordAction(userId: string, newPassword: strin
   const bcrypt = await import("bcryptjs");
   const passwordHash = await bcrypt.hash(newPassword, 12);
 
+  // C-7: Set passwordChangedAt so existing JWT sessions are invalidated
   await db.user.update({
     where: { id: userId },
-    data: { passwordHash },
+    data: {
+      passwordHash,
+      passwordChangedAt: new Date(),
+    },
   });
 
   return { reset: true, userName: user.name, userEmail: user.email };

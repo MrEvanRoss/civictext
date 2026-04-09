@@ -242,26 +242,23 @@ export async function POST(request: Request) {
         joinedList = true;
       }
 
-      // Only auto opt-in if the contact was already OPTED_IN (leave alone) or OPTED_OUT (re-subscribe).
-      // Do NOT auto opt-in contacts who are NEVER_OPTED_IN or PENDING — they haven't given
-      // explicit consent to receive messages, and joining an interest list alone is not sufficient.
+      // H-4: Do NOT auto-opt-in OPTED_OUT contacts via interest list keyword.
+      // Only the explicit opt-in keywords (START, YES, etc.) should re-subscribe.
+      // Texting an interest list keyword is NOT the same as explicit consent.
+      // Contacts with PENDING or NEVER_OPTED_IN status are also left unchanged.
       if (contact.optInStatus === "OPTED_OUT") {
-        await db.contact.update({
-          where: { id: contact.id },
-          data: {
-            optInStatus: "OPTED_IN",
-            optInTimestamp: new Date(),
-            optInSource: `interest_list:${interestList.keyword}`,
-          },
-        });
-
+        // Log that the contact tried to join but is opted out
         await db.consentAuditLog.create({
           data: {
             orgId,
             contactId: contact.id,
-            action: "OPTED_IN",
+            action: "JOIN_BLOCKED",
             source: "interest_list_keyword",
-            metadata: { keyword: interestList.keyword, listName: interestList.name },
+            metadata: {
+              keyword: interestList.keyword,
+              listName: interestList.name,
+              reason: "Contact is opted out. Must text START to re-subscribe first.",
+            },
           },
         });
       }
@@ -270,11 +267,9 @@ export async function POST(request: Request) {
       const welcomeBody = interestList.welcomeMessage
         || `You've been added to ${interestList.name}! Reply STOP to opt out.`;
 
-      // Only send if the contact is opted in (they were just auto-opted-in above)
-      const refreshedContact = await db.contact.findFirst({
-        where: { id: contact.id, orgId },
-      });
-      if (refreshedContact && refreshedContact.optInStatus === "OPTED_IN") {
+      // H-4: Only send welcome message to contacts who are OPTED_IN.
+      // PENDING, OPTED_OUT, and NEVER_OPTED_IN contacts must NOT receive messages.
+      if (contact.optInStatus === "OPTED_IN") {
         const welcomeMessage = await db.message.create({
           data: {
             orgId,

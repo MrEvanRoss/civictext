@@ -18,8 +18,23 @@ export function getMasterClient() {
 
 /**
  * Get a Twilio client scoped to a specific org's subaccount.
+ *
+ * IMPORTANT: Callers MUST verify that the requesting user/context has
+ * permission to access this orgId before calling. In request contexts,
+ * use `requireOrg()` first and pass the session orgId. Worker processes
+ * that operate on jobs already scoped to an orgId may call directly.
+ *
+ * @param orgId - The organization ID (must be pre-authorized)
+ * @param callerOrgId - Optional: the authenticated user's orgId for
+ *                      cross-org access control. If provided and doesn't
+ *                      match orgId, the call is rejected.
  */
-export async function getOrgClient(orgId: string) {
+export async function getOrgClient(orgId: string, callerOrgId?: string) {
+  // C-3: If a callerOrgId is provided, verify it matches the target org
+  if (callerOrgId && callerOrgId !== orgId) {
+    throw new Error("Access denied: cannot access another organization's Twilio account");
+  }
+
   const subaccount = await db.twilioSubaccount.findUnique({
     where: { orgId },
   });
