@@ -157,6 +157,44 @@ export async function reactivateOrgAction(orgId: string) {
 }
 
 /**
+ * Permanently delete an organization and ALL of its data.
+ * Messages use onDelete: Restrict, so we delete them manually first,
+ * then the org cascade handles everything else.
+ */
+export async function deleteOrgAction(orgId: string) {
+  await requireSuperAdmin();
+  z.string().uuid().parse(orgId);
+
+  const org = await db.organization.findUnique({
+    where: { id: orgId },
+    select: { id: true, name: true },
+  });
+
+  if (!org) throw new Error("Organization not found");
+
+  // Delete in dependency order — messages have onDelete: Restrict so must go first.
+  // UsageLedger references Message, so delete it before messages.
+  await db.usageLedger.deleteMany({ where: { orgId } });
+  await db.message.deleteMany({ where: { orgId } });
+
+  // Now delete the org — Cascade handles all other relations.
+  await db.organization.delete({ where: { id: orgId } });
+
+  // Clean up Redis keys for this org
+  try {
+    const keys = await redis.keys(`org:${orgId}:*`);
+    if (keys.length > 0) {
+      await redis.del(...keys);
+    }
+  } catch {
+    // Redis cleanup is best-effort
+  }
+
+  console.info(`[ADMIN] Org ${orgId} (${org.name}) permanently deleted`);
+  return { success: true, orgName: org.name };
+}
+
+/**
  * Add prepaid credits to an org's balance.
  */
 export async function addCreditsAction(orgId: string, amountCents: number) {

@@ -24,6 +24,7 @@ import {
   startImpersonationAction,
   resetUser2FAAction,
   resetUserPasswordAction,
+  deleteOrgAction,
 } from "@/server/actions/admin";
 import { adminAddUserToOrgAction } from "@/server/actions/team";
 import { NativeSelect } from "@/components/ui/select";
@@ -61,6 +62,7 @@ import {
   ChevronRight,
   ShieldCheck,
   ShieldOff,
+  Trash2,
 } from "lucide-react";
 
 type Tab = "overview" | "campaigns" | "contacts" | "interest-lists" | "templates" | "webhooks" | "auto-reply" | "consent";
@@ -223,6 +225,9 @@ export default function AdminOrgDetailPage() {
   const [inactiveReason, setInactiveReason] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [showDeleteOrgDialog, setShowDeleteOrgDialog] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [deletingOrg, setDeletingOrg] = useState(false);
   const [showReset2FADialog, setShowReset2FADialog] = useState(false);
   const [pending2FAUserId, setPending2FAUserId] = useState<string | null>(null);
   const [pending2FAUserName, setPending2FAUserName] = useState<string>("");
@@ -400,6 +405,19 @@ export default function AdminOrgDetailPage() {
       await loadOrg();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "An error occurred");
+    }
+  }
+
+  async function confirmDeleteOrg() {
+    if (!org || deleteConfirmName !== org.name) return;
+    setDeletingOrg(true);
+    try {
+      await deleteOrgAction(orgId);
+      toast.success(`Organization "${org.name}" permanently deleted`);
+      router.push("/admin");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete organization");
+      setDeletingOrg(false);
     }
   }
 
@@ -602,6 +620,17 @@ export default function AdminOrgDetailPage() {
               Archive
             </Button>
           )}
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => {
+              setDeleteConfirmName("");
+              setShowDeleteOrgDialog(true);
+            }}
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            Delete Org
+          </Button>
         </div>
       </div>
 
@@ -1396,6 +1425,48 @@ export default function AdminOrgDetailPage() {
               disabled={newPasswordInput.length < 12}
             >
               Reset Password
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteOrgDialog} onOpenChange={(open) => {
+        setShowDeleteOrgDialog(open);
+        if (!open) setDeleteConfirmName("");
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">Permanently Delete Organization</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">
+                This will permanently delete <strong>{org?.name}</strong> and ALL of its data including users, contacts, campaigns, messages, and billing records. This cannot be undone.
+              </span>
+              <span className="block font-medium">
+                Type the organization name to confirm:
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <Input
+              placeholder={org?.name || "Organization name"}
+              value={deleteConfirmName}
+              onChange={(e) => setDeleteConfirmName(e.target.value)}
+              className="border-destructive/50"
+            />
+            {deleteConfirmName.length > 0 && deleteConfirmName !== org?.name && (
+              <p className="text-xs text-destructive mt-1">
+                Name does not match
+              </p>
+            )}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingOrg}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteOrg}
+              disabled={deleteConfirmName !== org?.name || deletingOrg}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingOrg ? "Deleting..." : "Permanently Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
