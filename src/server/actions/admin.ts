@@ -533,6 +533,30 @@ export async function resetUser2FAAction(userId: string) {
   return { reset: true, userName: user.name, userEmail: user.email };
 }
 
+export async function resetUserPasswordAction(userId: string, newPassword: string) {
+  await requireSuperAdmin();
+
+  if (!newPassword || newPassword.length < 12) {
+    throw new Error("Password must be at least 12 characters");
+  }
+
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true },
+  });
+  if (!user) throw new Error("User not found");
+
+  const bcrypt = await import("bcryptjs");
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+
+  await db.user.update({
+    where: { id: userId },
+    data: { passwordHash },
+  });
+
+  return { reset: true, userName: user.name, userEmail: user.email };
+}
+
 // ============================================================
 // GLOBAL ANALYTICS
 // ============================================================

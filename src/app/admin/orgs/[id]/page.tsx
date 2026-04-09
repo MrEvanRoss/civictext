@@ -23,6 +23,7 @@ import {
   getOrgConsentLogsAction,
   startImpersonationAction,
   resetUser2FAAction,
+  resetUserPasswordAction,
 } from "@/server/actions/admin";
 import { adminAddUserToOrgAction } from "@/server/actions/team";
 import { NativeSelect } from "@/components/ui/select";
@@ -225,6 +226,10 @@ export default function AdminOrgDetailPage() {
   const [showReset2FADialog, setShowReset2FADialog] = useState(false);
   const [pending2FAUserId, setPending2FAUserId] = useState<string | null>(null);
   const [pending2FAUserName, setPending2FAUserName] = useState<string>("");
+  const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false);
+  const [pendingPasswordUserId, setPendingPasswordUserId] = useState<string | null>(null);
+  const [pendingPasswordUserName, setPendingPasswordUserName] = useState<string>("");
+  const [newPasswordInput, setNewPasswordInput] = useState("");
   const [addAmount, setAddAmount] = useState("");
   const [addingCredits, setAddingCredits] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
@@ -410,6 +415,25 @@ export default function AdminOrgDetailPage() {
     } finally {
       setPending2FAUserId(null);
       setPending2FAUserName("");
+    }
+  }
+
+  async function confirmResetPassword() {
+    if (!pendingPasswordUserId || !newPasswordInput) return;
+    if (newPasswordInput.length < 12) {
+      toast.error("Password must be at least 12 characters");
+      return;
+    }
+    setShowResetPasswordDialog(false);
+    try {
+      await resetUserPasswordAction(pendingPasswordUserId, newPasswordInput);
+      toast.success(`Password reset for ${pendingPasswordUserName}`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to reset password");
+    } finally {
+      setPendingPasswordUserId(null);
+      setPendingPasswordUserName("");
+      setNewPasswordInput("");
     }
   }
 
@@ -938,7 +962,20 @@ export default function AdminOrgDetailPage() {
                     <td className="p-2 text-muted-foreground">
                       {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : "Never"}
                     </td>
-                    <td className="p-2 text-right">
+                    <td className="p-2 text-right space-x-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => {
+                          setPendingPasswordUserId(user.id);
+                          setPendingPasswordUserName(user.name || user.email);
+                          setNewPasswordInput("");
+                          setShowResetPasswordDialog(true);
+                        }}
+                      >
+                        Reset Password
+                      </Button>
                       {user.twoFactorEnabled && (
                         <Button
                           variant="ghost"
@@ -1320,6 +1357,46 @@ export default function AdminOrgDetailPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmReset2FA}>Reset 2FA</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showResetPasswordDialog} onOpenChange={(open) => {
+        setShowResetPasswordDialog(open);
+        if (!open) setNewPasswordInput("");
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset Password</AlertDialogTitle>
+            <AlertDialogDescription>
+              Set a new password for {pendingPasswordUserName}. Must be at least 12 characters.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <Label htmlFor="new-password">New Password</Label>
+            <Input
+              id="new-password"
+              type="password"
+              placeholder="Enter new password (min 12 chars)"
+              value={newPasswordInput}
+              onChange={(e) => setNewPasswordInput(e.target.value)}
+              minLength={12}
+              className="mt-1"
+            />
+            {newPasswordInput.length > 0 && newPasswordInput.length < 12 && (
+              <p className="text-xs text-destructive mt-1">
+                Password must be at least 12 characters ({12 - newPasswordInput.length} more needed)
+              </p>
+            )}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmResetPassword}
+              disabled={newPasswordInput.length < 12}
+            >
+              Reset Password
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
