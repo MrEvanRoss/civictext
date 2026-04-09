@@ -11,6 +11,8 @@ const nextConfig = {
   experimental: {
     serverActions: {
       allowedOrigins: [
+        "civictext.org",
+        "www.civictext.org",
         "civictext.com",
         "www.civictext.com",
         "staging.civictext.com",
