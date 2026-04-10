@@ -10,27 +10,28 @@ COPY next.config.mjs ./
 COPY postcss.config.mjs ./
 COPY tailwind.config.ts ./
 
-# Install dependencies, then remove tsx (only needed for local dev,
-# not for production build or runtime — and it crashes on modern Node)
-RUN npm ci && rm -rf node_modules/tsx
+# Install dependencies
+RUN npm ci
 
 # Copy source code
 COPY src ./src
 COPY public ./public
 COPY prisma ./prisma
 
-# Generate Prisma client
+# Generate Prisma client (needs prisma CLI + tsx)
 RUN npm run db:generate
 
-# Build Next.js app
-# Provide dummy env vars so Next.js can collect page data during build.
-# Real values are injected at runtime via environment variables.
+# Remove prisma CLI and tsx BEFORE next build so they are never
+# traced into the standalone output. Only @prisma/client is needed.
+RUN rm -rf node_modules/tsx node_modules/prisma
+
+# Build Next.js app (prisma generate already ran above)
 ENV DATABASE_URL="postgresql://build:build@localhost:5432/build" \
     REDIS_URL="redis://localhost:6379" \
     AUTH_SECRET="build-time-placeholder" \
     AUTH_URL="http://localhost:3000" \
     NEXT_PUBLIC_APP_URL="http://localhost:3000"
-RUN npm run build
+RUN npx next build
 
 # Runtime stage
 FROM node:22-alpine
