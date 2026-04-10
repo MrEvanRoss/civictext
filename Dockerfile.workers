@@ -25,12 +25,9 @@ WORKDIR /app
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init
 
-# Install production deps
+# Install production deps (tsx is in dependencies for worker runtime)
 COPY package*.json ./
 RUN npm ci --omit=dev
-
-# Install tsx globally (needed to run TS workers directly)
-RUN npm install -g tsx
 
 # Copy Prisma schema and generated client
 COPY prisma ./prisma
@@ -51,4 +48,4 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
 
 ENTRYPOINT ["dumb-init", "--"]
 
-CMD ["tsx", "src/workers/index.ts"]
+CMD ["npx", "tsx", "src/workers/index.ts"]
