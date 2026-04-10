@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateTwilioSignature } from "@/lib/twilio";
 import { db } from "@/lib/db";
-import { dispatchWebhook } from "@/server/services/webhook-service";
+import { dispatchWebhook, type WebhookEvent } from "@/server/services/webhook-service";
 
 /**
  * Twilio Delivery Status Webhook
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
 
   try {
     // Update message record
-    const updateData: any = { status };
+    const updateData: Record<string, unknown> = { status };
     if (status === "SENT") {
       updateData.sentAt = new Date();
     }
@@ -84,42 +84,45 @@ export async function POST(request: Request) {
       updateData.errorCode = errorCode;
     }
 
-    const message = await db.message.updateMany({
-      where: { twilioSid: messageSid, orgId },
-      data: updateData,
-    });
-
-    // Update campaign counters if message belongs to a campaign
-    if (message.count > 0) {
-      const msg = await db.message.findFirst({
+    // Wrap message update + campaign counter in a transaction to keep
+    // counters consistent even if the process crashes mid-operation.
+    await db.$transaction(async (tx) => {
+      const message = await tx.message.updateMany({
         where: { twilioSid: messageSid, orgId },
-        select: { campaignId: true },
+        data: updateData,
       });
 
-      if (msg?.campaignId) {
-        const incrementField =
-          status === "DELIVERED"
-            ? "deliveredCount"
-            : status === "FAILED" || status === "UNDELIVERED"
-              ? "failedCount"
-              : null;
+      if (message.count > 0) {
+        const msg = await tx.message.findFirst({
+          where: { twilioSid: messageSid, orgId },
+          select: { campaignId: true },
+        });
 
-        if (incrementField) {
-          await db.campaign.update({
-            where: { id: msg.campaignId },
-            data: { [incrementField]: { increment: 1 } },
-          });
+        if (msg?.campaignId) {
+          const incrementField =
+            status === "DELIVERED"
+              ? "deliveredCount"
+              : status === "FAILED" || status === "UNDELIVERED"
+                ? "failedCount"
+                : null;
+
+          if (incrementField) {
+            await tx.campaign.update({
+              where: { id: msg.campaignId },
+              data: { [incrementField]: { increment: 1 } },
+            });
+          }
         }
       }
-    }
+    });
 
     // Fire webhook events AFTER all DB writes have completed so the
     // receiving server sees consistent data when it queries back.
     if (status === "DELIVERED" || status === "SENT" || status === "FAILED" || status === "UNDELIVERED") {
-      const eventName = status === "DELIVERED" ? "message.delivered"
+      const eventName: WebhookEvent = status === "DELIVERED" ? "message.delivered"
         : status === "SENT" ? "message.sent"
         : "message.failed";
-      dispatchWebhook(orgId, eventName as any, {
+      dispatchWebhook(orgId, eventName, {
         messageSid,
         status,
         errorCode: errorCode || null,

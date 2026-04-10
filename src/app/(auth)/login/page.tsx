@@ -32,7 +32,8 @@ export default function LoginPage() {
   // Auto-focus TOTP input when switching to step 2
   useEffect(() => {
     if (step === "totp") {
-      setTimeout(() => totpInputRef.current?.focus(), 100);
+      const timer = setTimeout(() => totpInputRef.current?.focus(), 100);
+      return () => clearTimeout(timer);
     }
   }, [step]);
 

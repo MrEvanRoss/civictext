@@ -16,12 +16,11 @@ export async function GET() {
   try {
     await db.$queryRawUnsafe("SELECT 1");
     checks.database = { status: "ok", latencyMs: Date.now() - dbStart };
-  } catch (err) {
+  } catch {
     healthy = false;
     checks.database = {
       status: "error",
       latencyMs: Date.now() - dbStart,
-      error: err instanceof Error ? err.message : "Unknown error",
     };
   }
 
@@ -30,12 +29,11 @@ export async function GET() {
   try {
     await redis.ping();
     checks.redis = { status: "ok", latencyMs: Date.now() - redisStart };
-  } catch (err) {
+  } catch {
     healthy = false;
     checks.redis = {
       status: "error",
       latencyMs: Date.now() - redisStart,
-      error: err instanceof Error ? err.message : "Unknown error",
     };
   }
 

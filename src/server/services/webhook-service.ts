@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import crypto from "crypto";
 
-type WebhookEvent =
+export type WebhookEvent =
   | "message.sent"
   | "message.delivered"
   | "message.failed"
@@ -74,39 +74,45 @@ async function deliverWebhook(
       })
         .then(async (res) => {
           if (!res.ok) {
-            await db.webhookEndpoint.update({
+            // Atomically increment failCount and disable if threshold reached
+            const updated = await db.webhookEndpoint.update({
               where: { id: endpoint.id },
               data: {
                 failCount: { increment: 1 },
                 lastError: `HTTP ${res.status}`,
               },
             });
-
-            // Disable after 10 consecutive failures
-            if (endpoint.failCount >= 9) {
+            if (updated.failCount >= 10) {
               await db.webhookEndpoint.update({
                 where: { id: endpoint.id },
                 data: { isActive: false },
               });
             }
-          } else {
-            // Reset fail count on success
-            if (endpoint.failCount > 0) {
-              await db.webhookEndpoint.update({
-                where: { id: endpoint.id },
-                data: { failCount: 0, lastError: null },
-              });
-            }
+          } else if (endpoint.failCount > 0) {
+            await db.webhookEndpoint.update({
+              where: { id: endpoint.id },
+              data: { failCount: 0, lastError: null },
+            });
           }
         })
         .catch(async (err) => {
-          await db.webhookEndpoint.update({
-            where: { id: endpoint.id },
-            data: {
-              failCount: { increment: 1 },
-              lastError: err instanceof Error ? err.message : "Unknown error",
-            },
-          });
+          try {
+            const updated = await db.webhookEndpoint.update({
+              where: { id: endpoint.id },
+              data: {
+                failCount: { increment: 1 },
+                lastError: err instanceof Error ? err.message : "Unknown error",
+              },
+            });
+            if (updated.failCount >= 10) {
+              await db.webhookEndpoint.update({
+                where: { id: endpoint.id },
+                data: { isActive: false },
+              });
+            }
+          } catch (dbErr) {
+            console.error("[WEBHOOK] Failed to update fail count:", dbErr);
+          }
         });
     }
   } catch (err) {

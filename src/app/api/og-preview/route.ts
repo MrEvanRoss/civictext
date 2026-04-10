@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 
 /**
  * GET /api/og-preview?url=<encoded-url>
@@ -6,11 +7,17 @@ import { NextResponse } from "next/server";
  * Fetches the target URL server-side, parses Open Graph meta tags, and returns
  * { title, description, image, domain }. This avoids CORS issues with
  * client-side fetching.
+ *
+ * Requires authentication to prevent SSRF abuse.
  */
 
 const OG_FETCH_TIMEOUT = 5000; // 5 seconds max
 
 export async function GET(request: Request) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const { searchParams } = new URL(request.url);
   const rawUrl = searchParams.get("url");
 
@@ -142,7 +149,7 @@ export async function GET(request: Request) {
         },
       }
     );
-  } catch (err: unknown) {
+  } catch {
     // Timeout or network error — return empty metadata
     return NextResponse.json(
       {

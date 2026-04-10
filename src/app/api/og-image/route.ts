@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 
 /**
  * GET /api/og-image?url=<encoded-url>
@@ -6,6 +7,8 @@ import { NextResponse } from "next/server";
  * Proxies an external image through our server to bypass hotlinking
  * restrictions and referrer-based blocking. The browser loads from our domain
  * instead of the external CDN, so referrer checks don't apply.
+ *
+ * Requires authentication to prevent SSRF abuse.
  */
 
 const FETCH_TIMEOUT = 8000; // 8 seconds
@@ -22,6 +25,10 @@ const ALLOWED_TYPES = [
 ];
 
 export async function GET(request: Request) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const { searchParams } = new URL(request.url);
   const rawUrl = searchParams.get("url");
 
