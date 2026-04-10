@@ -31,11 +31,6 @@ ENV DATABASE_URL="postgresql://build:build@localhost:5432/build" \
     NEXT_PUBLIC_APP_URL="http://localhost:3000"
 RUN npm run build
 
-# Remove tsx from standalone output — tsx 4.x uses the deprecated --loader
-# API which crashes on Node v20.20.2. It's only needed at build time for
-# prisma.config.ts, never at runtime.
-RUN rm -rf .next/standalone/node_modules/tsx
-
 # Runtime stage
 FROM node:22-alpine
 
@@ -49,12 +44,16 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-# Copy Prisma schema + generated client (NOT prisma.config.ts — loading
-# a .ts config at runtime would require tsx, which is incompatible with
-# Node v20.20.2's deprecated --loader API)
+# Copy Prisma schema + generated client
 COPY --from=builder /app/prisma/schema.prisma ./prisma/schema.prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+
+# Purge tsx from runtime — it uses the deprecated --loader API which
+# crashes on modern Node. Search all node_modules locations.
+RUN find /app -path "*/node_modules/tsx" -type d -exec rm -rf {} + 2>/dev/null; \
+    find /app -path "*/node_modules/.store/tsx*" -type d -exec rm -rf {} + 2>/dev/null; \
+    echo "tsx purged from runtime image"
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
