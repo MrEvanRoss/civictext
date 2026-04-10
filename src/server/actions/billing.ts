@@ -3,7 +3,7 @@
 import { requireOrg, requirePermission } from "./auth";
 import { getCurrentBalance } from "@/server/services/quota-service";
 import { db } from "@/lib/db";
-import { PERMISSIONS } from "@/lib/constants";
+import { PERMISSIONS, DEFAULT_SMS_RATE_CENTS, DEFAULT_MMS_RATE_CENTS } from "@/lib/constants";
 
 export async function getBillingOverviewAction() {
   await requirePermission(PERMISSIONS.BILLING_VIEW);
@@ -47,8 +47,8 @@ export async function getOrgMessageRatesAction() {
   });
 
   return {
-    smsRateCents: plan?.smsRateCents ?? 4,
-    mmsRateCents: plan?.mmsRateCents ?? 8,
+    smsRateCents: plan?.smsRateCents ?? DEFAULT_SMS_RATE_CENTS,
+    mmsRateCents: plan?.mmsRateCents ?? DEFAULT_MMS_RATE_CENTS,
   };
 }
 

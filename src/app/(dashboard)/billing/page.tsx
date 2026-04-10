@@ -32,11 +32,11 @@ import {
   CheckCircle2,
   Loader2,
 } from "lucide-react";
+import { DEFAULT_SMS_RATE_CENTS, DEFAULT_MMS_RATE_CENTS } from "@/lib/constants";
 
-// ---------------------------------------------------------------------------
-// Standard rate used for savings percentage display
-// ---------------------------------------------------------------------------
-const STANDARD_RATE = 0.04;
+// Standard rate in dollars — used as baseline to show bundle savings percentage.
+// This is the list price, not org-specific — bundles save vs. this baseline.
+const STANDARD_RATE_DOLLARS = DEFAULT_SMS_RATE_CENTS / 100;
 
 interface MessagingPlan {
   id: string;
@@ -247,7 +247,7 @@ export default function BillingPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-3xl font-bold">
-                  {Number(plan?.smsRateCents || 4) % 1 === 0 ? (plan?.smsRateCents || 4) : Number(plan?.smsRateCents || 4).toFixed(2)}&#162;
+                  {Number(plan?.smsRateCents ?? DEFAULT_SMS_RATE_CENTS) % 1 === 0 ? (plan?.smsRateCents ?? DEFAULT_SMS_RATE_CENTS) : Number(plan?.smsRateCents ?? DEFAULT_SMS_RATE_CENTS).toFixed(2)}&#162;
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
                   per SMS segment
@@ -261,7 +261,7 @@ export default function BillingPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-3xl font-bold">
-                  {Number(plan?.mmsRateCents || 8) % 1 === 0 ? (plan?.mmsRateCents || 8) : Number(plan?.mmsRateCents || 8).toFixed(2)}&#162;
+                  {Number(plan?.mmsRateCents ?? DEFAULT_MMS_RATE_CENTS) % 1 === 0 ? (plan?.mmsRateCents ?? DEFAULT_MMS_RATE_CENTS) : Number(plan?.mmsRateCents ?? DEFAULT_MMS_RATE_CENTS).toFixed(2)}&#162;
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
                   per MMS message
@@ -505,7 +505,7 @@ export default function BillingPage() {
                   ][]
                 ).map(([key, tier]) => {
                   const savingsPct = Math.round(
-                    ((STANDARD_RATE - tier.pricePerMessage) / STANDARD_RATE) *
+                    ((STANDARD_RATE_DOLLARS - tier.pricePerMessage) / STANDARD_RATE_DOLLARS) *
                       100
                   );
                   return (

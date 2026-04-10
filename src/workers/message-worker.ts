@@ -157,8 +157,8 @@ export const messageWorker = new Worker<MessageJobData>(
 
     // Get org rates
     const plan = await db.messagingPlan.findUnique({ where: { orgId } });
-    const smsRate = plan?.smsRateCents || 4;
-    const mmsRate = plan?.mmsRateCents || 8;
+    const smsRate = plan?.smsRateCents ?? 4;
+    const mmsRate = plan?.mmsRateCents ?? 8;
     const costCents = calculateMessageCost(segmentCount, hasMms, smsRate, mmsRate);
 
     const balanceCheck = await checkAndDeductBalance(orgId, costCents);

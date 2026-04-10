@@ -2,13 +2,14 @@
 
 import { requireOrg, requirePermission } from "./auth";
 import { db } from "@/lib/db";
-import { PERMISSIONS } from "@/lib/constants";
+import { PERMISSIONS, DEFAULT_SMS_RATE_CENTS } from "@/lib/constants";
 
 // ---------------------------------------------------------------------------
 // Bundle tier definitions
 // ---------------------------------------------------------------------------
 
-const STANDARD_RATE = 0.04; // $0.04 per message — baseline for savings calc
+// Standard rate in dollars — baseline for bundle savings percentage display
+const STANDARD_RATE = DEFAULT_SMS_RATE_CENTS / 100;
 
 export const BUNDLE_TIERS = {
   starter: {

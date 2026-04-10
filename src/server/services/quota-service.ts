@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { DEFAULT_SMS_RATE_CENTS, DEFAULT_MMS_RATE_CENTS } from "@/lib/constants";
 import Redis from "ioredis";
 
 const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
@@ -33,13 +34,13 @@ interface BalanceCheckResult {
 
 /**
  * Calculate the cost of a message in cents.
- * SMS: 4¢ per segment, MMS: 8¢ flat.
+ * SMS: rate per segment, MMS: flat rate per message.
  */
 export function calculateMessageCost(
   segmentCount: number,
   hasMms: boolean,
-  smsRateCents: number = 4,
-  mmsRateCents: number = 8
+  smsRateCents: number = DEFAULT_SMS_RATE_CENTS,
+  mmsRateCents: number = DEFAULT_MMS_RATE_CENTS
 ): number {
   if (hasMms) {
     return mmsRateCents;

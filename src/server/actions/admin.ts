@@ -4,7 +4,7 @@ import { requireSuperAdmin } from "./auth";
 import { db } from "@/lib/db";
 import { redis } from "@/lib/redis";
 import { syncBalanceToRedis, addCredits, removeCredits } from "@/server/services/quota-service";
-import { MIN_TRANSACTION_CENTS } from "@/lib/constants";
+import { MIN_TRANSACTION_CENTS, DEFAULT_SMS_RATE_CENTS, DEFAULT_MMS_RATE_CENTS } from "@/lib/constants";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
@@ -269,8 +269,8 @@ export async function updateOrgRatesAction(
     update: validated,
     create: {
       orgId,
-      smsRateCents: validated.smsRateCents ?? 4,
-      mmsRateCents: validated.mmsRateCents ?? 8,
+      smsRateCents: validated.smsRateCents ?? DEFAULT_SMS_RATE_CENTS,
+      mmsRateCents: validated.mmsRateCents ?? DEFAULT_MMS_RATE_CENTS,
       phoneNumberFeeCents: validated.phoneNumberFeeCents ?? 500,
     },
   });
@@ -365,8 +365,8 @@ export async function createOrgAction(data: {
       data: {
         orgId: org.id,
         balanceCents: initialCreditsCents,
-        smsRateCents: 4,
-        mmsRateCents: 8,
+        smsRateCents: DEFAULT_SMS_RATE_CENTS,
+        mmsRateCents: DEFAULT_MMS_RATE_CENTS,
       },
     });
 

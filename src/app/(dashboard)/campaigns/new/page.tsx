@@ -816,7 +816,11 @@ export default function NewCampaignPage() {
                       {/* Cost per recipient — visible only to Owner/Admin */}
                       {canViewBilling && (
                         <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                          {(costPerRecipientCents / 100).toFixed(2)}&#162;/msg
+                          {hasMms
+                            ? `${mmsRateCents}¢/MMS`
+                            : segmentCount > 1
+                              ? `${smsRateCents}¢ × ${segmentCount} seg = ${costPerRecipientCents}¢/msg`
+                              : `${smsRateCents}¢/SMS`}
                         </span>
                       )}
                     </div>
@@ -1431,11 +1435,42 @@ export default function NewCampaignPage() {
                 </>
               )}
 
-              <dt className="text-muted-foreground">Segments</dt>
+              <dt className="text-muted-foreground">Message Type</dt>
               <dd>
-                {segmentCount} SMS segment{segmentCount !== 1 ? "s" : ""} per
-                message
+                {hasMms ? (
+                  <Badge variant="outline">MMS</Badge>
+                ) : (
+                  <>
+                    <Badge variant="outline">SMS</Badge>
+                    {" "}{segmentCount} segment{segmentCount !== 1 ? "s" : ""}
+                  </>
+                )}
               </dd>
+
+              {canViewBilling && (
+                <>
+                  <dt className="text-muted-foreground">Cost per Message</dt>
+                  <dd className="font-medium">
+                    {hasMms
+                      ? `${mmsRateCents}¢ (MMS)`
+                      : segmentCount > 1
+                        ? `${costPerRecipientCents}¢ (${smsRateCents}¢ × ${segmentCount} segments)`
+                        : `${smsRateCents}¢ (SMS)`}
+                  </dd>
+
+                  {selectedSegment && (
+                    <>
+                      <dt className="text-muted-foreground">Est. Total Cost</dt>
+                      <dd className="font-medium">
+                        ${((costPerRecipientCents * selectedSegment.contactCount) / 100).toFixed(2)}
+                        <span className="text-muted-foreground font-normal ml-1">
+                          ({selectedSegment.contactCount.toLocaleString()} recipients × {costPerRecipientCents}¢)
+                        </span>
+                      </dd>
+                    </>
+                  )}
+                </>
+              )}
             </dl>
 
             <div className="mt-4">
