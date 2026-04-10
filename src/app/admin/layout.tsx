@@ -20,7 +20,9 @@ import {
   ArrowLeft,
   Menu,
   Settings,
+  LogOut,
 } from "lucide-react";
+import { signOut } from "next-auth/react";
 
 const adminNav = [
   { href: "/admin/orgs", label: "Organizations", icon: Building2 },
@@ -59,7 +61,7 @@ function AdminNavContent({ onNavigate }: { onNavigate?: () => void }) {
         })}
       </nav>
 
-      <div className="p-3 border-t">
+      <div className="p-3 border-t space-y-1">
         <Link
           href="/dashboard"
           onClick={onNavigate}
@@ -68,6 +70,13 @@ function AdminNavContent({ onNavigate }: { onNavigate?: () => void }) {
           <ArrowLeft className="h-4 w-4" />
           Back to Dashboard
         </Link>
+        <button
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-accent w-full"
+        >
+          <LogOut className="h-4 w-4" />
+          Sign Out
+        </button>
       </div>
     </>
   );
