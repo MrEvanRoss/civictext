@@ -2,10 +2,10 @@
  * Create a super admin user for CivicText.
  *
  * Usage:
- *   npx tsx scripts/create-admin.ts <email> <password> <name>
+ *   npx tsx scripts/create-admin.ts <email> <password> [name] [orgName]
  *
  * Example:
- *   npx tsx scripts/create-admin.ts admin@civictext.com MySecurePass123 "Admin User"
+ *   npx tsx scripts/create-admin.ts admin@civictext.com MySecurePass123 "Admin User" "Citizens for Smith 2026"
  */
 
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -16,6 +16,7 @@ import bcrypt from "bcryptjs";
 const email = process.argv[2];
 const password = process.argv[3];
 const name = process.argv[4] || "Super Admin";
+const orgName = process.argv[5] || "CivicText Platform";
 
 if (!process.env.DATABASE_URL) {
   console.error("Error: DATABASE_URL environment variable is required.");
@@ -24,7 +25,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 if (!email || !password) {
-  console.error("Usage: npx tsx scripts/create-admin.ts <email> <password> [name]");
+  console.error("Usage: npx tsx scripts/create-admin.ts <email> <password> [name] [orgName]");
   console.error("Password must be at least 12 characters.");
   process.exit(1);
 }
@@ -49,11 +50,15 @@ async function main() {
 
     const passwordHash = await bcrypt.hash(password, 12);
 
-    // Create a platform org for the admin
+    // Create an org for the admin
+    const slug = orgName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
     const org = await db.organization.create({
       data: {
-        name: "CivicText Platform",
-        slug: "civictext-platform",
+        name: orgName,
+        slug,
       },
     });
 
@@ -84,7 +89,7 @@ async function main() {
     console.log("Super admin created successfully!");
     console.log(`  Email: ${email}`);
     console.log(`  Name:  ${name}`);
-    console.log(`  Org:   CivicText Platform (${org.id})`);
+    console.log(`  Org:   ${orgName} (${org.id})`);
     console.log(`  User:  ${user.id}`);
     console.log("");
     console.log("You can now log in at your app URL.");
