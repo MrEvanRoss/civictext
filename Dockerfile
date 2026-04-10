@@ -31,6 +31,11 @@ ENV DATABASE_URL="postgresql://build:build@localhost:5432/build" \
     NEXT_PUBLIC_APP_URL="http://localhost:3000"
 RUN npm run build
 
+# Remove tsx from standalone output — tsx 4.x uses the deprecated --loader
+# API which crashes on Node v20.20.2. It's only needed at build time for
+# prisma.config.ts, never at runtime.
+RUN rm -rf .next/standalone/node_modules/tsx
+
 # Runtime stage
 FROM node:20-alpine
 
