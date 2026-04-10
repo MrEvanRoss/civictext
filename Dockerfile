@@ -44,8 +44,10 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-# Copy Prisma schema + generated client for runtime migrations
-COPY --from=builder /app/prisma ./prisma
+# Copy Prisma schema + generated client (NOT prisma.config.ts — loading
+# a .ts config at runtime would require tsx, which is incompatible with
+# Node v20.20.2's deprecated --loader API)
+COPY --from=builder /app/prisma/schema.prisma ./prisma/schema.prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
