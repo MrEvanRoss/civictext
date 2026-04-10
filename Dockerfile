@@ -51,11 +51,14 @@ COPY --from=builder /app/prisma/schema.prisma ./prisma/schema.prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-# Purge tsx from runtime — it uses the deprecated --loader API which
-# crashes on modern Node. Search all node_modules locations.
+# Replace tsx with a no-op stub — @prisma/client tries to import tsx
+# at runtime, but we can't let the real tsx load (it crashes). This
+# stub satisfies the import without registering any loader.
 RUN find /app -path "*/node_modules/tsx" -type d -exec rm -rf {} + 2>/dev/null; \
-    find /app -path "*/node_modules/.store/tsx*" -type d -exec rm -rf {} + 2>/dev/null; \
-    echo "tsx purged from runtime image"
+    mkdir -p /app/node_modules/tsx/dist/esm && \
+    echo '{"name":"tsx","version":"0.0.0","type":"module","exports":{".":"./dist/esm/index.mjs","./esm":"./dist/esm/index.mjs"}}' > /app/node_modules/tsx/package.json && \
+    echo 'export default undefined;' > /app/node_modules/tsx/dist/esm/index.mjs && \
+    echo "tsx replaced with no-op stub"
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
