@@ -33,6 +33,25 @@ export async function getBillingOverviewAction() {
   };
 }
 
+/**
+ * Return the org's per-message rates (accessible to anyone in the org).
+ * Used by the campaign wizard to show accurate cost estimates.
+ */
+export async function getOrgMessageRatesAction() {
+  const { session } = await requireOrg();
+  const orgId = session.user.orgId;
+
+  const plan = await db.messagingPlan.findUnique({
+    where: { orgId },
+    select: { smsRateCents: true, mmsRateCents: true },
+  });
+
+  return {
+    smsRateCents: plan?.smsRateCents ?? 4,
+    mmsRateCents: plan?.mmsRateCents ?? 8,
+  };
+}
+
 export async function getUsageLedgerAction(opts?: { page?: number }) {
   await requirePermission(PERMISSIONS.BILLING_VIEW);
   const { session } = await requireOrg();

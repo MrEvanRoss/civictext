@@ -38,6 +38,7 @@ import { countSegments, hasUnicodeChars, getRemainingChars } from "@/lib/sms-uti
 import { formatTime } from "@/lib/date-utils";
 import { MapPin } from "lucide-react";
 import { DEFAULT_SMS_RATE_CENTS, DEFAULT_MMS_RATE_CENTS } from "@/lib/constants";
+import { getOrgMessageRatesAction } from "@/server/actions/billing";
 
 // Matches https://, http://, www., and bare domain URLs (e.g. google.com, example.org/path)
 const URL_REGEX = /(?:https?:\/\/[^\s]+|(?:www\.)[^\s]+|[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.(?:com|org|net|gov|edu|io|co|us|info|biz|me|app|dev|xyz|tv|ai|news|site|store|tech|online|shop|club|pro|page|link)(?:\/[^\s]*)?)/gi;
@@ -151,6 +152,10 @@ export default function NewCampaignPage() {
 
   const WIZARD_STEPS = type === "P2P" ? WIZARD_STEPS_P2P : WIZARD_STEPS_DEFAULT;
 
+  // Org-specific message rates
+  const [smsRateCents, setSmsRateCents] = useState(DEFAULT_SMS_RATE_CENTS);
+  const [mmsRateCents, setMmsRateCents] = useState(DEFAULT_MMS_RATE_CENTS);
+
   // Textarea ref for cursor-position merge field insertion
   const messageTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [showMergeDropdown, setShowMergeDropdown] = useState(false);
@@ -203,6 +208,7 @@ export default function NewCampaignPage() {
     loadAllowedTypes();
     loadTeamMembers();
     loadInterestLists();
+    loadOrgRates();
   }, []);
 
   // Load polling location count when GOTV is selected
@@ -248,6 +254,16 @@ export default function NewCampaignPage() {
     }
   }
 
+  async function loadOrgRates() {
+    try {
+      const rates = await getOrgMessageRatesAction();
+      setSmsRateCents(rates.smsRateCents);
+      setMmsRateCents(rates.mmsRateCents);
+    } catch {
+      // Fall back to defaults already set in state
+    }
+  }
+
   const visibleCampaignTypes = CAMPAIGN_TYPES.filter(
     (ct) => allowedTypes.length === 0 || allowedTypes.includes(ct.value)
   );
@@ -258,8 +274,8 @@ export default function NewCampaignPage() {
   const remaining = getRemainingChars(messageBody);
   const hasMms = !!mediaUrl;
   const costPerRecipientCents = hasMms
-    ? DEFAULT_MMS_RATE_CENTS
-    : segmentCount * DEFAULT_SMS_RATE_CENTS;
+    ? mmsRateCents
+    : segmentCount * smsRateCents;
 
   function canProceed(): boolean {
     switch (step) {
