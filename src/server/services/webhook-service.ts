@@ -1,5 +1,23 @@
 import { db } from "@/lib/db";
+import { logger } from "@/lib/logger";
 import crypto from "crypto";
+
+const WEBHOOK_FAIL_THRESHOLD = 10;
+
+/**
+ * Atomically increment fail count and disable the endpoint if the
+ * threshold is reached — single DB round-trip to avoid read-after-update races.
+ */
+async function recordWebhookFailure(endpointId: string, errorMessage: string) {
+  await db.$executeRaw`
+    UPDATE "WebhookEndpoint"
+    SET
+      "failCount" = "failCount" + 1,
+      "lastError" = ${errorMessage},
+      "isActive" = CASE WHEN "failCount" + 1 >= ${WEBHOOK_FAIL_THRESHOLD} THEN false ELSE "isActive" END
+    WHERE "id" = ${endpointId}
+  `;
+}
 
 export type WebhookEvent =
   | "message.sent"
@@ -74,20 +92,7 @@ async function deliverWebhook(
       })
         .then(async (res) => {
           if (!res.ok) {
-            // Atomically increment failCount and disable if threshold reached
-            const updated = await db.webhookEndpoint.update({
-              where: { id: endpoint.id },
-              data: {
-                failCount: { increment: 1 },
-                lastError: `HTTP ${res.status}`,
-              },
-            });
-            if (updated.failCount >= 10) {
-              await db.webhookEndpoint.update({
-                where: { id: endpoint.id },
-                data: { isActive: false },
-              });
-            }
+            await recordWebhookFailure(endpoint.id, `HTTP ${res.status}`);
           } else if (endpoint.failCount > 0) {
             await db.webhookEndpoint.update({
               where: { id: endpoint.id },
@@ -97,25 +102,16 @@ async function deliverWebhook(
         })
         .catch(async (err) => {
           try {
-            const updated = await db.webhookEndpoint.update({
-              where: { id: endpoint.id },
-              data: {
-                failCount: { increment: 1 },
-                lastError: err instanceof Error ? err.message : "Unknown error",
-              },
-            });
-            if (updated.failCount >= 10) {
-              await db.webhookEndpoint.update({
-                where: { id: endpoint.id },
-                data: { isActive: false },
-              });
-            }
+            await recordWebhookFailure(
+              endpoint.id,
+              err instanceof Error ? err.message : "Unknown error"
+            );
           } catch (dbErr) {
-            console.error("[WEBHOOK] Failed to update fail count:", dbErr);
+            logger.error("Failed to update webhook fail count", { endpointId: endpoint.id, error: dbErr instanceof Error ? dbErr.message : String(dbErr) });
           }
         });
     }
   } catch (err) {
-    console.error("[WEBHOOK] Failed to dispatch:", err);
+    logger.error("Failed to dispatch webhook", { orgId, event, error: err instanceof Error ? err.message : String(err) });
   }
 }

@@ -1,5 +1,6 @@
 import { Worker, Queue, type Job } from "bullmq";
 import { db } from "@/lib/db";
+import { logger } from "@/lib/logger";
 import { getOrgClient } from "@/lib/twilio";
 import { renderMergeFields, type GotvContext } from "@/server/services/campaign-service";
 import { checkAndDeductBalance, calculateMessageCost, syncBalanceToRedis } from "@/server/services/quota-service";
@@ -657,7 +658,7 @@ export const billingWorker = new Worker(
         await syncBalanceToRedis(pn.orgId);
         charged++;
       } else {
-        console.warn(`[BILLING] Insufficient balance for phone ${pn.phoneNumber} (org ${pn.orgId}). Need ${feeCents}¢, have ${plan.balanceCents}¢`);
+        logger.warn("Insufficient balance for phone billing", { phone: pn.phoneNumber, orgId: pn.orgId, required: feeCents, available: plan.balanceCents });
         skipped++;
       }
     }
@@ -681,15 +682,15 @@ billingQueue.add(
 
 // Error handling
 messageWorker.on("failed", (job, err) => {
-  console.error(`Message job ${job?.id} failed:`, err instanceof Error ? err.message : err);
+  logger.error("Message job failed", { jobId: job?.id, error: err instanceof Error ? err.message : String(err) });
 });
 
 campaignWorker.on("failed", (job, err) => {
-  console.error(`Campaign job ${job?.id} failed:`, err instanceof Error ? err.message : err);
+  logger.error("Campaign job failed", { jobId: job?.id, error: err instanceof Error ? err.message : String(err) });
 });
 
 billingWorker.on("failed", (job, err) => {
-  console.error(`Billing job ${job?.id} failed:`, err instanceof Error ? err.message : err);
+  logger.error("Billing job failed", { jobId: job?.id, error: err instanceof Error ? err.message : String(err) });
 });
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -697,4 +698,4 @@ messageWorker.on("completed", (_job) => {
   // Logged via job.log
 });
 
-console.info("Message, campaign, and billing workers started");
+logger.info("Message, campaign, and billing workers started");

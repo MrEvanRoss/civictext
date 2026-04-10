@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useDebounce } from "@/hooks/use-debounce";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,6 +54,7 @@ export default function TemplatesPage() {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [category, setCategory] = useState("all");
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [error, setError] = useState("");
 
   // Create form
@@ -66,7 +68,7 @@ export default function TemplatesPage() {
     try {
       const data = await listTemplatesAction({
         category: category !== "all" ? category : undefined,
-        search: search || undefined,
+        search: debouncedSearch || undefined,
       });
       setTemplates(data);
     } catch (err: unknown) {
@@ -74,7 +76,7 @@ export default function TemplatesPage() {
     } finally {
       setLoading(false);
     }
-  }, [category, search]);
+  }, [category, debouncedSearch]);
 
   useEffect(() => {
     loadTemplates();

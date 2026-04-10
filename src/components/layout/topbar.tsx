@@ -53,7 +53,8 @@ function Breadcrumbs() {
   const segments = pathname.split("/").filter(Boolean);
 
   // Skip UUID-like segments for display
-  const isUuid = (s: string) => /^[0-9a-f-]{20,}$/i.test(s);
+  const isUuid = (s: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
   return (
     <div className="flex items-center gap-1 text-sm text-muted-foreground">

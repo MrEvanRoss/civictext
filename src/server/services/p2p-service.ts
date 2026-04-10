@@ -116,12 +116,15 @@ export async function assignContactsToAgents(
  * Returns the next PENDING assignments for an agent.
  * Merge fields are pre-rendered for each contact.
  */
+const MAX_P2P_BATCH_SIZE = 50;
+
 export async function getNextBatch(
   orgId: string,
   campaignId: string,
   agentUserId: string,
   batchSize: number = 1
 ) {
+  batchSize = Math.max(1, Math.min(batchSize, MAX_P2P_BATCH_SIZE));
   const campaign = await db.campaign.findFirst({
     where: { id: campaignId, orgId, type: "P2P" },
     include: { org: true },

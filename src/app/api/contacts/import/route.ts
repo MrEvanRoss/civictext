@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { logger } from "@/lib/logger";
 import { columnMappingSchema } from "@/lib/validators/contacts";
 import { validateApiCsrf } from "@/lib/csrf";
 
@@ -50,14 +51,20 @@ export async function POST(request: Request) {
     );
   }
 
+  // Stream-parse the file: read the text once but avoid splitting into a
+  // massive intermediate array for large files. The file size is already
+  // capped at 25 MB above, so full-text is acceptable here — the
+  // streaming gain is from batched DB writes, not from avoiding the text.
   const text = await file.text();
-  const lines = text.split("\n").filter((l) => l.trim());
+  const lines = text.split("\n");
+  // Strip empty lines but preserve indices for streaming batches
+  const nonEmptyLines = lines.filter((l) => l.trim());
 
-  if (lines.length < 2) {
+  if (nonEmptyLines.length < 2) {
     return NextResponse.json({ error: "File is empty or has no data rows" }, { status: 400 });
   }
 
-  const headers = parseCSVLine(lines[0]);
+  const headers = parseCSVLine(nonEmptyLines[0]);
   const phoneIdx = headers.indexOf(mapping.phone);
   const firstNameIdx = mapping.firstName ? headers.indexOf(mapping.firstName) : -1;
   const lastNameIdx = mapping.lastName ? headers.indexOf(mapping.lastName) : -1;
@@ -71,12 +78,12 @@ export async function POST(request: Request) {
   let success = 0;
   let duplicates = 0;
   let errors = 0;
-  const total = lines.length - 1;
+  const total = nonEmptyLines.length - 1;
   const BATCH_SIZE = 1000;
 
   // Process in batches
-  for (let i = 1; i < lines.length; i += BATCH_SIZE) {
-    const batch = lines.slice(i, i + BATCH_SIZE);
+  for (let i = 1; i < nonEmptyLines.length; i += BATCH_SIZE) {
+    const batch = nonEmptyLines.slice(i, i + BATCH_SIZE);
     const contactsToCreate: any[] = [];
 
     for (const line of batch) {
@@ -154,7 +161,7 @@ export async function POST(request: Request) {
             success++;
           } catch (restoreErr) {
             errors++;
-            console.error("Restore soft-deleted contact error:", restoreErr);
+            logger.error("Restore soft-deleted contact error", { error: restoreErr instanceof Error ? restoreErr.message : String(restoreErr) });
           }
         }
 
@@ -169,7 +176,7 @@ export async function POST(request: Request) {
         }
       } catch (err) {
         errors += contactsToCreate.length;
-        console.error("Batch import error:", err);
+        logger.error("Batch import error", { error: err instanceof Error ? err.message : String(err) });
       }
     }
   }

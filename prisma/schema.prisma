@@ -381,6 +381,7 @@ model ContactNote {
   authorId  String
   body      String
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
@@ -595,6 +596,7 @@ model ConversationNote {
   authorId       String
   body           String
   createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relations
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)

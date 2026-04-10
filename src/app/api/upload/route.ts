@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
@@ -27,6 +28,26 @@ const EXTENSION_MAP: Record<string, string> = {
   "video/mp4": ".mp4",
   "video/3gpp": ".3gp",
 };
+
+// Magic byte signatures for server-side file type validation
+const MAGIC_BYTES: { type: string; bytes: number[]; offset?: number }[] = [
+  { type: "image/jpeg", bytes: [0xff, 0xd8, 0xff] },
+  { type: "image/png", bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] },
+  { type: "image/gif", bytes: [0x47, 0x49, 0x46, 0x38] }, // GIF8
+  { type: "image/webp", bytes: [0x57, 0x45, 0x42, 0x50], offset: 8 }, // WEBP at offset 8
+  { type: "video/mp4", bytes: [0x66, 0x74, 0x79, 0x70], offset: 4 }, // ftyp at offset 4
+  { type: "video/3gpp", bytes: [0x66, 0x74, 0x79, 0x70, 0x33, 0x67], offset: 4 }, // ftyp3g
+];
+
+function validateMagicBytes(buffer: Buffer, declaredType: string): boolean {
+  const candidates = MAGIC_BYTES.filter((m) => m.type === declaredType);
+  if (candidates.length === 0) return false;
+  return candidates.some((m) => {
+    const offset = m.offset ?? 0;
+    if (buffer.length < offset + m.bytes.length) return false;
+    return m.bytes.every((b, i) => buffer[offset + i] === b);
+  });
+}
 
 export async function POST(request: Request) {
   const csrfError = await validateApiCsrf(request);
@@ -85,6 +106,15 @@ export async function POST(request: Request) {
 
     // Write file to disk
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    // Validate magic bytes match declared MIME type
+    if (!validateMagicBytes(buffer, file.type)) {
+      return NextResponse.json(
+        { error: "File content does not match declared type. Upload rejected." },
+        { status: 400 }
+      );
+    }
+
     const filePath = path.join(uploadsDir, filename);
     await writeFile(filePath, buffer);
 
@@ -100,7 +130,7 @@ export async function POST(request: Request) {
       type: file.type,
     });
   } catch (err: unknown) {
-    console.error("Upload error:", err);
+    logger.error("Upload error", { error: err instanceof Error ? err.message : String(err) });
     return NextResponse.json(
       { error: "Upload failed" },
       { status: 500 }

@@ -1,5 +1,6 @@
 import { Worker, Queue, type Job } from "bullmq";
 import { db } from "@/lib/db";
+import { logger } from "@/lib/logger";
 import IORedis from "ioredis";
 
 const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
@@ -220,6 +221,16 @@ export const flowWorker = new Worker<ExecuteStepJobData>(
             break;
           }
 
+          // Verify the list belongs to this org
+          const targetList = await db.interestList.findFirst({
+            where: { id: listId, orgId },
+            select: { id: true },
+          });
+          if (!targetList) {
+            await job.log(`ADD_TO_LIST: list ${listId} not found in org ${orgId}, skipping.`);
+            break;
+          }
+
           // Upsert membership (idempotent)
           const existing = await db.interestListMember.findUnique({
             where: {
@@ -254,6 +265,16 @@ export const flowWorker = new Worker<ExecuteStepJobData>(
           const listId = config.listId || config.interestListId;
           if (!listId) {
             await job.log("REMOVE_FROM_LIST: no listId specified, skipping.");
+            break;
+          }
+
+          // Verify the list belongs to this org
+          const removeTargetList = await db.interestList.findFirst({
+            where: { id: listId, orgId },
+            select: { id: true },
+          });
+          if (!removeTargetList) {
+            await job.log(`REMOVE_FROM_LIST: list ${listId} not found in org ${orgId}, skipping.`);
             break;
           }
 
@@ -489,11 +510,11 @@ flowWorker.on("failed", (job, err) => {
         data: { status: "FAILED", completedAt: new Date() },
       })
       .catch((e) => {
-        console.error(`Failed to mark execution ${executionId} as FAILED:`, e instanceof Error ? e.message : e);
+        logger.error("Failed to mark execution as FAILED", { executionId, error: e instanceof Error ? e.message : String(e) });
       });
-    console.error(`Flow job ${job.id} permanently failed after ${job.attemptsMade} attempts:`, err instanceof Error ? err.message : err);
+    logger.error("Flow job permanently failed", { jobId: job.id, attempts: job.attemptsMade, error: err instanceof Error ? err.message : String(err) });
   } else {
-    console.error(`Flow job ${job?.id} failed (attempt ${job?.attemptsMade}):`, err instanceof Error ? err.message : err);
+    logger.warn("Flow job failed, will retry", { jobId: job?.id, attempt: job?.attemptsMade, error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -501,4 +522,4 @@ flowWorker.on("completed", (_job) => {
   // Logged via job.log
 });
 
-console.info("Flow worker started");
+logger.info("Flow worker started");

@@ -459,3 +459,48 @@ export function countSegments(message: string): number {
   }
   return len <= 160 ? 1 : Math.ceil(len / 153);
 }
+
+/**
+ * Recover stale campaigns that have been stuck in SENDING status.
+ * A campaign is considered stale if it has been in SENDING for more than
+ * the specified threshold with no new messages created.
+ *
+ * Call this from a periodic cron/worker job.
+ */
+export async function recoverStaleCampaigns(staleThresholdMinutes: number = 60) {
+  const threshold = new Date(Date.now() - staleThresholdMinutes * 60 * 1000);
+
+  const staleCampaigns = await db.campaign.findMany({
+    where: {
+      status: "SENDING",
+      startedAt: { lt: threshold },
+    },
+    select: {
+      id: true,
+      orgId: true,
+      name: true,
+      totalRecipients: true,
+      startedAt: true,
+      _count: { select: { messages: true } },
+    },
+  });
+
+  const recovered: string[] = [];
+
+  for (const campaign of staleCampaigns) {
+    // If all messages have been processed, mark completed
+    const sentCount = campaign._count.messages;
+    if (sentCount >= (campaign.totalRecipients || 0)) {
+      await db.campaign.update({
+        where: { id: campaign.id },
+        data: { status: "COMPLETED", completedAt: new Date() },
+      });
+      recovered.push(campaign.id);
+      console.info(
+        `[CAMPAIGN RECOVERY] Completed stale campaign ${campaign.id} (${campaign.name}) — ${sentCount}/${campaign.totalRecipients} messages`
+      );
+    }
+  }
+
+  return { checked: staleCampaigns.length, recovered: recovered.length };
+}

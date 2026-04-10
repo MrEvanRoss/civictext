@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useDebounce } from "@/hooks/use-debounce";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -428,14 +429,15 @@ export default function InboxPage() {
 
   const contact = thread?.conversation?.contact;
 
-  // Filter conversations by search query
-  const filteredConversations = conversations.filter((conv) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
+  // Filter conversations by search query (debounced)
+  const debouncedSearch = useDebounce(searchQuery, 300);
+  const filteredConversations = useMemo(() => conversations.filter((conv) => {
+    if (!debouncedSearch) return true;
+    const q = debouncedSearch.toLowerCase();
     const name = getContactName(conv.contact).toLowerCase();
     const phone = conv.contact?.phone?.toLowerCase() || "";
     return name.includes(q) || phone.includes(q);
-  });
+  }), [conversations, debouncedSearch]);
 
   // Mobile: show thread if selected
   const mobileShowThread = !!selectedId;
