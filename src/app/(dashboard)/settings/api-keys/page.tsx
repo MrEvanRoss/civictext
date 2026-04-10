@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -175,14 +176,18 @@ export default function ApiKeysPage() {
     }
   }
 
-  function copyKey() {
+  async function copyKey() {
     if (!revealedKey) return;
-    navigator.clipboard.writeText(revealedKey);
-    setCopiedKey(true);
-    if (copiedKeyTimeoutRef.current) {
-      clearTimeout(copiedKeyTimeoutRef.current);
+    try {
+      await navigator.clipboard.writeText(revealedKey);
+      setCopiedKey(true);
+      if (copiedKeyTimeoutRef.current) {
+        clearTimeout(copiedKeyTimeoutRef.current);
+      }
+      copiedKeyTimeoutRef.current = setTimeout(() => setCopiedKey(false), 2000);
+    } catch {
+      toast.error("Failed to copy to clipboard");
     }
-    copiedKeyTimeoutRef.current = setTimeout(() => setCopiedKey(false), 2000);
   }
 
   return (

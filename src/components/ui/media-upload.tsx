@@ -43,6 +43,7 @@ export function MediaUpload({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  const dragCounterRef = useRef(0);
   const [preview, setPreview] = useState<{
     url: string;
     type: string;
@@ -118,6 +119,7 @@ export function MediaUpload({
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
+      dragCounterRef.current = 0;
       setDragOver(false);
       const file = e.dataTransfer.files?.[0];
       if (file) uploadFile(file);
@@ -125,14 +127,22 @@ export function MediaUpload({
     [uploadFile]
   );
 
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current++;
+    setDragOver(true);
+  }, []);
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    setDragOver(true);
   }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    setDragOver(false);
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setDragOver(false);
+    }
   }, []);
 
   const handleRemove = useCallback(() => {
@@ -247,6 +257,7 @@ export function MediaUpload({
       />
       <div
         onDrop={handleDrop}
+        onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onClick={() => fileInputRef.current?.click()}

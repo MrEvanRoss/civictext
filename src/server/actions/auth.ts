@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import type { UserRole } from "@prisma/client";
 import { cookies, headers } from "next/headers";
+import { verifyCookieValue } from "@/lib/cookie-signing";
 
 // ---------------------------------------------------------------------------
 // CSRF origin validation (defense-in-depth)
@@ -62,8 +63,8 @@ async function getImpersonationState() {
     const impersonateCookie = cookieStore.get("civictext_impersonate");
     if (!impersonateCookie?.value) return null;
 
-    const state = JSON.parse(impersonateCookie.value);
-    if (state.targetOrgId && state.targetUserId) {
+    const state = verifyCookieValue<Record<string, string>>(impersonateCookie.value);
+    if (state?.targetOrgId && state.targetUserId) {
       // Re-verify the original admin still has superadmin privileges
       const adminUser = await db.user.findUnique({
         where: { id: state.adminId },
@@ -110,7 +111,7 @@ export async function requireOrg() {
       _adminId: string;
     };
     user.orgId = impersonation.targetOrgId;
-    user.role = impersonation.targetRole || "OWNER";
+    user.role = (impersonation.targetRole || "OWNER") as UserRole;
     user._impersonating = true;
     user._adminId = impersonation.adminId;
   }

@@ -191,15 +191,19 @@ function SecuritySettingsContent() {
   }
 
   // ---- Helpers ----
-  function copyBackupCodes() {
+  async function copyBackupCodes() {
     const text = backupCodes.join("\n");
-    navigator.clipboard.writeText(text);
-    setCopiedCodes(true);
-    toast.success("Backup codes copied to clipboard");
-    if (copiedCodesTimeoutRef.current) {
-      clearTimeout(copiedCodesTimeoutRef.current);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedCodes(true);
+      toast.success("Backup codes copied to clipboard");
+      if (copiedCodesTimeoutRef.current) {
+        clearTimeout(copiedCodesTimeoutRef.current);
+      }
+      copiedCodesTimeoutRef.current = setTimeout(() => setCopiedCodes(false), 2000);
+    } catch {
+      toast.error("Failed to copy to clipboard");
     }
-    copiedCodesTimeoutRef.current = setTimeout(() => setCopiedCodes(false), 2000);
   }
 
   function downloadBackupCodes() {
@@ -382,9 +386,13 @@ function SecuritySettingsContent() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => {
-                    navigator.clipboard.writeText(setupSecret);
-                    toast.success("Secret copied");
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(setupSecret);
+                      toast.success("Secret copied");
+                    } catch {
+                      toast.error("Failed to copy");
+                    }
                   }}
                   className="shrink-0"
                   aria-label="Copy secret key"

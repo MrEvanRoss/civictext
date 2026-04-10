@@ -98,7 +98,8 @@ export async function POST(request: Request) {
     });
   }
 
-  const normalizedBody = body.toUpperCase().trim();
+  // Normalize: uppercase, trim, strip punctuation for keyword matching (TCPA compliance)
+  const normalizedBody = body.toUpperCase().trim().replace(/[^A-Z\s]/g, "").trim();
 
   try {
     // === OPT-OUT CHECK (must process within 1 second per TCPA) ===

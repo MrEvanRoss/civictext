@@ -49,7 +49,7 @@ async function main() {
       data: {
         name: "CivicText Platform",
         slug: "civictext-admin",
-        orgType: "platform",
+        orgType: "political", // admin org uses a valid orgType
         status: "ACTIVE",
       },
     });

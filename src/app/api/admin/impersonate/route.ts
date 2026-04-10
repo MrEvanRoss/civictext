@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { rateLimit } from "@/lib/rate-limit";
+import { signCookieValue } from "@/lib/cookie-signing";
 
 /**
  * Admin impersonation endpoint.
@@ -56,7 +57,7 @@ export async function GET(request: Request) {
 
   // Store the impersonation state in a cookie
   const cookieStore = await cookies();
-  cookieStore.set("civictext_impersonate", JSON.stringify({
+  cookieStore.set("civictext_impersonate", signCookieValue({
     adminId: session.user.id,
     adminOrgId: session.user.orgId,
     targetUserId: targetUser.id,
@@ -66,7 +67,7 @@ export async function GET(request: Request) {
   }), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "strict",
     maxAge: 60 * 60 * 2, // 2 hours
     path: "/",
   });

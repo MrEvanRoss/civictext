@@ -1,6 +1,7 @@
 import type { NextAuthConfig } from "next-auth";
 import type { UserRole } from "@prisma/client";
 import { cookies } from "next/headers";
+import { verifyCookieValue } from "@/lib/cookie-signing";
 
 /**
  * Validate impersonation cookie structure and expiry (edge-safe, no DB).
@@ -12,10 +13,10 @@ async function validateImpersonationCookie(): Promise<boolean> {
     const cookie = cookieStore.get("civictext_impersonate");
     if (!cookie?.value) return true; // No cookie → nothing to validate
 
-    const state = JSON.parse(cookie.value);
+    const state = verifyCookieValue<Record<string, string>>(cookie.value);
 
-    // Structural validation
-    if (!state.adminId || !state.targetOrgId || !state.targetUserId || !state.startedAt) {
+    // Signature invalid or tampered
+    if (!state || !state.adminId || !state.targetOrgId || !state.targetUserId || !state.startedAt) {
       cookieStore.delete("civictext_impersonate");
       return false;
     }

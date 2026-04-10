@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -196,14 +197,18 @@ export default function WebhooksPage() {
     }
   }
 
-  function copySecret() {
+  async function copySecret() {
     if (!revealedSecret) return;
-    navigator.clipboard.writeText(revealedSecret);
-    setCopiedSecret(true);
-    if (copiedSecretTimeoutRef.current) {
-      clearTimeout(copiedSecretTimeoutRef.current);
+    try {
+      await navigator.clipboard.writeText(revealedSecret);
+      setCopiedSecret(true);
+      if (copiedSecretTimeoutRef.current) {
+        clearTimeout(copiedSecretTimeoutRef.current);
+      }
+      copiedSecretTimeoutRef.current = setTimeout(() => setCopiedSecret(false), 2000);
+    } catch {
+      toast.error("Failed to copy to clipboard");
     }
-    copiedSecretTimeoutRef.current = setTimeout(() => setCopiedSecret(false), 2000);
   }
 
   function eventCategory(event: string): string {
