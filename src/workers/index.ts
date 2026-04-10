@@ -3,7 +3,7 @@
  * Starts all background workers for CivicText.
  */
 
-console.info("CivicText workers starting...");
+console.info("CivicText workers v2 starting (esbuild, no tsx)...");
 
 // Import workers (they self-register on import)
 import("./message-worker")

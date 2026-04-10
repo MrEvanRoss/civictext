@@ -1,5 +1,8 @@
-# Build stage
+# Build stage — v2 (esbuild pre-compilation, no tsx runtime)
 FROM node:20-alpine AS builder
+
+# Cache-bust: forces Railway to rebuild all layers below
+ARG CACHE_BUST=2026-04-10
 
 WORKDIR /app
 
