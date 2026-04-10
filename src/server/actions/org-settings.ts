@@ -26,8 +26,7 @@ const orgSettingsSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/, "Invalid hex color")
     .optional()
     .nullable(),
-  // Branding
-  logoUrl: z.string().max(500).optional().nullable(),
+  // Note: logoUrl is managed separately via updateOrgLogoAction
 });
 
 export type OrgSettings = z.infer<typeof orgSettingsSchema>;
@@ -148,7 +147,7 @@ export async function updateOrgSettingsAction(settings: OrgSettings) {
       optOutMessage: validated.optOutMessage ?? null,
       messageSignature: validated.messageSignature ?? null,
       accentColor: validated.accentColor ?? null,
-      logoUrl: validated.logoUrl ?? null,
+      // logoUrl is intentionally NOT set here — it's managed by updateOrgLogoAction
     },
   });
 

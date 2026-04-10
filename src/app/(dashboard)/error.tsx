@@ -24,8 +24,6 @@ export default function DashboardError({
     console.error("Dashboard error:", error);
   }, [error]);
 
-  const isDev = process.env.NODE_ENV === "development";
-
   return (
     <div className="flex min-h-[60vh] items-center justify-center p-4">
       <Card className="w-full max-w-md">
@@ -35,15 +33,15 @@ export default function DashboardError({
           </div>
           <CardTitle>Something went wrong</CardTitle>
           <CardDescription>
-            {isDev
+            {error.message && error.message !== "An error occurred in the Server Components render."
               ? error.message
               : "An unexpected error occurred. Please try again or return to the dashboard."}
           </CardDescription>
         </CardHeader>
-        {isDev && error.digest && (
+        {error.digest && (
           <CardContent>
             <p className="text-xs text-muted-foreground">
-              Error digest: {error.digest}
+              Error ID: {error.digest}
             </p>
           </CardContent>
         )}

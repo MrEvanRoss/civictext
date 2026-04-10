@@ -63,9 +63,16 @@ export async function listCampaignsAction(filter: Partial<CampaignFilter>) {
 }
 
 export async function getCampaignAction(campaignId: string) {
-  const { session } = await requireOrg();
-  const orgId = session.user.orgId;
-  return getCampaign(orgId, campaignId);
+  try {
+    const { session } = await requireOrg();
+    const orgId = session.user.orgId;
+    return await getCampaign(orgId, campaignId);
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error ? err.message : "Failed to load campaign";
+    console.error("[getCampaignAction]", message, err);
+    throw new Error(message);
+  }
 }
 
 export async function getCampaignStatsAction(campaignId: string) {
@@ -75,20 +82,37 @@ export async function getCampaignStatsAction(campaignId: string) {
 }
 
 export async function createCampaignAction(input: CreateCampaignInput) {
-  await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
-  const { session } = await requireOrg();
-  const orgId = session.user.orgId;
-  const userId = session.user.id;
-  const validated = createCampaignSchema.parse(input);
-  return createCampaign(orgId, userId, validated);
+  try {
+    await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
+    const { session } = await requireOrg();
+    const orgId = session.user.orgId;
+    const userId = session.user.id;
+    const validated = createCampaignSchema.parse(input);
+    return await createCampaign(orgId, userId, validated);
+  } catch (err: unknown) {
+    // Re-throw as a plain Error so Next.js can serialize it across the
+    // server→client boundary.  Complex error objects (ZodError, PrismaClientKnownRequestError)
+    // can fail serialization and produce the generic "Server Components render" error.
+    const message =
+      err instanceof Error ? err.message : "Failed to create campaign";
+    console.error("[createCampaignAction]", message, err);
+    throw new Error(message);
+  }
 }
 
 export async function updateCampaignAction(input: UpdateCampaignInput) {
-  await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
-  const { session } = await requireOrg();
-  const orgId = session.user.orgId;
-  const validated = updateCampaignSchema.parse(input);
-  return updateCampaign(orgId, validated);
+  try {
+    await requirePermission(PERMISSIONS.CAMPAIGN_CREATE);
+    const { session } = await requireOrg();
+    const orgId = session.user.orgId;
+    const validated = updateCampaignSchema.parse(input);
+    return await updateCampaign(orgId, validated);
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error ? err.message : "Failed to update campaign";
+    console.error("[updateCampaignAction]", message, err);
+    throw new Error(message);
+  }
 }
 
 export async function changeCampaignStatusAction(
