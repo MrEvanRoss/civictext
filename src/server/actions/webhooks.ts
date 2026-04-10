@@ -82,7 +82,3 @@ export async function toggleWebhookAction(webhookId: string) {
     data: { isActive: !endpoint.isActive, failCount: 0, lastError: null },
   });
 }
-
-export async function getAvailableEvents() {
-  return VALID_EVENTS;
-}

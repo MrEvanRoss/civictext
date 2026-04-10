@@ -16,8 +16,9 @@ import QRCode from "qrcode";
  * Called from the login page before signIn().
  */
 export async function preAuthenticateAction(email: string, password: string) {
+  const normalizedEmail = email.toLowerCase().trim();
   const user = await db.user.findUnique({
-    where: { email },
+    where: { email: normalizedEmail },
     select: {
       id: true,
       passwordHash: true,

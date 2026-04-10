@@ -68,8 +68,9 @@ export async function addTeamMemberAction(data: {
     throw new Error("You cannot assign a role equal to or higher than your own");
   }
 
-  // Check if email already exists
-  const existing = await db.user.findUnique({ where: { email: validated.email } });
+  // Check if email already exists (case-insensitive)
+  const normalizedEmail = validated.email.toLowerCase().trim();
+  const existing = await db.user.findUnique({ where: { email: normalizedEmail } });
   if (existing) {
     throw new Error("A user with that email already exists");
   }
@@ -78,7 +79,7 @@ export async function addTeamMemberAction(data: {
 
   const user = await db.user.create({
     data: {
-      email: validated.email,
+      email: normalizedEmail,
       passwordHash,
       name: validated.name,
       orgId,
@@ -178,8 +179,9 @@ export async function adminAddUserToOrgAction(data: {
   await requireSuperAdmin();
 
   const validated = adminAddUserSchema.parse(data);
+  const adminNormalizedEmail = validated.email.toLowerCase().trim();
 
-  const existing = await db.user.findUnique({ where: { email: validated.email } });
+  const existing = await db.user.findUnique({ where: { email: adminNormalizedEmail } });
   if (existing) {
     throw new Error("A user with that email already exists");
   }
@@ -193,7 +195,7 @@ export async function adminAddUserToOrgAction(data: {
 
   const user = await db.user.create({
     data: {
-      email: validated.email,
+      email: adminNormalizedEmail,
       passwordHash,
       name: validated.name,
       orgId: validated.orgId,

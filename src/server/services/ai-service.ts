@@ -1,11 +1,9 @@
 import OpenAI from "openai";
 
-const PLACEHOLDER_RESPONSE = [
-  "AI generation requires an OpenAI API key. Please add OPENAI_API_KEY to your environment variables.",
-];
-
-function getClient(): OpenAI | null {
-  if (!process.env.OPENAI_API_KEY) return null;
+function getClient(): OpenAI {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("AI features require an OpenAI API key. Ask your administrator to add OPENAI_API_KEY in the environment settings.");
+  }
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 }
 
@@ -51,7 +49,6 @@ export async function generateCampaignMessage(
   orgContext?: string
 ): Promise<string[]> {
   const client = getClient();
-  if (!client) return PLACEHOLDER_RESPONSE;
 
   try {
     const userPrompt = [
@@ -93,9 +90,9 @@ export async function generateCampaignMessage(
 
     // Truncate each variant to maxLength
     return variants.map((v) => (v.length > maxLength ? v.slice(0, maxLength) : v));
-  } catch (error: any) {
+  } catch (error) {
     console.error("AI generation error:", error);
-    return [`AI generation failed: ${error.message || "Unknown error"}`];
+    throw new Error(`AI generation failed: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
 }
 
@@ -107,7 +104,6 @@ export async function suggestReplies(
   contactInfo?: { firstName?: string }
 ): Promise<string[]> {
   const client = getClient();
-  if (!client) return PLACEHOLDER_RESPONSE;
 
   try {
     const historyText = conversationHistory
@@ -153,9 +149,9 @@ export async function suggestReplies(
     }
 
     return suggestions;
-  } catch (error: any) {
+  } catch (error) {
     console.error("AI suggestion error:", error);
-    return [`AI suggestion failed: ${error.message || "Unknown error"}`];
+    throw new Error(`AI suggestion failed: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
 }
 
@@ -167,7 +163,6 @@ export async function improveMessage(
   instruction: string
 ): Promise<string> {
   const client = getClient();
-  if (!client) return PLACEHOLDER_RESPONSE[0];
 
   try {
     const userPrompt = [
@@ -193,8 +188,8 @@ export async function improveMessage(
     if (!content) return "Failed to improve message. Please try again.";
 
     return content;
-  } catch (error: any) {
+  } catch (error) {
     console.error("AI improve error:", error);
-    return `AI improvement failed: ${error.message || "Unknown error"}`;
+    throw new Error(`AI improvement failed: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
 }

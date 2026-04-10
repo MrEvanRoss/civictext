@@ -178,14 +178,6 @@ export async function requireSuperAdmin() {
 }
 
 /**
- * Check if a role has a specific permission (client-safe, no DB call).
- */
-export async function hasPermission(role: UserRole, permission: Permission): Promise<boolean> {
-  const rolePermissions = ROLE_PERMISSIONS[role] || [];
-  return rolePermissions.includes(permission);
-}
-
-/**
  * Register a new user and create their organization.
  */
 export async function registerUser(data: {
@@ -194,9 +186,11 @@ export async function registerUser(data: {
   name: string;
   orgName: string;
 }) {
+  const normalizedEmail = data.email.toLowerCase().trim();
+
   // Check if email already exists
   const existing = await db.user.findUnique({
-    where: { email: data.email },
+    where: { email: normalizedEmail },
   });
 
   if (existing) {
@@ -223,7 +217,7 @@ export async function registerUser(data: {
     // Create user as OWNER
     const user = await tx.user.create({
       data: {
-        email: data.email,
+        email: normalizedEmail,
         passwordHash,
         name: data.name,
         orgId: org.id,

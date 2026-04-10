@@ -33,7 +33,7 @@ export const {
           return null;
         }
 
-        const email = credentials.email as string;
+        const email = (credentials.email as string).toLowerCase().trim();
         const password = credentials.password as string;
         const totpCode = (credentials.totpCode as string) || "";
 

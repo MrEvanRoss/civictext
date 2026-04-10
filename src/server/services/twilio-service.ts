@@ -78,11 +78,22 @@ export async function createMessagingService(orgId: string, orgName: string) {
 export async function registerBrand(orgId: string, input: BrandRegistrationInput) {
   const masterClient = getMasterClient();
 
-  // Submit brand registration to Twilio
-  // In production, this would use the Trust Hub API for full brand vetting
+  // Twilio Trust Hub bundle SIDs are required for 10DLC brand registration.
+  // These must be created via the Twilio Console or Trust Hub API first.
+  const customerProfileSid = process.env.TWILIO_CUSTOMER_PROFILE_BUNDLE_SID;
+  const a2pProfileSid = process.env.TWILIO_A2P_PROFILE_BUNDLE_SID;
+
+  if (!customerProfileSid || !a2pProfileSid) {
+    throw new Error(
+      "10DLC brand registration is not yet configured. " +
+      "Please set TWILIO_CUSTOMER_PROFILE_BUNDLE_SID and TWILIO_A2P_PROFILE_BUNDLE_SID in your environment variables. " +
+      "These are created in the Twilio Console under Trust Hub."
+    );
+  }
+
   const brand = await masterClient.messaging.v1.brandRegistrations.create({
-    customerProfileBundleSid: "", // Placeholder - requires Trust Hub setup
-    a2PProfileBundleSid: "", // Placeholder - requires Trust Hub setup
+    customerProfileBundleSid: customerProfileSid,
+    a2PProfileBundleSid: a2pProfileSid,
   });
 
   // Store registration record
