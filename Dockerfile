@@ -10,8 +10,9 @@ COPY next.config.mjs ./
 COPY postcss.config.mjs ./
 COPY tailwind.config.ts ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies, then remove tsx (only needed for local dev,
+# not for production build or runtime — and it crashes on modern Node)
+RUN npm ci && rm -rf node_modules/tsx
 
 # Copy source code
 COPY src ./src
