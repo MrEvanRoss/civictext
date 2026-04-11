@@ -1,11 +1,16 @@
 import type { NextAuthConfig } from "next-auth";
 import type { UserRole } from "@prisma/client";
 import { cookies } from "next/headers";
-import { verifyCookieValue } from "@/lib/cookie-signing";
 
 /**
- * Validate impersonation cookie structure and expiry (edge-safe, no DB).
- * Full admin privilege re-verification happens server-side in requireOrg().
+ * Validate impersonation cookie structure and expiry (edge-safe, no DB, no HMAC).
+ *
+ * This runs in Edge Runtime (middleware) where Node.js crypto may not be fully
+ * available. We only check basic structure and TTL here. Full HMAC signature
+ * verification + admin privilege re-check happens server-side in requireOrg().
+ *
+ * IMPORTANT: Do NOT delete the cookie on failure — let server-side code handle
+ * that. Deleting here would break impersonation if Edge crypto is unavailable.
  */
 async function validateImpersonationCookie(): Promise<boolean> {
   try {
@@ -13,11 +18,21 @@ async function validateImpersonationCookie(): Promise<boolean> {
     const cookie = cookieStore.get("civictext_impersonate");
     if (!cookie?.value) return true; // No cookie → nothing to validate
 
-    const state = verifyCookieValue<Record<string, string>>(cookie.value);
+    // Parse the base64 payload without HMAC verification (edge-safe)
+    const dotIndex = cookie.value.lastIndexOf(".");
+    if (dotIndex === -1) return false; // Malformed — but don't delete
 
-    // Signature invalid or tampered
-    if (!state || !state.adminId || !state.targetOrgId || !state.targetUserId || !state.startedAt) {
-      cookieStore.delete("civictext_impersonate");
+    const data = cookie.value.slice(0, dotIndex);
+    let state: Record<string, string>;
+    try {
+      const json = Buffer.from(data, "base64").toString("utf-8");
+      state = JSON.parse(json);
+    } catch {
+      return false; // Can't parse — but don't delete
+    }
+
+    // Basic structure check
+    if (!state.adminId || !state.targetOrgId || !state.targetUserId || !state.startedAt) {
       return false;
     }
 
@@ -25,19 +40,14 @@ async function validateImpersonationCookie(): Promise<boolean> {
     const startedAt = new Date(state.startedAt).getTime();
     const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
     if (Date.now() - startedAt > TWO_HOURS_MS) {
+      // TTL expired — safe to delete since this is clearly stale
       cookieStore.delete("civictext_impersonate");
       return false;
     }
 
     return true;
   } catch {
-    // Malformed cookie — clear it
-    try {
-      const cookieStore = await cookies();
-      cookieStore.delete("civictext_impersonate");
-    } catch {
-      // Edge runtime may not support cookie deletion in all contexts
-    }
+    // Don't delete the cookie on unexpected errors — let server-side handle it
     return false;
   }
 }

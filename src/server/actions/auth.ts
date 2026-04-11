@@ -56,29 +56,35 @@ export async function validateCsrfOrigin(): Promise<void> {
 /**
  * Check if the current session is impersonating another org.
  * Returns the overridden orgId and role if impersonating, or null.
+ * Exported so other server actions can check impersonation state directly.
  */
-async function getImpersonationState() {
+export async function getImpersonationState() {
   try {
     const cookieStore = await cookies();
     const impersonateCookie = cookieStore.get("civictext_impersonate");
     if (!impersonateCookie?.value) return null;
 
     const state = verifyCookieValue<Record<string, string>>(impersonateCookie.value);
-    if (state?.targetOrgId && state.targetUserId) {
-      // Re-verify the original admin still has superadmin privileges
-      const adminUser = await db.user.findUnique({
-        where: { id: state.adminId },
-        select: { isSuperAdmin: true },
-      });
-      if (!adminUser?.isSuperAdmin) {
-        // Admin privileges were revoked — clear the impersonation cookie
-        cookieStore.delete("civictext_impersonate");
-        return null;
-      }
-      return state;
+    if (!state?.targetOrgId || !state.targetUserId) {
+      console.warn("[impersonation] Cookie present but verification failed or missing fields");
+      return null;
     }
-  } catch {
-    // Invalid cookie, ignore
+
+    // Re-verify the original admin still has superadmin privileges
+    const adminUser = await db.user.findUnique({
+      where: { id: state.adminId },
+      select: { isSuperAdmin: true },
+    });
+    if (!adminUser?.isSuperAdmin) {
+      // Admin privileges were revoked — clear the impersonation cookie
+      cookieStore.delete("civictext_impersonate");
+      console.warn("[impersonation] Admin privileges revoked, clearing cookie");
+      return null;
+    }
+
+    return state;
+  } catch (err) {
+    console.error("[impersonation] Error reading impersonation state:", err);
   }
   return null;
 }

@@ -1,6 +1,6 @@
 "use server";
 
-import { requireOrg } from "./auth";
+import { requireOrg, getImpersonationState } from "./auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
 
@@ -37,7 +37,15 @@ export type OrgSettings = z.infer<typeof orgSettingsSchema>;
 
 export async function getOrgSettingsAction() {
   const { session } = await requireOrg();
-  const orgId = session.user.orgId;
+  let orgId = session.user.orgId;
+
+  // Ensure impersonation override applies for settings too
+  if (session.user.isSuperAdmin) {
+    const impersonation = await getImpersonationState();
+    if (impersonation?.targetOrgId) {
+      orgId = impersonation.targetOrgId;
+    }
+  }
 
   const org = await db.organization.findUniqueOrThrow({
     where: { id: orgId },
@@ -89,7 +97,16 @@ export async function getOrgSettingsAction() {
 
 export async function getOrgBrandingAction() {
   const { session } = await requireOrg();
-  const orgId = session.user.orgId;
+  let orgId = session.user.orgId;
+
+  // Belt-and-suspenders: if admin is impersonating, ensure we use the target
+  // org even if the session mutation in requireOrg() didn't persist.
+  if (session.user.isSuperAdmin) {
+    const impersonation = await getImpersonationState();
+    if (impersonation?.targetOrgId) {
+      orgId = impersonation.targetOrgId;
+    }
+  }
 
   const org = await db.organization.findUniqueOrThrow({
     where: { id: orgId },

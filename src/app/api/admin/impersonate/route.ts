@@ -55,6 +55,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
+  // Get the org name for display in the impersonation banner
+  const targetOrg = await db.organization.findUnique({
+    where: { id: orgId },
+    select: { name: true },
+  });
+
   // Store the impersonation state in a cookie
   const cookieStore = await cookies();
   cookieStore.set("civictext_impersonate", signCookieValue({
@@ -62,6 +68,7 @@ export async function GET(request: Request) {
     adminOrgId: session.user.orgId,
     targetUserId: targetUser.id,
     targetOrgId: targetUser.orgId,
+    targetOrgName: targetOrg?.name || "Unknown Org",
     targetRole: targetUser.role,
     startedAt: new Date().toISOString(),
   }), {
