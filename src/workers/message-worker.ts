@@ -296,14 +296,14 @@ export const campaignWorker = new Worker<CampaignJobData>(
 
 /**
  * Check for scheduled campaigns that are due to send.
- * Runs every minute via repeatable job.
+ * Runs every 5 minutes via repeatable job.
  */
 async function checkScheduledCampaigns(job: Job) {
   const now = new Date();
 
   // M-11: Distributed lock to prevent overlapping runs
   const lockKey = "lock:check-scheduled-campaigns";
-  const locked = await connection.set(lockKey, "1", "EX", 55, "NX");
+  const locked = await connection.set(lockKey, "1", "EX", 290, "NX");
   if (!locked) {
     await job.log("Another check-scheduled job is running, skipping.");
     return { triggered: 0 };
@@ -314,17 +314,29 @@ async function checkScheduledCampaigns(job: Job) {
       status: "SCHEDULED",
       scheduledAt: { lte: now },
     },
-    include: {
-      org: { select: { id: true, status: true } },
+    select: {
+      id: true,
+      name: true,
+      orgId: true,
+      type: true,
     },
   });
 
   if (dueCampaigns.length === 0) return { triggered: 0 };
 
+  // Fetch orgs only when we actually have campaigns (avoids WHERE id IN (NULL))
+  const orgIds = [...new Set(dueCampaigns.map((c) => c.orgId))];
+  const orgs = await db.organization.findMany({
+    where: { id: { in: orgIds } },
+    select: { id: true, status: true },
+  });
+  const orgStatusMap = new Map(orgs.map((o) => [o.id, o.status]));
+
   let triggered = 0;
 
   for (const campaign of dueCampaigns) {
-    if (campaign.org.status !== "ACTIVE") {
+    const orgStatus = orgStatusMap.get(campaign.orgId);
+    if (orgStatus !== "ACTIVE") {
       await job.log(`Skipping campaign ${campaign.id}: org not active`);
       continue;
     }
@@ -360,12 +372,12 @@ async function checkScheduledCampaigns(job: Job) {
   return { triggered };
 }
 
-// Schedule the campaign checker to run every minute
+// Schedule the campaign checker to run every 5 minutes
 campaignQueue.add(
   "check-scheduled",
   { orgId: "", campaignId: "", action: "check-scheduled" as const },
   {
-    repeat: { pattern: "* * * * *" }, // Every minute
+    repeat: { pattern: "*/5 * * * *" }, // Every 5 minutes
     removeOnComplete: { count: 10 },
     removeOnFail: { count: 10 },
   }
