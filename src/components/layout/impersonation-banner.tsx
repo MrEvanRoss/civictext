@@ -2,19 +2,35 @@
 
 import { useEffect, useState } from "react";
 import { getImpersonationInfo } from "@/server/actions/auth";
-import { Shield, X } from "lucide-react";
+import { Shield, ArrowLeft } from "lucide-react";
 
 export function ImpersonationBanner() {
-  const [info, setInfo] = useState<{ isImpersonating: boolean; orgName?: string } | null>(null);
+  const [info, setInfo] = useState<{
+    isImpersonating: boolean;
+    targetOrgName?: string;
+  } | null>(null);
 
   useEffect(() => {
     checkImpersonation();
   }, []);
 
+  // Set/clear a data attribute on <html> so the sidebar and other fixed
+  // elements can offset themselves with pure CSS (see globals.css).
+  useEffect(() => {
+    if (info?.isImpersonating) {
+      document.documentElement.setAttribute("data-impersonating", "true");
+    }
+    return () => {
+      document.documentElement.removeAttribute("data-impersonating");
+    };
+  }, [info?.isImpersonating]);
+
   async function checkImpersonation() {
     try {
       const data = await getImpersonationInfo();
-      setInfo(data);
+      if (data?.isImpersonating) {
+        setInfo(data);
+      }
     } catch {
       // Not impersonating or not admin
     }
@@ -23,17 +39,22 @@ export function ImpersonationBanner() {
   if (!info?.isImpersonating) return null;
 
   return (
-    <div className="bg-amber-500 text-amber-950 px-4 py-2 flex items-center justify-between text-sm font-medium">
-      <div className="flex items-center gap-2">
-        <Shield className="h-4 w-4" />
-        <span>Admin view: You are viewing this account as a client.</span>
+    <div className="fixed top-0 left-0 right-0 z-[100] bg-amber-500 text-amber-950 px-4 py-2 flex items-center justify-between text-sm font-medium shadow-md h-10">
+      <div className="flex items-center gap-2 min-w-0">
+        <Shield className="h-4 w-4 flex-shrink-0" />
+        <span className="truncate">
+          Viewing as{" "}
+          <strong>{info.targetOrgName || "client"}</strong>
+        </span>
       </div>
       <button
-        onClick={() => { window.location.href = "/api/admin/stop-impersonate"; }}
-        className="flex items-center gap-1 bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors"
+        onClick={() => {
+          window.location.href = "/api/admin/stop-impersonate";
+        }}
+        className="flex items-center gap-1.5 bg-amber-900 hover:bg-amber-950 text-white px-4 py-1.5 rounded-md text-xs font-semibold transition-colors flex-shrink-0"
       >
-        <X className="h-3 w-3" />
-        Exit & Return to Admin
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Return to Admin
       </button>
     </div>
   );

@@ -69,3 +69,23 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Offset fixed elements when the impersonation banner is active (h-10 = 2.5rem) */
+html[data-impersonating="true"] {
+  /* Push the fixed sidebar down */
+  --impersonation-offset: 2.5rem;
+}
+
+html[data-impersonating="true"] aside[class*="md:fixed"][class*="md:inset-y-0"] {
+  top: 2.5rem !important;
+  bottom: 0;
+}
+
+html[data-impersonating="true"] .impersonation-content-offset {
+  padding-top: 2.5rem;
+}
+
+/* Push sticky topbar below the impersonation banner */
+html[data-impersonating="true"] header[class*="sticky"][class*="top-0"] {
+  top: 2.5rem;
+}
