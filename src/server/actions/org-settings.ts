@@ -114,16 +114,10 @@ export async function getOrgBrandingAction() {
       name: true,
       logoUrl: true,
       pollingLocationsEnabled: true,
-      allowedCampaignTypes: true,
     },
   });
 
-  return {
-    ...org,
-    // Show Polling Locations if explicitly enabled OR if GOTV campaigns are allowed
-    pollingLocationsEnabled:
-      org.pollingLocationsEnabled || org.allowedCampaignTypes.includes("GOTV"),
-  };
+  return org;
 }
 
 // ---------------------------------------------------------------------------
