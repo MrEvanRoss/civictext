@@ -111,26 +111,6 @@ export const {
         token.passwordChangedAt = user.passwordChangedAt
           ? new Date(user.passwordChangedAt).getTime()
           : null;
-
-        // Clear any stale impersonation cookie on fresh sign-in. Without
-        // this, an admin who previously hit /api/admin/impersonate would
-        // sign back in and still land in the target org's dashboard
-        // because the civictext_impersonate cookie outlives a single
-        // session by up to 2 hours. The events.signIn block below has the
-        // same intent but lives in a runtime context where cookie writes
-        // are silently dropped on some Next.js routes; the jwt callback's
-        // `if (user)` branch fires only on initial sign-in and its cookie
-        // writes DO reach the response.
-        try {
-          const { cookies } = await import("next/headers");
-          const store = await cookies();
-          if (store.get("civictext_impersonate")) {
-            store.delete("civictext_impersonate");
-          }
-        } catch {
-          // Best-effort: events.signIn below + middleware's 2-hour TTL
-          // enforcement are the fallbacks if this throws.
-        }
       }
 
       // C-7: On every request, periodically verify the password hasn't been
@@ -175,34 +155,6 @@ export const {
         session.user.isSuperAdmin = token.isSuperAdmin;
       }
       return session;
-    },
-  },
-  events: {
-    // Defensive duplicate of the jwt-callback cookie clear above. NextAuth
-    // events.signIn fires on every sign-in flow (Credentials, Google, ...);
-    // in some runtimes its cookie writes don't reach the response, but it's
-    // a useful belt-and-suspenders alongside the jwt callback clear.
-    async signIn() {
-      try {
-        const { cookies } = await import("next/headers");
-        const store = await cookies();
-        if (store.get("civictext_impersonate")) {
-          store.delete("civictext_impersonate");
-        }
-      } catch {
-        // Best-effort.
-      }
-    },
-    async signOut() {
-      try {
-        const { cookies } = await import("next/headers");
-        const store = await cookies();
-        if (store.get("civictext_impersonate")) {
-          store.delete("civictext_impersonate");
-        }
-      } catch {
-        // Best-effort.
-      }
     },
   },
 });
