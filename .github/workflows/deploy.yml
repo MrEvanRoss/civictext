@@ -189,7 +189,13 @@ jobs:
   deploy-production:
     needs: [build-and-push, scan-image]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Disabled — production deploys are owned by Vercel (auto-deploy on
+    # push to main). This job's "Pull and test Docker image health" step
+    # is broken (runs `npm run build` inside the standalone image with no
+    # dev deps) and its migration step would race with however migrations
+    # are applied today. Flip to the original condition to re-enable:
+    #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: false
     environment: production
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
